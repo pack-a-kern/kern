@@ -77,7 +77,7 @@ it('says nothing for a change the switcher does not show', function (): void {
 
     Event::assertNotDispatched(TaxpayersChanged::class);
 
-    $subject->forceFill(['status' => SubjectStatus::SUSPENDED])->save();
+    $subject->forceFill(['status' => SubjectStatus::CLOSED])->save();
 
     Event::assertDispatchedTimes(TaxpayersChanged::class, 1);
 });

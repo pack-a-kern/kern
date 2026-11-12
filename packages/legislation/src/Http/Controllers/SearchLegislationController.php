@@ -4,13 +4,9 @@ declare(strict_types=1);
 
 namespace Kern\Legislation\Http\Controllers;
 
-use DateTimeImmutable;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
-use Kern\Legislation\Enums\TrustTier;
+use Kern\Legislation\Http\Requests\SearchLegislationRequest;
 use Kern\Legislation\Retrieval\Query\HybridLegislationSearch;
-use Kern\Legislation\Retrieval\Query\HybridSearchQuery;
 use Kern\Legislation\Retrieval\Query\RetrievalResult;
 
 /**
@@ -27,49 +23,21 @@ use Kern\Legislation\Retrieval\Query\RetrievalResult;
  * whose *known* dates exclude the requested date is dropped by the query, because that is a
  * confirmed non-match rather than an unknown.
  *
+ * Narrowed, when asked, to the laws the laws screen shows under the same filter — a `type`, a `year`,
+ * a `watch` — so one filter decides which laws are listed and which are searched.
+ *
  * Gated by `auth:web` and a per-account throttle, nothing more. Legislation is public law, not tenant
  * data — there is no `{subject}` and nothing here is scoped to one. It is gated at all because an
  * endpoint that runs an embedding model per call is an easy way to burn a server.
  */
 final class SearchLegislationController
 {
-    private const int MAX_RESULTS = 50;
-
-    public function __invoke(Request $request, HybridLegislationSearch $search): JsonResponse
+    public function __invoke(SearchLegislationRequest $request, HybridLegislationSearch $search): JsonResponse
     {
-        $validated = $request->validate([
-            'q' => ['required', 'string', 'min:2', 'max:500'],
-            // Defaults to today. Explicit rather than implied: which date a search is "as of"
-            // decides which versions can match, and a silent `now()` would make the same query
-            // return different law tomorrow with nothing recording why.
-            'as_of' => ['sometimes', 'date'],
-            'source' => ['sometimes', 'string', 'max:32'],
-            'tier' => ['sometimes', Rule::enum(TrustTier::class)],
-            'limit' => ['sometimes', 'integer', 'min:1', 'max:' . self::MAX_RESULTS],
-        ]);
-
-        $asOf = isset($validated['as_of']) && is_string($validated['as_of'])
-            ? new DateTimeImmutable($validated['as_of'])
-            : new DateTimeImmutable('today');
-
-        $source = isset($validated['source']) && is_string($validated['source']) && $validated['source'] !== ''
-            ? [$validated['source']]
-            : null;
-
-        $tier = isset($validated['tier']) && is_string($validated['tier'])
-            ? [TrustTier::from($validated['tier'])]
-            : null;
-
-        $result = $search->search(new HybridSearchQuery(
-            queryText: (string) $validated['q'],
-            asOf: $asOf,
-            sourceCodes: $source,
-            trustTiers: $tier,
-            limit: isset($validated['limit']) && is_int($validated['limit']) ? $validated['limit'] : 20,
-        ));
+        $result = $search->search($request->searchQuery());
 
         return response()->json([
-            'as_of' => $asOf->format('Y-m-d'),
+            'as_of' => $request->asOf()->format('Y-m-d'),
             'confirmed' => array_map($this->present(...), $result->confirmed),
             'date_unknown' => array_map($this->present(...), $result->dateUnknown),
         ]);
@@ -85,7 +53,6 @@ final class SearchLegislationController
             'section_id' => $hit->sectionId,
             'source_document_id' => $hit->sourceDocumentId,
             'source_code' => $hit->sourceCode,
-            'trust_tier' => $hit->trustTier->value,
             'document_type' => $hit->documentType,
             'issuer' => $hit->issuer,
             'citation' => $hit->citationLabel,

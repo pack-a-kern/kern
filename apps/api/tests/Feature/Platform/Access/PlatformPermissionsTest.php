@@ -37,6 +37,16 @@ it('refuses every administrative route to a user with no platform role', functio
     $this->actingAs($user)->getJson('/api/v1/admin/users')->assertForbidden();
 });
 
+it('refuses the administration pages themselves to a user without their permission', function (): void {
+    $user = User::factory()->create();
+    $admin = userWithRole('ADMIN');
+
+    foreach (['/admin/settings', '/admin/users'] as $page) {
+        $this->actingAs($user)->get($page)->assertForbidden();
+        $this->actingAs($admin)->get($page)->assertOk();
+    }
+});
+
 it('separates reading settings from changing them', function (): void {
     // ADMIN holds system.settings.view but not system.settings.manage — the distinction exists so
     // an auditor can read configuration without being able to redirect taxpayer documents.

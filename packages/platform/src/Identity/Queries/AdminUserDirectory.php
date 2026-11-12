@@ -4,41 +4,45 @@ declare(strict_types=1);
 
 namespace Kern\Platform\Identity\Queries;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
+use Kern\Platform\Crypto\BlindIndex\Normalizer;
+use Kern\Platform\Identity\DataTransferObjects\UserDirectoryFilter;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\Tenancy\Contracts\TenantMemberships;
 
 /**
- * The people who can sign in, for Administration → Users & roles.
+ * The people who can sign in, for Administration → Users & roles: one page of them, and the counts
+ * over every account.
  *
- * Email addresses are encrypted at rest (`BLUEPRINT.md` §4.3) and are decrypted here one row at a
- * time — there is no way to list users by name without doing so, and an administrator directory is
- * the one screen where that is the point. The listing is capped rather than paged for the same
- * reason: bulk-decrypting an unbounded number of rows to render a page is exactly the pattern §4.3
- * exists to prevent, and an installation large enough to need paging needs a search that does not
- * decrypt at all (a blind index), which is a different piece of work.
+ * Status, role and paging are SQL. An email address is encrypted at rest (`BLUEPRINT.md` §4.3), so
+ * it is looked for whole, through its blind index, never by part: that would mean decrypting every
+ * account. The rows of the page are the only addresses decrypted.
  */
 final readonly class AdminUserDirectory
 {
-    private const int MAX_USERS = 200;
-
-    public function __construct(private TenantMemberships $memberships)
+    public function __construct(private TenantMemberships $memberships, private BlindIndexHasher $hasher)
     {
     }
 
     /**
-     * @return array{users: list<array<string, mixed>>, truncated: bool}
+     * @return array{users: list<array<string, mixed>>, total: int, page: int, per_page: int, stats: array{users: int, with_mfa: int, roles: array<string, int>}}
      */
-    public function list(): array
+    public function page(UserDirectoryFilter $filter): array
     {
-        /** @var \Illuminate\Database\Eloquent\Collection<int, User> $users */
-        $users = User::query()
-            ->orderBy('created_at')
-            ->limit(self::MAX_USERS + 1)
-            ->get();
+        $matching = $this->matching($filter);
+        $total = $matching->count();
+        // A page past the end — the last row of it erased, a filter narrowed — is the last one there is.
+        $page = min($filter->page, max(1, (int) ceil($total / $filter->perPage)));
 
-        $truncated = $users->count() > self::MAX_USERS;
-        $users = $users->take(self::MAX_USERS);
+        /** @var \Illuminate\Database\Eloquent\Collection<int, User> $users */
+        $users = $matching
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->forPage($page, $filter->perPage)
+            ->get();
 
         /** @var list<string> $ids */
         $ids = $users->map(fn (User $user): string => $this->idOf($user))->values()->all();
@@ -75,7 +79,45 @@ final readonly class AdminUserDirectory
             ];
         })->values()->all();
 
-        return ['users' => $rows, 'truncated' => $truncated];
+        return [
+            'users' => $rows,
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $filter->perPage,
+            'stats' => [
+                'users' => User::query()->count(),
+                'with_mfa' => User::query()
+                    ->where(fn (Builder $query) => $query
+                        ->whereExists(fn (QueryBuilder $passkeys) => $passkeys->from('user_passkeys')->whereColumn('user_passkeys.user_id', 'users.id'))
+                        ->orWhereExists(fn (QueryBuilder $totp) => $totp->from('user_mfa_methods')->whereColumn('user_mfa_methods.user_id', 'users.id')->whereNotNull('confirmed_at')))
+                    ->count(),
+                'roles' => $this->intMap($this->platformRoles()->groupBy('r.name')->selectRaw('r.name, count(*) as total')->pluck('total', 'name')->all()),
+            ],
+        ];
+    }
+
+    /** @return Builder<User> */
+    private function matching(UserDirectoryFilter $filter): Builder
+    {
+        return User::query()
+            ->when($filter->email !== null, fn (Builder $query) => $query->where(
+                'email_blind_index',
+                $this->hasher->compute(Normalizer::email((string) $filter->email)),
+            ))
+            ->when($filter->status !== null, fn (Builder $query) => $query->where('status', $filter->status))
+            ->when($filter->role !== null, fn (Builder $query) => $query->whereIn(
+                'id',
+                $this->platformRoles()->where('r.name', $filter->role)->select('mhr.model_id'),
+            ));
+    }
+
+    /** Every platform role held, one row per user and role. */
+    private function platformRoles(): QueryBuilder
+    {
+        return DB::table('model_has_roles as mhr')
+            ->join('roles as r', 'r.id', '=', 'mhr.role_id')
+            // The alias the platform registers, not the class name: see PlatformServiceProvider.
+            ->where('mhr.model_type', (new User())->getMorphClass());
     }
 
     /**
@@ -156,12 +198,7 @@ final readonly class AdminUserDirectory
             return [];
         }
 
-        $rows = DB::table('model_has_roles as mhr')
-            ->join('roles as r', 'r.id', '=', 'mhr.role_id')
-            ->whereIn('mhr.model_id', $ids)
-            // The alias the platform registers, not the class name: see PlatformServiceProvider.
-            ->where('mhr.model_type', (new User())->getMorphClass())
-            ->get(['mhr.model_id', 'r.name']);
+        $rows = $this->platformRoles()->whereIn('mhr.model_id', $ids)->get(['mhr.model_id', 'r.name']);
 
         $byUser = [];
 

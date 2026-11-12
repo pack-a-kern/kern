@@ -67,9 +67,9 @@ final class BindTaxSubjectContext
     }
 
     /**
-     * A suspended or closed taxpayer is readable, never writable.
+     * A closed taxpayer is readable, never writable.
      *
-     * `SUSPENDED` means "paused" and `CLOSED` means "finished"; neither means "sealed". The records
+     * Closed means "finished", not "sealed". The records
      * a taxpayer accumulated are exactly what someone needs years later — a fiscal file you cannot
      * open is a strange thing to leave a person with — so reads go through and only changes are
      * refused. Reactivation is not blocked by this: the status route sits outside this middleware.
@@ -90,21 +90,16 @@ final class BindTaxSubjectContext
             }
         }
 
-        // `value()` runs the model's casts, so this is the enum itself — comparing it to a string
-        // silently matched nothing, and every refusal came back saying "suspended".
+        // `value()` runs the model's casts, so this is the enum itself, never its string.
         $status = TaxSubject::query()->whereKey($subjectId)->value('status');
 
-        if (! $status instanceof SubjectStatus || $status === SubjectStatus::ACTIVE) {
+        if ($status !== SubjectStatus::CLOSED) {
             return;
         }
 
-        $closed = $status === SubjectStatus::CLOSED;
-
         abort(response()->json([
-            'message' => $closed
-                ? 'This taxpayer is closed. Reactivate it to make changes.'
-                : 'This taxpayer is suspended. Reactivate it to make changes.',
-            'reason' => $closed ? 'SUBJECT_CLOSED' : 'SUBJECT_SUSPENDED',
+            'message' => 'This taxpayer is closed. Reactivate it to make changes.',
+            'reason' => 'SUBJECT_CLOSED',
         ], 409));
     }
 }

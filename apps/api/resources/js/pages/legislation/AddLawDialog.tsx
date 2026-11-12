@@ -1,15 +1,20 @@
-import { CircleStop, Download, Eye, Loader2, Search, SearchX, TriangleAlert, X } from 'lucide-react';
-import { useState, type JSX } from 'react';
+import { CircleCheck, CircleStop, Download, Eye, Loader2, Search, SearchX, TriangleAlert, X } from 'lucide-react';
+import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
-import { keepLawWatch, listLawWatches, readPortalAct } from '../../api/legislationApi';
+import { importPortalActs, keepLawWatch, listLawWatches, readPortalAct } from '../../api/legislationApi';
+import Checkbox from '../../components/Checkbox';
 import { EmptyState, Field, PanelButton, PanelDialog, PanelInput, PanelSelect, Pill } from '../../components/panel';
 import { usePortalSearch } from '../../hooks/usePortalSearch';
 import { useTranslation } from '../../i18n';
 import type { Dictionary } from '../../i18n/dictionary';
+import { actKind } from '../../lib/actKinds';
 import { describeApiFailure } from '../../lib/apiErrors';
+import { subscribeToPortalActs } from '../../lib/echo';
 import { formatDate } from '../../lib/format';
 import { ApiError } from '../../lib/http';
+import { useSharedAuth } from '../../lib/sharedProps';
+import { cn } from '../../lib/utils';
 import { intervalLabel } from '../../lib/watchInterval';
 import type { PortalActResult, PortalSearchState } from '../../types/legislation';
 
@@ -24,13 +29,15 @@ type Mode = 'title' | 'number';
  * search can be stopped, and one the portal would not finish says how far it got. Closing the dialog
  * stops a search still running.
  *
- * Reading runs as the ingest task, so the lock, the audit record and the run history are the ones
- * every task has; this is only where the act is chosen.
+ * One act is read as the ingest task, so the lock, the audit record and the run history are the ones
+ * every task has. Several chosen together are queued at once and read one after another, each said done
+ * — or failed — over the socket as it finishes.
  */
 export default function AddLawDialog({
     open,
     types,
     years,
+    importMax,
     onOpenChange,
     onStarted,
     onWatched,
@@ -40,6 +47,8 @@ export default function AddLawDialog({
     types: string[];
     /** The years an act is looked for in, from `config/legislation.php` to this one. */
     years: { min: number; max: number } | null;
+    /** The most acts one "Import selected" takes — `LEGISLATION_IMPORT_MAX_ACTS`. */
+    importMax: number;
     onOpenChange: (open: boolean) => void;
     /** A read was queued: the list of laws will change once it runs. */
     onStarted: () => void;
@@ -56,13 +65,43 @@ export default function AddLawDialog({
     const [confirming, setConfirming] = useState<string | null>(null);
     const [starting, setStarting] = useState(false);
     const [started, setStarted] = useState<Set<string>>(new Set());
-    const { search: portal, start, cancel, clear } = usePortalSearch();
+    /** The acts ticked for "Import selected", by portal id; and those whose reading failed. */
+    const [chosen, setChosen] = useState<Set<string>>(new Set());
+    const [failed, setFailed] = useState<Set<string>>(new Set());
+    /** "Import selected" asked about: importing starts only once it is confirmed. */
+    const [confirmingMany, setConfirmingMany] = useState(false);
+    const userId = useSharedAuth()?.user.id ?? null;
+    const { search: portal, start, cancel, clear, reload } = usePortalSearch();
     /** The intervals offered once "Watch this search" is asked, in hours; null while not asked. */
     const [watchIntervals, setWatchIntervals] = useState<number[] | null>(null);
     const [watchEvery, setWatchEvery] = useState('');
     const watchWords = t((d) => d.pages.legislation.watches);
+    const add = t((d) => d.pages.legislation.add);
     const results = portal?.acts ?? null;
     const running = portal?.status === 'running';
+    // What can still be chosen: an act this installation reads, not read yet nor being read, with the id
+    // that picks it out on the portal.
+    const choosable = (results ?? []).filter(
+        (act) => act.importable && act.lawId === null && act.portalId !== null && !started.has(act.url),
+    );
+    const ticked = choosable.filter((act) => act.portalId !== null && chosen.has(act.portalId));
+
+    // Each act an import queued says when it is done: read in, the search is asked for again, so the act
+    // shows as imported; not, it shows as failed.
+    useEffect(
+        () =>
+            userId === null
+                ? undefined
+                : subscribeToPortalActs(userId, (portalId, read) => {
+                      if (read) {
+                          void reload().catch(() => undefined);
+                          onStarted();
+                      } else {
+                          setFailed((current) => new Set(current).add(portalId));
+                      }
+                  }),
+        [userId, reload, onStarted],
+    );
 
     // Newest first: the act looked for is most often this year's or last year's.
     const yearOptions =
@@ -134,6 +173,21 @@ export default function AddLawDialog({
                     ? watchWords.tooMany
                     : describeApiFailure(cause, t),
             );
+        }
+    };
+
+    const readMany = async (): Promise<void> => {
+        setConfirmingMany(false);
+
+        try {
+            const { queued } = await importPortalActs(ticked);
+            setStarted((current) => new Set([...current, ...ticked.map((act) => act.url)]));
+            setFailed((current) => new Set([...current].filter((id) => !ticked.some((act) => act.portalId === id))));
+            setChosen(new Set());
+            toast.success(t((d) => d.pages.legislation.add.queued).replace('{count}', String(queued)));
+            onStarted();
+        } catch (cause) {
+            toast.error(describeApiFailure(cause, t));
         }
     };
 
@@ -316,67 +370,162 @@ export default function AddLawDialog({
                         />
                     )
                 ) : (
-                    results.map((act) => (
-                        <article
-                            key={act.url}
-                            className="tile border-border flex flex-wrap items-start justify-between gap-2 border p-3"
-                        >
-                            <div className="min-w-0 flex-1">
-                                <p className="text-sm font-semibold text-balance">{act.title}</p>
-                                <div className="mt-1 flex flex-wrap gap-1.5">
-                                    <Pill tone="accent">{act.typeLabel}</Pill>
-                                    <Pill>
-                                        nr. {act.number}
-                                        {act.year === null ? '' : `/${String(act.year)}`}
-                                    </Pill>
-                                    {act.issuer === null ? null : <Pill>{act.issuer}</Pill>}
-                                    {act.inForceFrom === null ? null : (
-                                        <Pill tone="locked">
-                                            {t((d) => d.pages.legislation.add.inForce).replace(
-                                                '{date}',
-                                                formatDate(act.inForceFrom, locale),
-                                            )}
-                                        </Pill>
-                                    )}
-                                </div>
+                    <>
+                        {choosable.length < 2 ? null : (
+                            <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                                <label className="flex items-center gap-2 text-xs font-medium">
+                                    <Checkbox
+                                        aria-label={add.selectAll}
+                                        checked={ticked.length === choosable.length}
+                                        indeterminate={ticked.length > 0 && ticked.length < choosable.length}
+                                        onCheckedChange={(next) => {
+                                            setChosen(
+                                                new Set(
+                                                    next
+                                                        ? choosable.flatMap((act) =>
+                                                              act.portalId === null ? [] : [act.portalId],
+                                                          )
+                                                        : [],
+                                                ),
+                                            );
+                                        }}
+                                    />
+                                    {add.selectAll}
+                                </label>
+                                {confirmingMany ? (
+                                    <div className="flex flex-wrap items-center justify-end gap-2">
+                                        <span className="text-xs">
+                                            {add.confirmMany.replace('{count}', String(ticked.length))}
+                                        </span>
+                                        <PanelButton
+                                            onClick={() => {
+                                                setConfirmingMany(false);
+                                            }}
+                                        >
+                                            <X className="size-3.5" aria-hidden="true" />
+                                            {add.cancel}
+                                        </PanelButton>
+                                        <PanelButton primary onClick={() => void readMany()}>
+                                            <Download className="size-3.5" aria-hidden="true" />
+                                            {add.confirmImport}
+                                        </PanelButton>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-wrap items-center justify-end gap-2">
+                                        {ticked.length > importMax ? (
+                                            <span className="note">
+                                                {add.tooMany.replace('{max}', String(importMax))}
+                                            </span>
+                                        ) : null}
+                                        <PanelButton
+                                            primary
+                                            disabled={ticked.length === 0 || ticked.length > importMax}
+                                            onClick={() => {
+                                                setConfirmingMany(true);
+                                            }}
+                                        >
+                                            <Download className="size-3.5" aria-hidden="true" />
+                                            {add.importSelected.replace('{count}', String(ticked.length))}
+                                        </PanelButton>
+                                    </div>
+                                )}
                             </div>
-                            {act.lawId !== null ? (
-                                <Pill tone="accent">{t((d) => d.pages.legislation.add.imported)}</Pill>
-                            ) : started.has(act.url) ? (
-                                <Pill>{t((d) => d.pages.legislation.add.importing)}</Pill>
-                            ) : !act.importable ? (
-                                <Pill>
-                                    {t((d) => d.pages.legislation.add.unsupported).replace('{type}', act.typeLabel)}
-                                </Pill>
-                            ) : confirming === act.url ? (
-                                // Its own line under the act, so the question never squeezes the title.
-                                <div className="flex basis-full flex-wrap items-center justify-end gap-2">
-                                    <span className="text-xs">{t((d) => d.pages.legislation.add.confirm)}</span>
+                        )}
+                        {results.map((act) => (
+                            <article
+                                key={act.url}
+                                className="tile border-border flex flex-wrap items-start justify-between gap-2 border p-3"
+                            >
+                                {choosable.length < 2 || !choosable.includes(act) || act.portalId === null ? null : (
+                                    <Checkbox
+                                        className="mt-0.5"
+                                        aria-label={add.select.replace('{title}', act.title)}
+                                        checked={chosen.has(act.portalId)}
+                                        onCheckedChange={(next) => {
+                                            const id = act.portalId;
+
+                                            if (id === null) {
+                                                return;
+                                            }
+
+                                            setChosen((current) => {
+                                                const changed = new Set(current);
+
+                                                if (next) {
+                                                    changed.add(id);
+                                                } else {
+                                                    changed.delete(id);
+                                                }
+
+                                                return changed;
+                                            });
+                                        }}
+                                    />
+                                )}
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-semibold text-balance">{act.title}</p>
+                                    <div className="mt-1 flex flex-wrap gap-1.5">
+                                        <Pill className={cn('act', actKind(act.type).tone)}>{act.typeLabel}</Pill>
+                                        <Pill>
+                                            nr. {act.number}
+                                            {act.year === null ? '' : `/${String(act.year)}`}
+                                        </Pill>
+                                        {act.issuer === null ? null : <Pill>{act.issuer}</Pill>}
+                                        {act.inForceFrom === null ? null : (
+                                            <Pill tone="locked">
+                                                {t((d) => d.pages.legislation.add.inForce).replace(
+                                                    '{date}',
+                                                    formatDate(act.inForceFrom, locale),
+                                                )}
+                                            </Pill>
+                                        )}
+                                    </div>
+                                </div>
+                                {act.lawId !== null ? (
+                                    <Pill tone="accent">{t((d) => d.pages.legislation.add.imported)}</Pill>
+                                ) : act.portalId !== null && failed.has(act.portalId) ? (
+                                    <Pill className="bg-warning/15 text-warning">
+                                        <TriangleAlert aria-hidden="true" />
+                                        {add.failedRead}
+                                    </Pill>
+                                ) : started.has(act.url) ? (
+                                    <Pill>{t((d) => d.pages.legislation.add.importing)}</Pill>
+                                ) : !act.importable ? (
+                                    <Pill>
+                                        {act.beforeMinYear
+                                            ? add.tooOld.replace('{year}', String(years?.min ?? ''))
+                                            : add.unsupported.replace('{type}', act.typeLabel)}
+                                    </Pill>
+                                ) : confirming === act.url ? (
+                                    // Its own line under the act, so the question never squeezes the title.
+                                    <div className="flex basis-full flex-wrap items-center justify-end gap-2">
+                                        <span className="text-xs">{t((d) => d.pages.legislation.add.confirm)}</span>
+                                        <PanelButton
+                                            onClick={() => {
+                                                setConfirming(null);
+                                            }}
+                                        >
+                                            <X className="size-3.5" aria-hidden="true" />
+                                            {t((d) => d.pages.legislation.add.cancel)}
+                                        </PanelButton>
+                                        <PanelButton primary onClick={() => void read(act)}>
+                                            <Download className="size-3.5" aria-hidden="true" />
+                                            {t((d) => d.pages.legislation.add.confirmImport)}
+                                        </PanelButton>
+                                    </div>
+                                ) : (
                                     <PanelButton
                                         onClick={() => {
-                                            setConfirming(null);
+                                            setConfirming(act.url);
                                         }}
                                     >
-                                        <X className="size-3.5" aria-hidden="true" />
-                                        {t((d) => d.pages.legislation.add.cancel)}
-                                    </PanelButton>
-                                    <PanelButton primary onClick={() => void read(act)}>
                                         <Download className="size-3.5" aria-hidden="true" />
-                                        {t((d) => d.pages.legislation.add.confirmImport)}
+                                        {t((d) => d.pages.legislation.add.import)}
                                     </PanelButton>
-                                </div>
-                            ) : (
-                                <PanelButton
-                                    onClick={() => {
-                                        setConfirming(act.url);
-                                    }}
-                                >
-                                    <Download className="size-3.5" aria-hidden="true" />
-                                    {t((d) => d.pages.legislation.add.import)}
-                                </PanelButton>
-                            )}
-                        </article>
-                    ))
+                                )}
+                            </article>
+                        ))}
+                    </>
                 )}
             </div>
         </PanelDialog>
@@ -384,8 +533,8 @@ export default function AddLawDialog({
 }
 
 /**
- * Where the search is: reading, with how far it has got and a way to stop it; or why it stopped short.
- * Nothing once every page was read — the acts below are the answer.
+ * Where the search is: reading, with how far it has got and a way to stop it; why it stopped short; or,
+ * every page read, what it found — the server's counts, said only where they are not nothing.
  */
 function SearchProgress({ search, onStop }: { search: PortalSearchState; onStop: () => void }): JSX.Element | null {
     const { t } = useTranslation();
@@ -409,7 +558,18 @@ function SearchProgress({ search, onStop }: { search: PortalSearchState; onStop:
     }
 
     if (search.status === 'done') {
-        return null;
+        const said = [
+            add.done.replace('{pages}', String(search.pagesRead)).replace('{count}', String(search.acts.length)),
+            search.inLibrary === 0 ? null : add.doneInLibrary.replace('{count}', String(search.inLibrary)),
+            search.retries === 0 ? null : add.doneRetries.replace('{count}', String(search.retries)),
+        ];
+
+        return (
+            <p className="search-progress search-progress-done" role="status">
+                <CircleCheck className="size-4 shrink-0" aria-hidden="true" />
+                <span className="min-w-0 flex-1 text-xs">{said.filter((part) => part !== null).join(' ')}</span>
+            </p>
+        );
     }
 
     const message =
@@ -434,6 +594,8 @@ function failureText(add: Dictionary['pages']['legislation']['add'], reason: str
     switch (reason) {
         case 'portal_search_refused':
             return add.searchRefused;
+        case 'portal_search_down':
+            return add.searchDown;
         case 'portal_browser_busy':
             return add.browserBusy;
         case 'portal_browser_unavailable':

@@ -23,6 +23,8 @@ export function usePortalSearch(): {
     start: (query: PortalQuery, type: string | null) => Promise<void>;
     cancel: () => Promise<void>;
     clear: () => void;
+    /** Asks for the search again — once an act it found has been read in elsewhere. */
+    reload: () => Promise<void>;
 } {
     const userId = useSharedAuth()?.user.id ?? null;
     const [search, setSearch] = useState<PortalSearchState | null>(null);
@@ -125,5 +127,13 @@ export function usePortalSearch(): {
         setSearch(null);
     }, []);
 
-    return { search, start, cancel, clear };
+    const reload = useCallback(async (): Promise<void> => {
+        const current = latest.current;
+
+        if (current !== null) {
+            setSearch(await getPortalSearch(current.id));
+        }
+    }, []);
+
+    return { search, start, cancel, clear, reload };
 }

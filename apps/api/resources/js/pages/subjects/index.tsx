@@ -3,7 +3,6 @@ import {
     Banknote,
     EllipsisVertical,
     Info,
-    PauseCircle,
     Pencil,
     PlayCircle,
     RotateCcw,
@@ -14,7 +13,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { listDocumentAiConsents, listSubjects, setDocumentAiConsent, setSubjectStatus } from '../../api/accountApi';
+import { listSubjects, setDocumentAiConsent, setSubjectStatus } from '../../api/accountApi';
 import { setDisplayCurrency } from '../../api/walletApi';
 import {
     DataTable,
@@ -71,7 +70,6 @@ export default function SubjectsPage(): JSX.Element {
 
     const [page, setPage] = useState<SubjectsPage | null>(null);
     const { page: pageNumber, pageSize, setPage: setPageNumber, setPageSize } = useRememberedPaging('subjects');
-    const [consent, setConsent] = useState<Record<string, boolean>>({});
     const [busy, setBusy] = useState<string | null>(null);
     const [failed, setFailed] = useState(false);
     const [reloadToken, setReloadToken] = useState(0);
@@ -84,11 +82,10 @@ export default function SubjectsPage(): JSX.Element {
     useEffect(() => {
         let active = true;
 
-        // Both together: the switches must show the state that is actually stored. Rendering them
-        // all "off" until touched would tell someone their consent had been revoked when it had
-        // not — the exact misreading a consent control must not produce.
-        Promise.all([listSubjects(pageNumber, pageSize), listDocumentAiConsents()])
-            .then(([loaded, consented]) => {
+        // Each row carries its stored consent, so a switch never shows "off" for a consent that was
+        // given — the exact misreading a consent control must not produce.
+        listSubjects(pageNumber, pageSize)
+            .then((loaded) => {
                 if (active) {
                     setPage(loaded);
 
@@ -96,9 +93,6 @@ export default function SubjectsPage(): JSX.Element {
                     if (loaded.data.length === 0 && loaded.total > 0) {
                         setPageNumber(Math.max(1, Math.ceil(loaded.total / loaded.perPage)));
                     }
-                    setConsent(
-                        Object.fromEntries(loaded.data.map((subject) => [subject.id, consented.has(subject.id)])),
-                    );
                     setFailed(false);
                 }
             })
@@ -123,7 +117,14 @@ export default function SubjectsPage(): JSX.Element {
 
         try {
             await setDocumentAiConsent(subject.id, next);
-            setConsent((current) => ({ ...current, [subject.id]: next }));
+            setPage((current) =>
+                current === null
+                    ? null
+                    : {
+                          ...current,
+                          data: current.data.map((row) => (row.id === subject.id ? { ...row, aiConsent: next } : row)),
+                      },
+            );
             toast.success(
                 next
                     ? t((d) => d.pages.settingsPrivacy.consentGranted)
@@ -167,7 +168,7 @@ export default function SubjectsPage(): JSX.Element {
         }
     };
 
-    const changeStatus = async (subject: TaxSubject, status: 'ACTIVE' | 'SUSPENDED' | 'CLOSED'): Promise<void> => {
+    const changeStatus = async (subject: TaxSubject, status: 'ACTIVE' | 'CLOSED'): Promise<void> => {
         setBusy(subject.id);
 
         try {
@@ -364,7 +365,7 @@ export default function SubjectsPage(): JSX.Element {
                                     <td data-label={t((d) => d.pages.settingsSubjects.columns.ai)}>
                                         <Switch
                                             aria-label={`${t((d) => d.pages.settingsSubjects.columns.ai)} — ${subject.displayName}`}
-                                            checked={consent[subject.id] === true}
+                                            checked={subject.aiConsent}
                                             disabled={
                                                 busy === subject.id ||
                                                 subject.role !== 'OWNER' ||
@@ -410,15 +411,6 @@ export default function SubjectsPage(): JSX.Element {
                                                         >
                                                             <Pencil className="size-4" />
                                                             {t((d) => d.pages.settingsSubjects.edit)}
-                                                        </DropdownMenuItem>
-
-                                                        <DropdownMenuItem
-                                                            onSelect={() => {
-                                                                void changeStatus(subject, 'SUSPENDED');
-                                                            }}
-                                                        >
-                                                            <PauseCircle className="size-4" />
-                                                            {t((d) => d.pages.settingsSubjects.deactivate)}
                                                         </DropdownMenuItem>
 
                                                         <DropdownMenuSeparator />

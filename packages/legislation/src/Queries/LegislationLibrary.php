@@ -8,10 +8,12 @@ use Carbon\CarbonImmutable;
 use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Kern\Legislation\DataTransferObjects\LawFilter;
 use Kern\Legislation\DataTransferObjects\SectionNode;
 use Kern\Legislation\Enums\SectionType;
 use Kern\Legislation\Exceptions\AmbiguousEffectiveVersionException;
 use Kern\Legislation\Exceptions\NoEffectiveVersionFoundException;
+use Kern\Legislation\Models\LawWatch;
 use Kern\Legislation\Models\SectionHistory;
 use Kern\Legislation\Models\SourceDocument;
 use Kern\Legislation\Models\SourceDocumentVersion;
@@ -37,23 +39,22 @@ final readonly class LegislationLibrary
     public function __construct(
         private OfficialSourceRepository $sources,
         private LegislationTemporalQuery $temporal,
+        private LawFlags $flags,
     ) {
     }
 
-    /** @return list<array<string, mixed>> */
-    public function laws(): array
+    /**
+     * One page of the laws the filter asks for, oldest act first, and how many it asks for in all. The id
+     * breaks a tie between acts of one day, so a law is on one page, never on two or none.
+     *
+     * @param positive-int $page
+     * @param positive-int $perPage
+     * @return array{laws: list<array<string, mixed>>, total: int}
+     */
+    public function laws(LawFilter $filter, int $page, int $perPage): array
     {
-        $sourceId = $this->sources->findIdForCode(self::SOURCE);
-
-        if ($sourceId === null) {
-            return [];
-        }
-
-        $documents = SourceDocument::query()
-            ->where('official_source_id', $sourceId)
-            ->whereNotNull('act_number')
-            ->orderBy('act_date')
-            ->get();
+        $paginator = $this->matching($filter)->orderBy('act_date')->orderBy('id')->paginate($perPage, ['*'], 'page', $page);
+        $documents = $paginator->getCollection();
 
         $stats = DB::table('ext_source_document_versions')
             ->whereIn('source_document_id', $documents->pluck('id'))
@@ -63,7 +64,9 @@ final readonly class LegislationLibrary
             ->get()
             ->keyBy('source_document_id');
 
-        return array_values($documents->map(function (SourceDocument $document) use ($stats): array {
+        $flags = $this->flags->for(array_values(array_map(strval(...), $documents->modelKeys())));
+
+        $laws = array_values($documents->map(function (SourceDocument $document) use ($stats, $flags): array {
             $stat = $stats->get($document->id);
             $listed = $document->consolidations ?? [];
 
@@ -74,8 +77,75 @@ final readonly class LegislationLibrary
                 'consolidations_failed' => count(array_filter($listed, static fn (array $entry): bool => ($entry['failed'] ?? false) === true)),
                 'first_consolidation' => is_string($stat?->first_from) ? $stat->first_from : null,
                 'last_consolidation' => is_string($stat?->last_from) ? $stat->last_from : null,
+                'flags' => $flags[$document->id] ?? [],
+                'watch_id' => $document->found_by_watch_id,
             ];
         })->all());
+
+        return ['laws' => $laws, 'total' => $paginator->total()];
+    }
+
+    /**
+     * What the laws screen may filter by, read from every law here so a choice never leads to nothing:
+     * the types, the years, and — for whoever may see the watches — the watches that read laws in.
+     *
+     * @return array{types: list<array{value: string, label: string}>, years: list<int>, watches: list<array{id: string, words: string}>}
+     */
+    public function filters(bool $withWatches): array
+    {
+        $laws = $this->library()->get(['document_type', 'act_type_label', 'act_date', 'found_by_watch_id']);
+        $types = $laws->unique('document_type')->sortBy('document_type')->map(static fn (SourceDocument $law): array => [
+            'value' => $law->document_type,
+            'label' => $law->act_type_label ?? $law->document_type,
+        ]);
+        $years = $laws->map(static fn (SourceDocument $law): ?int => $law->act_date === null ? null : (int) $law->act_date->format('Y'))
+            ->filter()
+            ->unique()
+            ->sortDesc();
+        $watchIds = $laws->pluck('found_by_watch_id')->filter()->unique()->values()->all();
+
+        return [
+            'types' => array_values($types->all()),
+            'years' => array_values($years->all()),
+            'watches' => ! $withWatches || $watchIds === [] ? [] : array_values(LawWatch::query()
+                ->whereKey($watchIds)
+                ->orderBy('search_words')
+                ->get(['id', 'search_words'])
+                ->map(static fn (LawWatch $watch): array => ['id' => $watch->id, 'words' => $watch->search_words])
+                ->all()),
+        ];
+    }
+
+    /**
+     * The laws a filter keeps — for the list, and for a search of their text.
+     *
+     * @return Builder<SourceDocument>
+     */
+    public function matching(LawFilter $filter): Builder
+    {
+        return $this->library()
+            ->when($filter->type !== null, static fn (Builder $query) => $query->where('document_type', $filter->type))
+            ->when($filter->year !== null, static fn (Builder $query) => $query->whereYear('act_date', (int) $filter->year))
+            ->when($filter->watchId !== null, static fn (Builder $query) => $query->where('found_by_watch_id', $filter->watchId));
+    }
+
+    /**
+     * Every law read from the portal: the acts it numbered, not the exchange-rate history and bank lists
+     * kept in the same table.
+     *
+     * @return Builder<SourceDocument>
+     */
+    private function library(): Builder
+    {
+        $sourceId = $this->sources->findIdForCode(self::SOURCE);
+
+        return SourceDocument::query()
+            ->when(
+                $sourceId === null,
+                static fn (Builder $query) => $query->whereRaw('1 = 0'),
+                static fn (Builder $query) => $query->where('official_source_id', $sourceId),
+            )
+            ->whereNotNull('act_number');
     }
 
     /**
@@ -275,7 +345,7 @@ final readonly class LegislationLibrary
 
         $texts = SourceSection::query()
             ->whereIn('id', $rows->pluck('first_section_id'))
-            ->get(['id', 'text', 'tables', 'notes'])
+            ->get(['id', 'text', 'tables', 'table_spans', 'notes'])
             ->keyBy('id');
 
         return array_values($rows->map(static function (SectionHistory $row) use ($texts): array {
@@ -292,6 +362,7 @@ final readonly class LegislationLibrary
                 'dated_by_note' => $row->dated_by_note,
                 'text' => $section->text ?? '',
                 'tables' => $section->tables ?? [],
+                'table_spans' => $section->table_spans ?? [],
                 'notes' => $section->notes ?? [],
             ];
         })->all());
@@ -456,7 +527,7 @@ final readonly class LegislationLibrary
     }
 
     /**
-     * The wording of these sections — text, tables and notes — a batch of ids per query.
+     * The wording of these sections — text, tables, their merged cells and notes — a batch of ids per query.
      *
      * @param  list<string>  $ids
      * @return array<string, SourceSection> by id
@@ -466,7 +537,7 @@ final readonly class LegislationLibrary
         $wording = [];
 
         foreach (array_chunk($ids, self::WORDING_BATCH) as $batch) {
-            foreach (SourceSection::query()->whereKey($batch)->get(['id', 'text', 'tables', 'notes']) as $section) {
+            foreach (SourceSection::query()->whereKey($batch)->get(['id', 'text', 'tables', 'table_spans', 'notes']) as $section) {
                 $wording[$section->id] = $section;
             }
         }
@@ -491,6 +562,7 @@ final readonly class LegislationLibrary
             'depth' => $depth,
             'text' => $words->text,
             'tables' => $words->tables ?? [],
+            'table_spans' => $words->table_spans ?? [],
             // As the model's `date:Y-m-d` cast read it, whichever way the driver returns the column.
             'amended_on' => $section->amendedOn === null ? null : CarbonImmutable::parse($section->amendedOn)->format('Y-m-d'),
             'notes' => $words->notes ?? [],
@@ -508,12 +580,13 @@ final readonly class LegislationLibrary
     private static function label(SectionType $type, string $citation): string
     {
         return match ($type) {
-            SectionType::ARTICOL => (string) preg_replace('/^Art\.\s*/u', 'Articolul ', $citation),
+            // An annex's article is cited within it — "ANEXĂ Art. 2" — and headed by its own part.
+            SectionType::ARTICOL => preg_match('/Art\.\s*(\S+)$/u', $citation, $m) === 1 ? "Articolul {$m[1]}" : $citation,
             SectionType::ALINEAT => preg_match('/alin\.\s*(\S+)$/u', $citation, $m) === 1 ? $m[1] : $citation,
             SectionType::LITERA => preg_match('/lit\.\s*(\S+)$/u', $citation, $m) === 1 ? $m[1] : $citation,
             SectionType::PUNCT => preg_match('/pct\.\s*(\S+)$/u', $citation, $m) === 1 ? $m[1] : $citation,
             SectionType::LINIUTA => '–',
-            SectionType::ANEXA => $citation,
+            SectionType::ANEXA, SectionType::PREAMBUL, SectionType::SEMNATURA => $citation,
         };
     }
 }

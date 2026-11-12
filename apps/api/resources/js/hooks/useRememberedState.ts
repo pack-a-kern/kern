@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-import { PAGE_SIZES } from '../components/Pagination';
+import { usePaging } from '../lib/sharedProps';
 import { useActiveSubjectId } from './useActiveSubjectId';
 
 /**
@@ -130,9 +130,10 @@ export function useRememberedPaging(key: string, options: { perSubject?: boolean
         perSubject,
         isValid: (value) => Number.isInteger(value) && value >= 1,
     });
-    const [pageSize, rememberPageSize] = useRememberedState<number>(`${key}.pageSize`, PAGE_SIZES[1], {
+    const paging = usePaging();
+    const [pageSize, rememberPageSize] = useRememberedState<number>(`${key}.pageSize`, paging.default, {
         perSubject,
-        isValid: (value) => (PAGE_SIZES as readonly number[]).includes(value),
+        isValid: (value) => paging.sizes.includes(value),
     });
 
     const setPageSize = useCallback(

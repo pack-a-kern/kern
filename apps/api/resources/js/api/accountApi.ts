@@ -1,4 +1,5 @@
 import { apiRequest, apiUpload } from '../lib/http';
+import { num } from '../lib/json';
 import {
     type Profile,
     type SubjectsPage,
@@ -101,17 +102,11 @@ export async function disableTotp(currentPassword: string | null): Promise<void>
     });
 }
 
-/**
- * `GET /api/v1/documents/ai-consents` — the subjects that currently permit external AI processing.
- *
- * A set, not a value per subject: the consent screen shows a switch per subject and would
- * otherwise need one request per row to learn a single boolean each.
- */
-export async function listDocumentAiConsents(): Promise<Set<string>> {
-    const body: unknown = JSON.parse(await apiRequest('/v1/documents/ai-consents'));
-    const ids = (body as Record<string, unknown>).consented_subject_ids;
+/** `GET /api/v1/subjects/counts` — how many taxpayers are in use, and how many of them let an AI read their documents. */
+export async function getSubjectCounts(): Promise<{ active: number; aiConsented: number }> {
+    const body = JSON.parse(await apiRequest('/v1/subjects/counts')) as Record<string, unknown>;
 
-    return new Set(Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : []);
+    return { active: num(body, 'active'), aiConsented: num(body, 'ai_consented') };
 }
 
 /** `PATCH /api/v1/subjects/{id}` — corrects a taxpayer's details. Owner only; the CNP is not
@@ -132,9 +127,9 @@ export async function updateSubject(
     await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}`, { method: 'PATCH', body });
 }
 
-/** `PUT /api/v1/subjects/{id}/status` — suspend, close, or reactivate. There is no delete: an
+/** `PUT /api/v1/subjects/{id}/status` — close, or reactivate. There is no delete: an
  *  archived taxpayer keeps its audit chain and every figure filed under it. */
-export async function setSubjectStatus(subjectId: string, status: 'ACTIVE' | 'SUSPENDED' | 'CLOSED'): Promise<void> {
+export async function setSubjectStatus(subjectId: string, status: 'ACTIVE' | 'CLOSED'): Promise<void> {
     await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/status`, {
         method: 'PUT',
         body: { status },

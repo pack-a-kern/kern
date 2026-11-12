@@ -8,18 +8,31 @@ use DateTimeImmutable;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Sleep;
 use Illuminate\Testing\TestResponse;
 use Kern\Investments\Enums\InstrumentKind;
 use Kern\Investments\Enums\InstrumentStatus;
+use Kern\Investments\Enums\PayoutKind;
+use Kern\Investments\Enums\PayoutSource;
+use Kern\Investments\Enums\PayoutStatus;
 use Kern\Investments\Enums\Programme;
 use Kern\Investments\Models\FinancialInstrument;
+use Kern\Investments\Models\InstrumentPayout;
+use Kern\Investments\Models\InstrumentPrice;
 use Kern\Legislation\Actions\SyncLegislationDocument;
+use Kern\Legislation\Database\Factories\SourceDocumentFactory;
+use Kern\Legislation\DataTransferObjects\PortalActToRead;
 use Kern\Legislation\Enums\SourceDocumentVersionStatus;
+use Kern\Legislation\Events\PortalActRead;
+use Kern\Legislation\Jobs\ReadPortalAct;
 use Kern\Legislation\Legislatie\Exceptions\PortalAnswerException;
+use Kern\Legislation\Models\IgnoredAct;
+use Kern\Legislation\Models\LawWatch;
 use Kern\Legislation\Models\SectionHistory;
 use Kern\Legislation\Models\SourceDocument;
 use Kern\Legislation\Models\SourceDocumentVersion;
@@ -28,7 +41,16 @@ use Kern\Legislation\Repositories\OfficialSourceRepository;
 use Kern\Legislation\Retrieval\Embedding\EmbeddingProvider;
 use Kern\Legislation\Services\LegislationTemporalQuery;
 use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Tenancy\TenantScope;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
+use Kern\TaxRomania\Notices\IssueOnOfferNotice;
+use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\Wallet\Enums\AccountKind;
+use Kern\TaxRomania\Wallet\Enums\HeldAt;
+use Kern\TaxRomania\Wallet\Enums\RecordSource;
+use Kern\TaxRomania\Wallet\Models\FinancialAccount;
+use Kern\TaxRomania\Wallet\Models\InvestmentLot;
+use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -419,13 +441,21 @@ it('finds acts on the portal by title or by number, and says which are read alre
 
     // A year given to a title search is the act's own, compared here: 2020 has none of them.
     portalSearch($this, $admin, ['title' => 'salariului minim', 'year' => 2020])->assertJsonCount(0, 'acts');
+
+    // An act older than the laws read here is found, and said not to be importable, and why.
+    config(['legislation.form.min_year' => 2022]);
+    /** @var list<array{importable: bool, before_min_year: bool}> $old */
+    $old = portalSearch($this, $admin, ['title' => 'salariului minim'])->json('acts');
+    expect($old)->not->toBe([])
+        ->and(array_filter($old, static fn (array $act): bool => $act['importable'] || ! $act['before_min_year']))->toBe([]);
     $this->actingAs($admin)->postJson('/api/v1/legislation/portal-searches', ['title' => 'ab'])->assertStatus(422);
     $this->actingAs($admin)->postJson('/api/v1/legislation/portal-searches', ['number' => 4])->assertStatus(422);
     $this->actingAs($admin)->postJson('/api/v1/legislation/portal-searches', ['title' => 'salariului', 'number' => 4, 'year' => 2021])->assertStatus(422);
 });
 
-// What the portal said on 2026-11-07 and 2026-11-09, when its own search server refused it: a fault, not
-// an answer — asked again before it is believed, and then a search that failed, saying why.
+// What the portal said on 2026-11-07, 2026-11-09 and 2026-11-10, when its own search server refused it: a
+// fault, not an answer — asked again before it is believed, and then a search that failed, saying the
+// portal's search is down rather than that the portal did not answer.
 it('asks the service again when it fails, and ends a search it never answers as failed, saying why', function (): void {
     Sleep::fake();
     Http::fake(['legislatie.just.ro/*' => static fn (HttpRequest $request) => str_contains($request->header('SOAPAction')[0] ?? '', 'GetToken')
@@ -437,7 +467,7 @@ it('asks the service again when it fails, and ends a search it never answers as 
 
     portalSearch($this, $admin, ['title' => 'codul fiscal'])
         ->assertJsonPath('status', 'failed')
-        ->assertJsonPath('failure', 'portal_unreachable');
+        ->assertJsonPath('failure', 'portal_search_down');
 
     Sleep::assertSleptTimes(config()->integer('sources.entries.LEGISLATIE.search_refused_retries'));
 });
@@ -461,6 +491,59 @@ it('imports the act chosen on the screen, through the task, to the end', functio
         ->assertStatus(202);
 
     expect(SourceDocument::query()->where('portal_document_id', '236118')->sole()->external_identifier)->toBe('HOTARARE 4/2021');
+});
+
+it('imports the acts chosen together, each read on the watches\' queue, one already read passed over', function (): void {
+    governmentDecisionPortal();
+    Artisan::call('kern:access:sync');
+    $admin = User::factory()->create();
+    $admin->assignRole('SUPER_ADMIN');
+    app(SyncLegislationDocument::class)('HOTARARE', 4, 2021, portalId: '236118');
+    $before = DB::table('audit_events')->where('event_type', 'LegislationImportRequested')->count();
+
+    Queue::fake();
+    $this->actingAs($admin)->postJson('/api/v1/legislation/imports', ['acts' => [
+        ['type' => 'HOTARARE', 'number' => 4, 'year' => 2021, 'portal_id' => 236000],
+        ['type' => 'HOTARARE', 'number' => 4, 'year' => 2021, 'portal_id' => 236118],
+    ]])
+        ->assertStatus(202)
+        ->assertJsonPath('queued', 1)
+        ->assertJsonPath('already_read', 1);
+
+    Queue::assertPushedOn('legislation-watches', ReadPortalAct::class, static fn (ReadPortalAct $job): bool => $job->act->portalId === '236000' && $job->userId === $admin->id);
+    Queue::assertPushed(ReadPortalAct::class, 1);
+    expect(DB::table('audit_events')->where('event_type', 'LegislationImportRequested')->count())->toBe($before + 1);
+});
+
+it('reads an act an import queued, as the ingest task would, and tells whoever chose it how it went', function (): void {
+    governmentDecisionPortal();
+
+    Event::fake([PortalActRead::class]);
+
+    (new ReadPortalAct(new PortalActToRead('HOTARARE', 4, 2021, '236118'), 'user-1'))->handle(app(SyncLegislationDocument::class));
+
+    expect(SourceDocument::query()->where('portal_document_id', '236118')->sole()->external_identifier)->toBe('HOTARARE 4/2021');
+    Event::assertDispatched(PortalActRead::class, static fn (PortalActRead $event): bool => $event->portalId === '236118' && $event->userId === 'user-1' && $event->read);
+
+    (new ReadPortalAct(new PortalActToRead('HOTARARE', 4, 2021, '236000'), 'user-1'))->failed(new RuntimeException('the portal did not answer'));
+    Event::assertDispatched(PortalActRead::class, static fn (PortalActRead $event): bool => $event->portalId === '236000' && ! $event->read);
+});
+
+it('refuses an import too large, with an act twice, of a type not read, or by someone who may not read laws in', function (): void {
+    Artisan::call('kern:access:sync');
+    $admin = User::factory()->create();
+    $admin->assignRole('SUPER_ADMIN');
+    $act = ['type' => 'HOTARARE', 'number' => 4, 'year' => 2021, 'portal_id' => 236000];
+    Queue::fake();
+
+    $this->actingAs($admin)->postJson('/api/v1/legislation/imports', ['acts' => [$act, $act]])->assertUnprocessable();
+    $this->actingAs($admin)->postJson('/api/v1/legislation/imports', ['acts' => [[...$act, 'type' => 'NORMA']]])->assertUnprocessable();
+    $this->actingAs($admin)->postJson('/api/v1/legislation/imports', ['acts' => []])->assertUnprocessable();
+    config(['legislation.imports.max_acts' => '1']);
+    $this->actingAs($admin)->postJson('/api/v1/legislation/imports', ['acts' => [$act, [...$act, 'portal_id' => 236118]]])->assertUnprocessable();
+    $this->actingAs(User::factory()->create())->postJson('/api/v1/legislation/imports', ['acts' => [$act]])->assertForbidden();
+
+    Queue::assertNothingPushed();
 });
 
 it('filters a portal search to one type', function (): void {
@@ -552,6 +635,27 @@ it('deletes a law read in by mistake, with every consolidation and provision it 
         ->and(DB::table('audit_events')->where('event_type', 'LawDeleted')->count())->toBe(1);
 });
 
+it('removes the pages a deleted law was read from, but not one another law was read from too', function (): void {
+    portal();
+    app(SyncLegislationDocument::class)('LEGE', 227, 2015);
+    $law = fiscalCode();
+    /** @var list<string> $paths */
+    $paths = SourceDocumentVersion::query()->where('source_document_id', $law->id)->pluck('raw_object_path')->unique()->values()->all();
+    // The same bytes read by another law are stored once, under the same path, for both.
+    expect(count($paths))->toBeGreaterThan(1);
+    $shared = $paths[0];
+    SourceDocumentVersion::factory()->create(['raw_object_path' => $shared]);
+
+    $this->actingAs(settingsAdminUser())->deleteJson("/api/v1/legislation/laws/{$law->id}")
+        ->assertOk()
+        ->assertJsonPath('pages', count($paths) - 1);
+
+    expect(Storage::disk('s3')->exists($shared))->toBeTrue();
+    foreach (array_slice($paths, 1) as $path) {
+        expect(Storage::disk('s3')->exists($path))->toBeFalse();
+    }
+});
+
 it('refuses to delete a law a fiscal value rests on, and says how many', function (): void {
     portal();
     app(SyncLegislationDocument::class)('LEGE', 227, 2015);
@@ -572,27 +676,165 @@ it('refuses to delete a law a fiscal value rests on, and says how many', functio
         ->and(SourceSection::query()->whereKey($section->id)->exists())->toBeTrue();
 });
 
-it('refuses to delete a law a bond was read from, and says what and how many', function (): void {
-    portal();
-    app(SyncLegislationDocument::class)('LEGE', 227, 2015);
-    $law = fiscalCode();
-    FinancialInstrument::query()->create([
+/** A made-up bond read from this law, with a coupon, a price, and its "on offer" notice in one person's bell. */
+function bondReadFrom(SourceDocument $law): FinancialInstrument
+{
+    $bond = FinancialInstrument::query()->create([
         'kind' => InstrumentKind::GOVERNMENT_BOND,
         'programme' => Programme::TEZAUR,
         'issue_code' => '0001',
         'name' => 'Example issue',
         'issuer_name' => 'Example issuer',
         'currency' => 'RON',
-        'status' => InstrumentStatus::ACTIVE,
+        'status' => InstrumentStatus::ON_OFFER,
         'terms_document_id' => $law->id,
+    ]);
+    InstrumentPayout::query()->create([
+        'instrument_id' => $bond->id,
+        'kind' => PayoutKind::COUPON,
+        'payment_date' => '2027-06-01',
+        'amount_per_unit' => '5',
+        'status' => PayoutStatus::ANNOUNCED,
+        'source' => PayoutSource::ORDER,
+    ]);
+    InstrumentPrice::query()->create([
+        'instrument_id' => $bond->id,
+        'trading_date' => '2026-11-09',
+        'price' => '100',
+        'priced_at' => now(),
+        'evidence_id' => SourceDocumentVersion::factory()->create()->id,
+    ]);
+    Notification::send(User::factory()->create(), IssueOnOfferNotice::about($bond->id));
+
+    return $bond;
+}
+
+it('deletes an order nobody holds a bond of, with its bonds, their payouts, prices and notices', function (): void {
+    portal();
+    app(SyncLegislationDocument::class)('LEGE', 227, 2015);
+    $law = fiscalCode();
+    $bond = bondReadFrom($law);
+    $other = User::factory()->create();
+    Notification::send($other, IssueOnOfferNotice::about('01a1bd7e-ea89-701b-afd6-9c6ad267cd04'));
+
+    $this->actingAs(settingsAdminUser())->deleteJson("/api/v1/legislation/laws/{$law->id}")->assertOk();
+
+    expect(SourceDocument::query()->whereKey($law->id)->exists())->toBeFalse()
+        ->and(FinancialInstrument::query()->whereKey($bond->id)->exists())->toBeFalse()
+        ->and(InstrumentPayout::query()->where('instrument_id', $bond->id)->exists())->toBeFalse()
+        ->and(InstrumentPrice::query()->where('instrument_id', $bond->id)->exists())->toBeFalse()
+        // Its notice goes; one about another issue stays.
+        ->and(DB::table('notifications')->where('type', IssueOnOfferNotice::key())->pluck('notifiable_id')->all())->toBe([$other->id]);
+});
+
+it('refuses to delete an order while someone holds one of its bonds, and touches nothing', function (): void {
+    portal();
+    app(SyncLegislationDocument::class)('LEGE', 227, 2015);
+    $law = fiscalCode();
+    $bond = bondReadFrom($law);
+    $subject = TaxSubject::factory()->create();
+    InvestmentLot::query()->withoutGlobalScope(TenantScope::class)->create([
+        'tax_subject_id' => $subject->id,
+        'financial_account_id' => FinancialAccount::create([
+            'tax_subject_id' => $subject->id,
+            'kind' => AccountKind::INVESTMENTS,
+            'display_name_ciphertext' => 'Example account',
+            'source' => RecordSource::MANUAL,
+        ])->id,
+        'instrument_id' => $bond->id,
+        'units' => '10',
+        'price_per_unit' => '100',
+        'bought_on' => '2026-01-10',
+        'fees_minor' => 0,
+        'currency' => 'RON',
+        'held_at' => HeldAt::BANK,
     ]);
 
     $this->actingAs(settingsAdminUser())->deleteJson("/api/v1/legislation/laws/{$law->id}")
         ->assertStatus(409)
         ->assertJsonPath('reason', 'LAW_IS_READ_FROM')
-        ->assertJsonPath('read_from.instruments', 1);
+        ->assertJsonPath('read_from.holdings', 1);
 
-    expect(SourceDocument::query()->whereKey($law->id)->exists())->toBeTrue();
+    expect(SourceDocument::query()->whereKey($law->id)->exists())->toBeTrue()
+        ->and(FinancialInstrument::query()->whereKey($bond->id)->exists())->toBeTrue()
+        ->and(DB::table('notifications')->where('type', IssueOnOfferNotice::key())->count())->toBe(1);
+});
+
+it('ignores a deleted act in the watches from then on when asked, only one a watch read in', function (): void {
+    portal();
+    app(SyncLegislationDocument::class)('LEGE', 227, 2015);
+    $law = fiscalCode();
+    $watch = LawWatch::query()->create([
+        'search_words' => 'exemplul', 'act_type' => 'LEGE', 'first_year' => 2015, 'every_hours' => 24, 'enabled' => true, 'next_run_at' => now(),
+    ]);
+
+    $this->actingAs(settingsAdminUser())->deleteJson("/api/v1/legislation/laws/{$law->id}", ['ignore' => true])
+        ->assertOk()
+        ->assertJsonPath('ignored', false);
+
+    app(SyncLegislationDocument::class)('LEGE', 227, 2015, null, null, $watch->id);
+    $law = fiscalCode();
+
+    $this->actingAs(settingsAdminUser())->deleteJson("/api/v1/legislation/laws/{$law->id}", ['ignore' => true])
+        ->assertOk()
+        ->assertJsonPath('ignored', true);
+
+    expect(IgnoredAct::query()->where('portal_document_id', $law->portal_document_id)->value('title'))->toBe($law->title);
+});
+
+it('lists the laws of one type, year or watch, and what may be filtered by — the watches only to those who see them', function (): void {
+    portal();
+    app(SyncLegislationDocument::class)('LEGE', 227, 2015);
+    $law = fiscalCode();
+    $watch = LawWatch::query()->create([
+        'search_words' => 'exemplul', 'act_type' => 'LEGE', 'first_year' => 2015, 'every_hours' => 24, 'enabled' => true, 'next_run_at' => now(),
+    ]);
+    $law->update(['found_by_watch_id' => $watch->id]);
+    $operator = settingsAdminUser();
+
+    $this->actingAs($operator)->getJson('/api/v1/legislation/laws?type=LEGE&year=' . $law->act_date?->format('Y') . "&watch={$watch->id}")
+        ->assertOk()
+        ->assertJsonCount(1, 'laws')
+        ->assertJsonPath('laws.0.watch_id', $watch->id)
+        ->assertJsonPath('filters.types.0.value', 'LEGE')
+        ->assertJsonPath('filters.watches', [['id' => $watch->id, 'words' => 'exemplul']]);
+    $this->actingAs($operator)->getJson('/api/v1/legislation/laws?type=ORDIN')->assertJsonCount(0, 'laws');
+
+    $reader = User::factory()->create();
+    $this->actingAs($reader)->getJson('/api/v1/legislation/laws')->assertOk()->assertJsonPath('filters.watches', []);
+    $this->actingAs($reader)->getJson("/api/v1/legislation/laws?watch={$watch->id}")->assertUnprocessable();
+});
+
+it('lists the laws a page at a time, oldest act first, saying how many there are in all', function (): void {
+    portal();
+    app(SyncLegislationDocument::class)('LEGE', 227, 2015);
+    $law = fiscalCode();
+
+    foreach (range(1, 11) as $number) {
+        SourceDocumentFactory::new()->create([
+            'official_source_id' => $law->official_source_id,
+            'document_type' => 'LEGE',
+            'external_identifier' => "LEGE {$number}/2020",
+            'act_number' => (string) $number,
+            'act_date' => sprintf('2020-01-%02d', $number),
+        ]);
+    }
+
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->getJson('/api/v1/legislation/laws?per_page=10')
+        ->assertOk()
+        ->assertJsonCount(10, 'laws')
+        ->assertJsonPath('laws.0.id', $law->id)
+        ->assertJsonPath('total', 12)
+        ->assertJsonPath('page', 1)
+        ->assertJsonPath('per_page', 10);
+    $this->actingAs($user)->getJson('/api/v1/legislation/laws?per_page=10&page=2')
+        ->assertOk()
+        ->assertJsonCount(2, 'laws')
+        ->assertJsonPath('total', 12);
+    $this->actingAs($user)->getJson('/api/v1/legislation/laws?per_page=7')->assertUnprocessable();
+    $this->actingAs($user)->getJson('/api/v1/legislation/laws?page=0')->assertUnprocessable();
 });
 
 it('does not delete an exchange-rate source through the law route, and refuses a person who may not run operations', function (): void {

@@ -10,6 +10,7 @@ use Kern\TaxRomania\Http\Presenters\TaxEngine\AssessmentPresenter;
 use Kern\TaxRomania\TaxEngine\Actions\UnlockFiscalYear;
 use Kern\TaxRomania\TaxEngine\Enums\AssessmentStatus;
 use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
+use Kern\TaxRomania\TaxEngine\Services\FiscalYears;
 
 /**
  * `POST .../tax/assessments/unlock` — turn a final year back into a draft.
@@ -25,9 +26,10 @@ final class UnlockFiscalYearController
         string $subject,
         UnlockFiscalYear $unlock,
         AssessmentPresenter $presenter,
+        FiscalYears $years,
     ): JsonResponse {
         $data = $request->validate([
-            'fiscal_year' => ['required', 'integer', 'min:2018', 'max:2100'],
+            'fiscal_year' => $years->rule(),
         ]);
 
         $assessment = TaxAssessment::query()

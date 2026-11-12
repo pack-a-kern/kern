@@ -88,8 +88,10 @@ export default function Rentals(): JSX.Element {
             () => {
                 if (active) {
                     setFailed(true);
+                    // Never drawn: a failed load shows the failure, not the table that would read the year.
                     setLoaded({
                         rentals: [],
+                        currentYear: 0,
                         formOptions: { propertyTypes: [], tenantTypes: [], paymentFrequencies: [] },
                     });
                 }
@@ -117,7 +119,7 @@ export default function Rentals(): JSX.Element {
         setReloadKey((current) => current + 1);
     };
 
-    const currentYear = new Date().getFullYear();
+    const currentYear = loaded?.currentYear ?? 0;
     const rentals = loaded?.rentals ?? null;
 
     return (

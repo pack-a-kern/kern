@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Route;
 use Kern\Legislation\Http\Controllers\CancelPortalSearchController;
 use Kern\Legislation\Http\Controllers\DeleteLawController;
+use Kern\Legislation\Http\Controllers\ImportPortalActsController;
 use Kern\Legislation\Http\Controllers\ListLawsController;
 use Kern\Legislation\Http\Controllers\SearchLegislationController;
 use Kern\Legislation\Http\Controllers\ShowLawController;
@@ -13,9 +14,11 @@ use Kern\Legislation\Http\Controllers\ShowLawTextController;
 use Kern\Legislation\Http\Controllers\ShowPortalSearchController;
 use Kern\Legislation\Http\Controllers\ShowProvisionHistoryController;
 use Kern\Legislation\Http\Controllers\StartPortalSearchController;
+use Kern\Legislation\Http\Controllers\Watches\AllowIgnoredActController;
 use Kern\Legislation\Http\Controllers\Watches\CreateLawWatchController;
 use Kern\Legislation\Http\Controllers\Watches\DeleteLawWatchController;
 use Kern\Legislation\Http\Controllers\Watches\ListLawWatchesController;
+use Kern\Legislation\Http\Controllers\Watches\RunLawWatchController;
 use Kern\Legislation\Http\Controllers\Watches\UpdateLawWatchController;
 
 /*
@@ -68,6 +71,11 @@ Route::prefix('v1/legislation/laws')->middleware('auth:web')->group(function ():
     Route::delete('{law}', DeleteLawController::class)->whereUuid('law')->middleware(['permission:operations.run', 'verify-recent']);
 });
 
+// Several acts chosen from a portal search, read one after another: the same people, and the same limit on
+// how often, as starting one reading through the ingest task.
+Route::post('v1/legislation/imports', ImportPortalActsController::class)
+    ->middleware(['auth:web', 'permission:operations.run', 'throttle:operator-calls-per-user']);
+
 // Searches of the portal kept and run again on their own clock, each new act read as a law: the
 // packages' (shown, paused at most) and those a person keeps. Reaching out to the portal is the same
 // people's who may start a reading.
@@ -78,4 +86,8 @@ Route::prefix('v1/legislation/watches')->middleware(['auth:web', 'permission:ope
     Route::post('/', CreateLawWatchController::class)->middleware('verify-recent');
     Route::patch('{watch}', UpdateLawWatchController::class)->whereUuid('watch')->middleware('verify-recent');
     Route::delete('{watch}', DeleteLawWatchController::class)->whereUuid('watch')->middleware('verify-recent');
+    // Running one now reads what it finds as it would at its hour: nothing it would not do on its own.
+    Route::post('{watch}/run', RunLawWatchController::class)->whereUuid('watch');
+    // An act taken off the ignored list is read in by the next run that finds it: changed as a watch is.
+    Route::delete('ignored/{ignored}', AllowIgnoredActController::class)->whereUuid('ignored')->middleware('verify-recent');
 });

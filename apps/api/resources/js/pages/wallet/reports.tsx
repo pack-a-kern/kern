@@ -144,6 +144,8 @@ interface Reports {
     byBank: BankRow[];
     byCategory: CategoryRow[];
     byCounterparty: MerchantRow[];
+    /** What was paid to every named party, per currency — not only the ten `byCounterparty` lists. */
+    counterpartyTotals: Array<{ currencyCode: string; totalMinor: number }>;
     byAccount: AccountRow[];
     cashFlow: MonthRow[];
     largest: LargestRow[];
@@ -223,6 +225,11 @@ function parseReports(payload: unknown): Reports {
                 totalMinor: num(row, 'total_minor'),
                 count: num(row, 'count'),
             };
+        }),
+        counterpartyTotals: (Array.isArray(body.counterparty_totals) ? body.counterparty_totals : []).map((entry) => {
+            const row = obj(entry);
+
+            return { currencyCode: str(row, 'currency_code'), totalMinor: num(row, 'total_minor') };
         }),
         byAccount: (Array.isArray(body.by_account) ? body.by_account : []).map((entry): AccountRow => {
             const row = obj(entry);
@@ -502,7 +509,14 @@ export default function WalletReports(): JSX.Element {
         return rows.sort((a, b) => b.totalMinor - a.totalMinor);
     }, [reports, breakdownView, currency, t]);
 
-    const breakdownTotal = breakdown.reduce((sum, row) => sum + row.totalMinor, 0);
+    /*
+     * The whole each row is a share of. The merchants are the ten largest only, so theirs is the
+     * server's sum over every named party; tags and categories arrive whole and add up to it.
+     */
+    const breakdownTotal =
+        breakdownView === 'merchant'
+            ? (reports?.counterpartyTotals.find((row) => row.currencyCode === currency)?.totalMinor ?? 0)
+            : breakdown.reduce((sum, row) => sum + row.totalMinor, 0);
 
     /** The movement table, in whichever terms its tab asks for. */
     const movement = useMemo<

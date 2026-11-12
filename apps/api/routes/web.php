@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\RecordCspViolationController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Kern\Legislation\Http\Requests\ImportPortalActsRequest;
 use Kern\Platform\Identity\Services\RegistrationPolicy;
 
 /*
@@ -108,6 +109,10 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/legislation', fn () => Inertia::render('legislation', [
         'documentTypes' => config()->array('operations.legislation.document_types'),
         'years' => ['min' => config()->integer('legislation.form.min_year'), 'max' => (int) date('Y')],
+        // The most acts one "Import selected" takes.
+        'importMax' => ImportPortalActsRequest::maxActs(),
+        // Whether the laws are searched by meaning as well as by their words, which the screen says.
+        'byMeaning' => config()->boolean('ai.embeddings.enabled'),
     ]))->name('legislation');
     Route::get('/legislation/{law}', fn (string $law) => Inertia::render('legislation/law', [
         'lawId' => $law,
@@ -127,15 +132,12 @@ Route::middleware('auth')->group(function (): void {
         'counties' => config('reference.counties.ro'),
     ]))->name('subjects');
 
-    /*
-     * Admin routes carry no server-side authorization yet — there is no role system to enforce
-     * with (`resources/js/lib/featureFlags.ts`'s `@todo(KERN-ROLES)`). They are reachable by any
-     * authenticated user today, same as every other route in this file, and render nothing but the
-     * same client-only `PlaceholderPage`. Gating these for real is explicitly out of this task's
-     * scope — see the handoff's "Admin navigation" section.
-     */
-    Route::get('/admin/settings', fn () => Inertia::render('admin/settings'))->name('admin.settings');
-    Route::get('/admin/users', fn () => Inertia::render('admin/users'))->name('admin.users');
+    // The same permission as the data each page asks for: someone who may not read it is refused the
+    // page itself, rather than shown an empty one.
+    Route::get('/admin/settings', fn () => Inertia::render('admin/settings'))
+        ->middleware('permission:system.settings.view')->name('admin.settings');
+    Route::get('/admin/users', fn () => Inertia::render('admin/users'))
+        ->middleware('permission:users.view')->name('admin.users');
 
     /*
      * The audit trail, at the root rather than under `/admin`.

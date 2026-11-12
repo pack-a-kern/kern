@@ -25,6 +25,8 @@ export interface TaxSubject {
     displayName: string;
     status: string;
     role: string;
+    /** Whether its documents may be read by an external AI. */
+    aiConsent: boolean;
     /** Which currency this subject's wallet totals are added up in. A display preference only. */
     displayCurrency: string;
     /** When the picture last changed, or null for a taxpayer showing its initials. */
@@ -91,6 +93,7 @@ export function parseSubjectsPage(payload: unknown): SubjectsPage {
             displayName: str(row, 'display_name'),
             status: str(row, 'status'),
             role: str(row, 'role'),
+            aiConsent: row.ai_consent === true,
             // Empty when an older response omits it; the card falls back to RON rather than showing
             // a blank select.
             displayCurrency: str(row, 'display_currency'),

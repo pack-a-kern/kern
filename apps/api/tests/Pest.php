@@ -16,6 +16,7 @@ use Kern\Legislation\Models\SourceSection;
 use Kern\Platform\Access\SuperAdministratorRole;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\Contracts\KeyManagementService;
+use Kern\Platform\Routing\PageSizes;
 use Kern\Platform\Tenancy\TenantContext;
 use Kern\Platform\Testing\InMemoryKeyManagementService;
 use Kern\TaxRomania\FiscalParameters\Enums\FiscalParameterValueType;
@@ -155,6 +156,16 @@ function forgetVerification(): void
  * `session()` returns the manager, whose `driver()` is documented as returning a `Session` but is
  * typed loosely enough that every caller would otherwise narrow it itself.
  */
+/**
+ * Lets a test page through a handful of rows, by allowing the small sizes it asks for
+ * (`KERN_PAGE_SIZES`) rather than creating a hundred records to fill a real page.
+ */
+function withPageSizes(string $sizes, int $default): void
+{
+    config(['kern.paging.sizes' => $sizes, 'kern.paging.default' => (string) $default]);
+    app()->forgetInstance(PageSizes::class);
+}
+
 /**
  * An authenticator enrolled for `$user`, so `verify-recent` has a factor to ask for. A test user has no
  * password and no factor — an account the gate can ask nothing of, and lets through — so a test asserting

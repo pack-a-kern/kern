@@ -7,7 +7,9 @@ namespace Kern\Legislation\Tests\Integration\WatchesForNewActsTest;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Kern\Legislation\Actions\SyncLegislationDocument;
 use Kern\Legislation\Jobs\ReadNextConsolidation;
+use Kern\Legislation\Models\IgnoredAct;
 use Kern\Legislation\Models\LawWatch;
 use Kern\Legislation\Models\SourceDocument;
 use Kern\Legislation\Watches\RunLawWatches;
@@ -91,7 +93,7 @@ it('runs a watch only when it is due, and then this year alone, the act already 
     expect(run(declaration()))->toBe([]);
 
     $this->travel(7)->days();
-    expect(run(declaration()))->toBe(['example.orders: 1 acts found in 2026, 0 new read as laws']);
+    expect(run(declaration()))->toBe(['example.orders: 1 acts found in 2026, 0 new read as laws, 1 already laws']);
     Queue::assertPushed(ReadNextConsolidation::class, 1);
 });
 
@@ -127,7 +129,33 @@ it('tries a failed run again within the hour, and a first run that failed search
     expect($lines[0])->toContain('FAILED')
         ->and($watch->last_run_at)->toBeNull()
         ->and($watch->next_run_at->toDateTimeString())->toBe('2026-11-09 04:05:00')
-        ->and($watch->last_result)->toContain('FAILED');
+        ->and($watch->last_summary['failure'] ?? null)->toBe('portal_search_down');
+});
+
+it('keeps what a run did as counts, and on each law it read in, the watch that found it', function (): void {
+    portal();
+
+    run(declaration());
+    $watch = LawWatch::query()->where('key', 'example.orders')->firstOrFail();
+
+    expect($watch->last_summary)->toBe([
+        'years' => [2024, 2025, 2026], 'found' => 1, 'started' => 1, 'known' => 0, 'ignored' => 0,
+        'waiting' => 0, 'failed' => 0, 'retries' => 0, 'failure' => null,
+    ])
+        ->and(SourceDocument::query()->where('portal_document_id', '900001')->value('found_by_watch_id'))->toBe($watch->id);
+});
+
+it('passes over an act a person asked the watches to ignore, and reads it again once read by hand', function (): void {
+    portal();
+    IgnoredAct::query()->create(['portal_document_id' => '900001', 'title' => 'ORDIN nr. 77 privind exemplul de ordin urmărit']);
+
+    expect(run(declaration()))->toBe(['example.orders: 1 acts found in 2024, 2025, 2026, 0 new read as laws, 1 ignored'])
+        ->and(SourceDocument::query()->where('portal_document_id', '900001')->exists())->toBeFalse();
+
+    app(SyncLegislationDocument::class)('ORDIN', 77, 2026, null, '900001');
+
+    expect(IgnoredAct::query()->count())->toBe(0)
+        ->and(SourceDocument::query()->where('portal_document_id', '900001')->value('found_by_watch_id'))->toBeNull();
 });
 
 it('fails, naming the watch and its package, on a declaration that is wrong', function (array $changes, string $message): void {

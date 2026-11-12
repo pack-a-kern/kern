@@ -70,6 +70,15 @@ final readonly class RawSourceObjectStore
         return $content;
     }
 
+    /**
+     * Removes a stored page nothing points at any more — a deleted law's. Never one still named by a
+     * version: the bytes are shared by every version that read them, so the caller checks that first.
+     */
+    public function forget(string $path): void
+    {
+        $this->filesystems->disk($this->disk)->delete($path);
+    }
+
     private function pathFor(string $sourceCode, string $sha256): string
     {
         return sprintf('%s/%s/%s', $this->prefix, strtolower($sourceCode), $sha256);

@@ -348,16 +348,9 @@ function Overview({
         (count, parameter) => count + parameter.versions.filter((version) => version.status === 'CANDIDATE').length,
         0,
     );
-    // Every year something was read for, once each, oldest first.
-    const years = [
-        ...new Set(
-            rules.flatMap((parameter) => [
-                ...parameter.versions.map((version) => Number(version.validFrom.slice(0, 4))),
-                ...parameter.reads.map((entry) => entry.year),
-            ]),
-        ),
-    ].sort((a, b) => a - b);
-    const yearsRange = years.length === 0 ? '—' : `${String(years[0])}–${String(years.at(-1))}`;
+    // Every year something was read for, newest first — the same years the table has rows for.
+    const years = yearsOf(rules);
+    const yearsRange = years.length === 0 ? '—' : `${String(years.at(-1))}–${String(years[0])}`;
 
     return (
         <Panel

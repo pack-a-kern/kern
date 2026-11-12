@@ -37,6 +37,7 @@ use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
  * @property \Illuminate\Support\Carbon|null $effective_from
  * @property \Illuminate\Support\Carbon|null $effective_until
  * @property list<list<list<string>>>|null $tables  each table's rows of cells, in the order their markers appear in `text`
+ * @property list<list<array{row: int, cell: int, colspan: int, rowspan: int}>>|null $table_spans  for each of `tables`, its merged cells — none when no table merges one
  * @property \Illuminate\Support\Carbon|null $amended_on  the date of the section's latest amendment note
  * @property string|null $normative_hash  see {@see SectionText::fingerprint()}
  * @property string|null $outline_id  for an article or annex: the heading it stands under
@@ -67,6 +68,7 @@ final class SourceSection extends Model
         'effective_from',
         'effective_until',
         'tables',
+        'table_spans',
         'amended_on',
         'normative_hash',
         'outline_id',
@@ -82,6 +84,7 @@ final class SourceSection extends Model
         'effective_from' => 'date:Y-m-d',
         'effective_until' => 'date:Y-m-d',
         'tables' => 'array',
+        'table_spans' => 'array',
         'amended_on' => 'date:Y-m-d',
         'notes' => 'array',
     ];

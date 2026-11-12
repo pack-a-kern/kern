@@ -10,14 +10,19 @@ use Kern\Investments\Parsing\Orders\OrderPayout;
 use Kern\Investments\Parsing\Orders\TreasuryOrderParser;
 use Kern\Investments\Parsing\ParseFailure;
 use Kern\Legislation\Parsing\LegislatieJustRoHtmlParser;
-use Kern\Legislation\Parsing\ParsedLegislationDocument;
+use Kern\Legislation\Parsing\ParsedSection;
 
-/** A Ministry of Finance order as legislatie.just.ro serves it — public, the Official Gazette's text — changed where a test says. */
-function order(string $name, array $changes = []): ParsedLegislationDocument
+/**
+ * A Ministry of Finance order as legislatie.just.ro serves it — public, the Official Gazette's text — changed
+ * where a test says: its first provisions, as kern/legislation reads them.
+ *
+ * @return list<ParsedSection>
+ */
+function order(string $name, array $changes = []): array
 {
     $html = strtr((string) file_get_contents(__DIR__ . "/../../Fixtures/orders/{$name}.html"), $changes);
 
-    return (new LegislatieJustRoHtmlParser())->parse($html);
+    return (new LegislatieJustRoHtmlParser())->parse($html)->topLevelSections;
 }
 
 /** @return list<string> */
@@ -49,6 +54,37 @@ it('reads every issue a Fidelis order’s final terms set, as the order sets the
         ->and(dates($issues[5], PayoutKind::COUPON))->toHaveCount(10);
 });
 
+it('reads a Fidelis order of the older layouts: its opening a block of labels then values, or a table; its terms a table of their own', function (): void {
+    // Order 691/2021: annex 1 lists its opening labels, then their values; annexes 2 and 3 print them in a
+    // table, the terms in a second, with "Rata dobânzii (Rata cuponului)" and "Datele de plată".
+    $issues = TreasuryOrderParser::fidelis(order('fidelis-terms-2021'));
+    $two = $issues[1];
+
+    expect(array_map(fn (OrderIssue $i): array => [$i->symbol, $i->isin, $i->currency, $i->ratePercent], $issues))->toBe([
+        ['R2207A', 'RO5O4PH7MDL6', 'RON', '2.95'],
+        ['R2307A', 'ROTWSR4X3BI9', 'RON', '3.25'],
+        ['R2307AE', 'ROWZDXY07216', 'EUR', '1.00'],
+    ])
+        ->and($two->issueDate->format('Y-m-d'))->toBe('2021-07-15')
+        ->and($two->maturityDate->format('Y-m-d'))->toBe('2023-07-15')
+        ->and(dates($two, PayoutKind::COUPON))->toBe(['2022-07-15', '2023-07-15'])
+        ->and($two->payouts[1]->recordDate?->format('Y-m-d'))->toBe('2023-07-06');
+});
+
+it('reads a Fidelis order however it words what it prints the same', function (array $changes, string $rate): void {
+    $first = TreasuryOrderParser::fidelis(order('fidelis-terms', $changes))[0];
+
+    expect([$first->currency, $first->faceValue, $first->ratePercent, dates($first, PayoutKind::COUPON)])
+        ->toBe(['RON', '100', $rate, ['2027-10-14', '2028-10-14']]);
+})->with([
+    'its currency capitalised' => [['100 lei' => '100 Lei'], '7.60'],
+    'a rate of whole percents' => [['7,60% pe an' => '7% pe an'], '7'],
+    'a rate with a point' => [['7,60% pe an' => '7.60% pe an'], '7.60'],
+    'a rate spaced from its sign' => [['7,60% pe an' => '7,60 % pe an'], '7.60'],
+    'its last date after "respectiv"' => [['14 octombrie 2027, 14 octombrie 2028' => '14 octombrie 2027, respectiv 14 octombrie 2028'], '7.60'],
+    'its annex opening with a mark' => [['<span class="A_PAR">TERMENI FINALI' => '<span class="A_PAR">+ TERMENI FINALI'], '7.60'],
+]);
+
 it('reads every issue a Tezaur prospectus launches, each coupon with its period', function (): void {
     $issues = TreasuryOrderParser::tezaur(order('tezaur-prospectus'));
     $three = $issues[1];
@@ -66,6 +102,13 @@ it('reads every issue a Tezaur prospectus launches, each coupon with its period'
         ->and($three->payouts[0]->periodEnd?->format('Y-m-d'))->toBe('2027-11-09')
         ->and(dates($three, PayoutKind::PRINCIPAL))->toBe(['2029-11-12']);
 });
+
+it('reads a Tezaur prospectus however its table of issues names its first column', function (string $heading): void {
+    // "Cod emisiune" in the prospectuses of 2018-2020, "Codulemisiunii" in order 123/2026.
+    $issues = TreasuryOrderParser::tezaur(order('tezaur-prospectus', ['>Codul emisiunii<' => ">{$heading}<"]));
+
+    expect(array_map(fn (OrderIssue $i): ?string => $i->issueCode, $issues))->toBe(['0228', '0229', '0230']);
+})->with(['Cod emisiune', 'Codulemisiunii', 'CODUL EMISIUNII']);
 
 it('reads a Tezaur prospectus that prints every schedule in one table, each issue its own', function (): void {
     // The three schedules one after another in a single table, each from its own "Cod emisiune" row.

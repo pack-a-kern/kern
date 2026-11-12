@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Kern\TaxRomania\Http\Presenters\TaxEngine\AssessmentPresenter;
 use Kern\TaxRomania\TaxEngine\Actions\AssessFiscalYear;
+use Kern\TaxRomania\TaxEngine\Services\FiscalYears;
 
 /**
  * `POST .../tax/assessments` — compute a draft assessment for one fiscal year.
@@ -32,11 +33,12 @@ final class AssessFiscalYearController
         string $subject,
         AssessFiscalYear $assess,
         AssessmentPresenter $presenter,
+        FiscalYears $years,
     ): JsonResponse {
         $data = $request->validate([
             // From the first year the fiscal dataset covers to the one after this, which is as far ahead as
             // a parameter version is ever approved.
-            'fiscal_year' => ['required', 'integer', 'min:2018', 'max:2100'],
+            'fiscal_year' => $years->rule(),
         ]);
 
         $assessment = $assess($subject, (int) $data['fiscal_year']);

@@ -311,6 +311,8 @@ it('treats a document already turned into a transaction as dealt with', function
 });
 
 it('pages without repeating or skipping a row when documents share a received timestamp', function (): void {
+    withPageSizes('1,2,25', 25);
+
     [$user, $subject] = memberAndSubject();
     $sameInstant = Carbon::parse('2026-04-01T08:00:00Z');
 
@@ -335,6 +337,8 @@ it('pages without repeating or skipping a row when documents share a received ti
 });
 
 it('reports the total across every page, not the size of the page returned', function (): void {
+    withPageSizes('1,2,25', 25);
+
     [$user, $subject] = memberAndSubject();
 
     for ($i = 0; $i < 5; $i++) {

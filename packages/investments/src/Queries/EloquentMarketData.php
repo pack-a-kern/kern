@@ -18,7 +18,7 @@ use Kern\Investments\Models\InstrumentPrice;
 /**
  * The market read from this package's own tables. Each question is one query, served by an index the
  * tables already have: the primary key; (`instrument_id`, `kind`, `payment_date`); (`instrument_id`,
- * `trading_date`).
+ * `trading_date`); `terms_document_id`.
  */
 final readonly class EloquentMarketData implements MarketData
 {
@@ -90,6 +90,12 @@ final readonly class EloquentMarketData implements MarketData
         }
 
         return $prices;
+    }
+
+    public function readFrom(string $documentId): array
+    {
+        /** @var list<string> */
+        return FinancialInstrument::query()->where('terms_document_id', $documentId)->pluck('id')->all();
     }
 
     private static function date(?Carbon $date): ?DateTimeImmutable

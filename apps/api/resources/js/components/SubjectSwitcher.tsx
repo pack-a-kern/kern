@@ -2,13 +2,10 @@ import { Link, router } from '@inertiajs/react';
 import { Check, ChevronDown, ChevronsUpDown, LogOut, Search, Settings, UserRound, Users } from 'lucide-react';
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import { clearActiveSubjectId, getActiveSubjectId, setActiveSubjectId, withoutSubjectLink } from '../lib/subjectStore';
-import { type SharedAuth, useSharedAuth } from '../lib/sharedProps';
+import { type SharedSubject, useSharedAuth, useSharedSubjects } from '../lib/sharedProps';
 import { signOut } from '../lib/signOut';
 import { useSettingsLink } from '../lib/settingsLink';
-import { useActiveSubjectId, useOpenSubjects } from '../hooks/useActiveSubjectId';
-
-/** One row of the shared subject list — what the switcher draws. */
-type SubjectRow = SharedAuth['subjects'][number];
+import { useActiveSubjectId } from '../hooks/useActiveSubjectId';
 import { useTranslation } from '../i18n';
 import type { Dictionary } from '../i18n/dictionary';
 import { initialsFor } from '../lib/initials';
@@ -29,7 +26,7 @@ import {
  * used to differ only in their class string, which is how the rail tile and the menu row came to
  * disagree about the disc's size. The classes stay the caller's; what is inside it does not.
  */
-function SubjectDisc({ subject, className }: { subject: SubjectRow | undefined; className: string }): JSX.Element {
+function SubjectDisc({ subject, className }: { subject: SharedSubject | undefined; className: string }): JSX.Element {
     return (
         <Avatar
             initials={initialsFor(subject === undefined ? '?' : subject.displayName)}
@@ -52,8 +49,8 @@ function openSubject(subjectId: string): void {
     window.location.replace(withoutSubjectLink(window.location.href));
 }
 
-/** The taxpayers whose name holds what was typed. Filtering, not searching the server: this list is the first page of subjects. */
-function matching(subjects: SubjectRow[], query: string): SubjectRow[] {
+/** The taxpayers whose name holds what was typed. Filtering, not searching the server: this list is every taxpayer in use. */
+function matching(subjects: SharedSubject[], query: string): SharedSubject[] {
     const needle = query.trim().toLowerCase();
 
     return needle === '' ? subjects : subjects.filter((subject) => subject.displayName.toLowerCase().includes(needle));
@@ -78,7 +75,7 @@ function SubjectSearch({ value, onChange }: { value: string; onChange: (value: s
 }
 
 /** One taxpayer as a list offers it: its disc, its name and its kind, and a tick on the one in use. */
-function SubjectOption({ subject, current }: { subject: SubjectRow; current: boolean }): JSX.Element {
+function SubjectOption({ subject, current }: { subject: SharedSubject; current: boolean }): JSX.Element {
     const { t } = useTranslation();
 
     return (
@@ -101,7 +98,7 @@ function SubjectOption({ subject, current }: { subject: SubjectRow; current: boo
 }
 
 /** The taxpayers as rows to press, in a dialog: the one in use ticked, any other opened when chosen. */
-function SubjectList({ subjects, currentId }: { subjects: SubjectRow[]; currentId: string | null }): JSX.Element {
+function SubjectList({ subjects, currentId }: { subjects: SharedSubject[]; currentId: string | null }): JSX.Element {
     const { t } = useTranslation();
 
     if (subjects.length === 0) {
@@ -140,7 +137,7 @@ function SubjectList({ subjects, currentId }: { subjects: SubjectRow[]; currentI
  */
 export function SubjectChooser({ footer }: { footer: ReactNode }): JSX.Element | null {
     const { t } = useTranslation();
-    const subjects = useOpenSubjects();
+    const subjects = useSharedSubjects();
     const resolvedId = useActiveSubjectId();
     const [query, setQuery] = useState('');
 
@@ -196,7 +193,7 @@ export default function SubjectSwitcher({
     // every authenticated response, so the card draws its taxpayer on the first paint instead of
     // blank-then-filled. Closed ones are left out — a closed taxpayer is kept for its records, not
     // for filing against, and offering it here would be offering a choice that leads nowhere.
-    const subjects = useOpenSubjects();
+    const subjects = useSharedSubjects();
     const resolvedId = useActiveSubjectId();
     const email = useSharedAuth()?.user.email ?? '';
     const [query, setQuery] = useState('');
@@ -344,8 +341,7 @@ export default function SubjectSwitcher({
                 }
             >
                 {searchable && (
-                    // Filtering, not searching the server: this list is the first page of subjects,
-                    // so the box narrows what is already here rather than implying there is more.
+                    // Filtering, not searching the server: this list is every taxpayer in use.
                     <div className="border-border border-b p-2">
                         <SubjectSearch value={query} onChange={setQuery} />
                     </div>

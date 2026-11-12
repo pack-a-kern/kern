@@ -17,12 +17,15 @@ use Kern\Legislation\Dependents\SectionDependents;
 use Kern\Legislation\Fetching\AllowlistedHttpFetcher;
 use Kern\Legislation\Fetching\PageFetcher;
 use Kern\Legislation\Fetching\SourcePageFetcher;
+use Kern\Legislation\Queries\LawFlags;
 use Kern\Legislation\Retrieval\Embedding\EmbeddingProvider;
 use Kern\Legislation\Retrieval\Embedding\HttpEmbeddingProvider;
 use Kern\Legislation\Retrieval\Embedding\UnconfiguredEmbeddingProvider;
+use Kern\Legislation\Retrieval\Query\SearchSettings;
 use Kern\Legislation\Storage\RawSourceObjectStore;
 use Kern\Platform\Routing\ConfiguredRateLimit;
 use Kern\Platform\Routing\PackageRoutes;
+use RuntimeException;
 
 /**
  * Reading the law: where a source may be fetched from, where its bytes are kept, and what embeds it.
@@ -31,8 +34,8 @@ use Kern\Platform\Routing\PackageRoutes;
  * class-typed constructor dependencies the container already resolves, so binding them would add
  * nothing (`docs/CODE-QUALITY.md` §1).
  *
- * `EmbeddingProvider` falls back to `UnconfiguredEmbeddingProvider` unless `ai.embeddings.enabled`
- * is true, and deliberately so: an installation whose `python-api` predates the embedding
+ * `EmbeddingProvider` is `UnconfiguredEmbeddingProvider` when `ai.embeddings.enabled` is false,
+ * and deliberately so: an installation whose `python-api` predates the embedding
  * dependencies must keep failing loudly rather than start throwing connection errors deep inside a
  * chunk backfill because a default changed under it.
  *
@@ -55,6 +58,7 @@ final class LegislationServiceProvider extends ServiceProvider
         // from under something that rests on it — and so this package needs to know about nothing.
         $this->app->singleton(SectionDependents::class);
         $this->app->singleton(DocumentDependents::class);
+        $this->app->singleton(LawFlags::class);
 
         $this->mergeConfigFrom(__DIR__ . '/../config/legislation.php', 'legislation');
         $this->mergeConfigFrom(__DIR__ . '/../config/sources.php', 'sources');
@@ -67,15 +71,17 @@ final class LegislationServiceProvider extends ServiceProvider
         // Kern\Documents\DocumentsServiceProvider's ExternalDocumentAiProvider ->
         // NullDocumentAiProvider binding exactly. Singleton: UnconfiguredEmbeddingProvider is
         // stateless and holds no per-request resources, same reasoning as that precedent.
-        // Off by default, and deliberately so: an installation whose `python-api` image predates
-        // the embedding dependencies must keep failing loudly through
-        // `UnconfiguredEmbeddingProvider` rather than start throwing connection errors deep inside
-        // a chunk backfill because a config default changed under it.
+        // Read and checked once: a ranking value missing or out of range fails by name at the first search.
+        $this->app->singleton(SearchSettings::class, static fn (Application $app): SearchSettings => SearchSettings::read($app->make(ConfigRepository::class)));
+
+        // Chosen when installing, never assumed: a switch that is neither true nor false fails by name.
         $this->app->singleton(
             EmbeddingProvider::class,
-            static fn (Application $app): EmbeddingProvider => $app->make('config')->get('ai.embeddings.enabled') === true
-                ? $app->make(HttpEmbeddingProvider::class)
-                : $app->make(UnconfiguredEmbeddingProvider::class),
+            static fn (Application $app): EmbeddingProvider => match ($app->make('config')->get('ai.embeddings.enabled')) {
+                true => $app->make(HttpEmbeddingProvider::class),
+                false => $app->make(UnconfiguredEmbeddingProvider::class),
+                default => throw new RuntimeException('RETRIEVAL_EMBEDDING_ENABLED must be true or false.'),
+            },
         );
 
         $this->app->bind(AllowlistedHttpFetcher::class, static function (Application $app): AllowlistedHttpFetcher {
@@ -99,13 +105,11 @@ final class LegislationServiceProvider extends ServiceProvider
 
         $this->app->singleton(RawSourceObjectStore::class, static function (Application $app): RawSourceObjectStore {
             $config = $app->make(ConfigRepository::class);
-            $disk = $config->get('sources.storage.disk');
-            $prefix = $config->get('sources.storage.prefix');
 
             return new RawSourceObjectStore(
                 $app->make(FilesystemFactory::class),
-                is_string($disk) ? $disk : 's3',
-                is_string($prefix) ? $prefix : 'sources',
+                $config->string('sources.storage.disk'),
+                $config->string('sources.storage.prefix'),
             );
         });
     }

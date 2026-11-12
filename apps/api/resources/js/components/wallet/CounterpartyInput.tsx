@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type JSX } from 'react';
 import { UserIcon } from 'lucide-react';
 
-import { apiRequest } from '../../lib/http';
+import { suggestCounterparties } from '../../api/walletApi';
 import { useTranslation } from '../../i18n';
 import { PanelInput } from '../panel';
 
@@ -58,28 +58,9 @@ export default function CounterpartyInput({
         // Late enough that a name is not searched letter by letter, short enough that the matches
         // are there by the time somebody looks up from the keyboard.
         const timer = window.setTimeout(() => {
-            const params = new URLSearchParams({ q: typed, per_page: '8' });
-
-            apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/counterparties?${params.toString()}`).then(
-                (text: string) => {
-                    const body: unknown = JSON.parse(text);
-                    const rows =
-                        typeof body === 'object' && body !== null
-                            ? (body as { counterparties?: unknown }).counterparties
-                            : null;
-
-                    setMatches(
-                        (Array.isArray(rows) ? rows : [])
-                            .map((row): string =>
-                                typeof row === 'object' &&
-                                row !== null &&
-                                typeof (row as { name?: unknown }).name === 'string'
-                                    ? (row as { name: string }).name
-                                    : '',
-                            )
-                            .filter((name) => name !== '' && name.toLowerCase() !== typed.toLowerCase())
-                            .slice(0, 8),
-                    );
+            suggestCounterparties(subjectId, typed).then(
+                (names) => {
+                    setMatches(names);
                 },
                 () => {
                     // A search that fails costs the offer and nothing else: the name typed is still

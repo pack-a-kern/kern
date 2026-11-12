@@ -34,6 +34,10 @@ return [
     // server's clock (UTC) — which is still the day before for the first hours of every day here.
     'timezone' => env('FISCAL_PARAMETERS_TIMEZONE', 'Europe/Bucharest'),
 
+    // The first income year a tax is assessed for (`Kern\TaxRomania\TaxEngine\Services\FiscalYears`):
+    // the years offered start there, and a year before it is refused. No default — missing fails.
+    'first_fiscal_year' => env('TAX_FIRST_FISCAL_YEAR'),
+
     // How long a reading of the values may hold the lock that keeps two from running at once — the
     // task from the screen, and the one a newly read minimum-wage decision starts.
     'lock_seconds' => (int) env('FISCAL_PARAMETERS_LOCK_SECONDS', 900),

@@ -193,7 +193,7 @@ export function parseFiscalParameterBoard(payload: unknown): FiscalParameterBoar
     };
 }
 
-/** The next Declarația unică and the day it is due — `GET /api/v1/fiscal-parameters/filing-deadline`. */
+/** The next Declarația unică and the day it is due — the `filingDeadline` page prop. */
 export interface FilingDeadline {
     /** The year whose income it declares. */
     incomeYear: number;
@@ -203,9 +203,7 @@ export interface FilingDeadline {
 }
 
 /** Null where no approved value says when the next one is due. */
-export function parseFilingDeadline(payload: unknown): FilingDeadline | null {
-    const deadline = obj(payload).deadline;
-
+export function parseFilingDeadline(deadline: unknown): FilingDeadline | null {
     if (deadline === null || typeof deadline !== 'object') {
         return null;
     }

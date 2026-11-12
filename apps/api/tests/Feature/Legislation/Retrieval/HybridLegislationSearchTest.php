@@ -300,3 +300,27 @@ it('carries a complete citation on every result', function (): void {
         ->and($citation->effectiveFrom?->format('Y-m-d'))->toBe('2020-01-01')
         ->and($citation->text)->toBe('TEXT despre citarea completă a unei surse.');
 });
+
+/** A law as the laws screen lists it — a numbered act of the portal — with one provision indexed. Made up. */
+function lawWithProvision(OfficialSource $source, string $type, string $date, string $text): SourceSection
+{
+    $law = SourceDocument::factory()->create([
+        'official_source_id' => $source->id, 'document_type' => $type, 'act_number' => '77', 'act_date' => $date,
+    ]);
+    $version = SourceDocumentVersion::factory()->create(['source_document_id' => $law->id, 'effective_from' => '2020-01-01', 'effective_until' => null]);
+
+    return indexAndReturnSection($version->id, 'Art. 1', $text);
+}
+
+it('searches only the laws the laws screen\'s filter keeps', function (): void {
+    $source = OfficialSource::factory()->create(['code' => 'LEGISLATIE', 'trust_tier' => TrustTier::A]);
+    $order = lawWithProvision($source, 'ORDIN', '2025-03-01', 'Exemplul de dividend se declară anual.');
+    lawWithProvision($source, 'LEGE', '2025-03-01', 'Exemplul de dividend se impozitează la sursă.');
+    lawWithProvision($source, 'ORDIN', '2024-03-01', 'Exemplul de dividend din anul trecut.');
+
+    $found = $this->actingAs(ordinaryUser())->getJson('/api/v1/legislation/search?q=dividend&as_of=2026-01-01&type=ORDIN&year=2025')->assertOk();
+    $sections = array_column([...(array) $found->json('confirmed'), ...(array) $found->json('date_unknown')], 'section_id');
+
+    expect($sections)->toBe([$order->id]);
+    $this->actingAs(ordinaryUser())->getJson('/api/v1/legislation/search?q=dividend&watch=' . fake()->uuid())->assertUnprocessable();
+});

@@ -66,6 +66,8 @@ it('tells a programme’s order from a law that only mentions it', function (): 
     $tezaur = read()->orders(Programme::TEZAUR);
 
     expect($tezaur->isTitled('ORDIN privind prospectul de emisiune … în cadrul Programului Tezaur, în perioada noiembrie 2026'))->toBeTrue()
+        // As order 3.957/2022 writes it.
+        ->and($tezaur->isTitled('ORDIN privind prospectul de emisiune … în cadrul Programului TEZAUR, aferent lunii noiembrie 2022'))->toBeTrue()
         ->and($tezaur->isTitled('LEGE privind bugetul de stat, care pomenește Programul Tezaur'))->toBeFalse();
 });
 

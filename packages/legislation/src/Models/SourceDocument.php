@@ -35,6 +35,7 @@ use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
  * @property \Illuminate\Support\Carbon|null $last_synced_at
  * @property ReadingStop|null $reading_stopped  why its reading stopped on this installation's side, until read again
  * @property \Illuminate\Support\Carbon|null $reading_stopped_at
+ * @property string|null $found_by_watch_id  the watch that read it in; none, read by hand or its watch removed
  */
 #[UseFactory(SourceDocumentFactory::class)]
 final class SourceDocument extends Model
@@ -66,6 +67,7 @@ final class SourceDocument extends Model
         'last_synced_at',
         'reading_stopped',
         'reading_stopped_at',
+        'found_by_watch_id',
     ];
 
     /** @var array<string, string> */

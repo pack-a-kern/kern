@@ -87,11 +87,24 @@ export default function LawArticle({
                         )}
                         style={{ paddingLeft: `${String(Math.min(Math.max(provision.depth - 1, 0), 4) * 1.25)}rem` }}
                     >
-                        <div className="grid grid-cols-[2.25rem_minmax(0,1fr)_auto] gap-1">
-                            <span className="text-muted-foreground pt-px text-xs font-medium tabular-nums">
+                        <div
+                            className={cn(
+                                'grid grid-cols-[2.25rem_minmax(0,1fr)_auto] gap-1',
+                                // Its history button beside the heading, not alone on a row below it.
+                                provision.type === 'ARTICOL' && 'grid-flow-dense',
+                            )}
+                        >
+                            {/* An annex's article — "Articolul 2" — is headed above its words, not in the margin of "(1)" and "a)". */}
+                            <span
+                                className={cn(
+                                    'text-muted-foreground pt-px text-xs font-medium tabular-nums',
+                                    provision.type === 'ARTICOL' &&
+                                        'text-foreground col-span-2 pt-2 text-sm font-semibold',
+                                )}
+                            >
                                 {provision.label}
                             </span>
-                            <div className="min-w-0">
+                            <div className={cn('min-w-0', provision.type === 'ARTICOL' && 'col-span-2')}>
                                 <SectionBody text={provision.text} tables={provision.tables} />
                             </div>
                             <IconButton
@@ -271,9 +284,20 @@ export function SectionBody({ text, tables }: { text: string; tables: LawTable[]
     );
 }
 
-/** A table of the law, cell for cell. The first row is its heading, as the portal draws it. */
+/**
+ * A table of the law, cell for cell, its merged cells merged as the portal draws them. The first row
+ * is its heading — unless a cell of it reaches into the rows below, which a heading cannot.
+ */
 function LawTableView({ table }: { table: LawTable }): JSX.Element {
-    const [head, ...body] = table;
+    const span = (row: number, cell: number): { colSpan?: number; rowSpan?: number } => {
+        const merged = table.spans.find((s) => s.row === row && s.cell === cell);
+
+        return merged === undefined ? {} : { colSpan: merged.colspan, rowSpan: merged.rowspan };
+    };
+    const headed = !table.spans.some((s) => s.row === 0 && s.rowspan > 1);
+    const head = headed ? table.rows[0] : undefined;
+    const first = headed ? 1 : 0;
+    const body = table.rows.slice(first);
 
     return (
         <div className="table-wrap my-2">
@@ -282,7 +306,9 @@ function LawTableView({ table }: { table: LawTable }): JSX.Element {
                     <thead>
                         <tr>
                             {head.map((cell, index) => (
-                                <th key={index}>{cell}</th>
+                                <th key={index} {...span(0, index)}>
+                                    {cell}
+                                </th>
                             ))}
                         </tr>
                     </thead>
@@ -291,7 +317,7 @@ function LawTableView({ table }: { table: LawTable }): JSX.Element {
                     {body.map((row, rowIndex) => (
                         <tr key={rowIndex}>
                             {row.map((cell, index) => (
-                                <td key={index} className="tabular-nums">
+                                <td key={index} className="tabular-nums" {...span(rowIndex + first, index)}>
                                     {cell}
                                 </td>
                             ))}

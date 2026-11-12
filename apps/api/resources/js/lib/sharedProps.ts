@@ -33,6 +33,35 @@ export function useCurrencies(): string[] {
     return Array.isArray(value) ? value.filter((code): code is string => typeof code === 'string') : ['RON'];
 }
 
+/** The page sizes every list accepts, and the one a list opens at. */
+export interface Paging {
+    sizes: number[];
+    default: number;
+}
+
+/** `paging` as the server shared it; refused when it is not there, rather than replaced by a guess. */
+export function pagingFrom(props: unknown): Paging {
+    const value = (props as { paging?: { sizes?: unknown; default?: unknown } } | null | undefined)?.paging;
+    const sizes = Array.isArray(value?.sizes)
+        ? value.sizes.filter((size): size is number => Number.isInteger(size) && size > 0)
+        : [];
+    const fallback = value?.default;
+
+    if (sizes.length === 0 || typeof fallback !== 'number' || !sizes.includes(fallback)) {
+        throw new TypeError('The page props carry no page sizes (`paging`, KERN_PAGE_SIZES).');
+    }
+
+    return { sizes, default: fallback };
+}
+
+/**
+ * The page sizes, shared by `HandleInertiaRequests::share()` from `KERN_PAGE_SIZES`: the pager offers
+ * exactly what the server accepts, with no list of its own.
+ */
+export function usePaging(): Paging {
+    return pagingFrom(usePage().props);
+}
+
 /** The keys of the services not answering, for a reader of a `down` list sent by the server. */
 export function downServicesFrom(value: unknown): string[] {
     return Array.isArray(value) ? value.filter((key): key is string => typeof key === 'string') : [];
@@ -51,23 +80,21 @@ export function useSystemHealthDown(): string[] | null {
 /**
  * What every screen is handed by the page it arrived on.
  *
- * `HandleInertiaRequests::share()` puts the signed-in account and its taxpayers into the page
- * response, so the shell can draw itself without asking a second time. This is the one place that
- * shape is read, so a change on the server is a change in one file here.
+ * `HandleInertiaRequests::share()` puts the signed-in account into the page response, so the shell
+ * can draw itself without asking a second time. This is the one place that shape is read, so a
+ * change on the server is a change in one file here.
  *
  * Absent on the guest screens, which have no account to describe — hence the null.
  */
 export interface SharedAuth {
     /** `permissions` only decides what is drawn; every route checks its own. */
     user: { id: string; email: string | null; roles: string[]; permissions: string[] };
-    subjects: { id: string; displayName: string; status: string; type: string; avatarUpdatedAt: string | null }[];
     /** True while an administrator is acting as this account. */
     impersonated: boolean;
 }
 
 interface AuthPayload {
     user?: { id?: unknown; email?: unknown; roles?: unknown; permissions?: unknown };
-    subjects?: unknown;
     impersonated?: unknown;
 }
 
@@ -82,8 +109,6 @@ export function useSharedAuth(): SharedAuth | null {
         return null;
     }
 
-    const rows = Array.isArray(payload.subjects) ? payload.subjects : [];
-
     return {
         impersonated: payload.impersonated === true,
         user: {
@@ -96,18 +121,34 @@ export function useSharedAuth(): SharedAuth | null {
                 ? payload.user.permissions.filter((permission): permission is string => typeof permission === 'string')
                 : [],
         },
-        subjects: rows.map((entry) => {
-            const row = (entry ?? {}) as Record<string, unknown>;
-
-            return {
-                id: asString(row.id),
-                displayName: asString(row.display_name),
-                status: asString(row.status),
-                type: asString(row.type),
-                avatarUpdatedAt: typeof row.avatar_updated_at === 'string' ? row.avatar_updated_at : null,
-            };
-        }),
     };
+}
+
+/** One taxpayer the switcher offers. */
+export interface SharedSubject {
+    id: string;
+    displayName: string;
+    type: string;
+    avatarUpdatedAt: string | null;
+}
+
+/**
+ * The taxpayers this person can work in now — every one in use, closed ones never sent
+ * (`HandleInertiaRequests`'s `subjects`). Empty on the guest screens.
+ */
+export function useSharedSubjects(): SharedSubject[] {
+    const rows: unknown = usePage().props.subjects;
+
+    return (Array.isArray(rows) ? rows : []).map((entry: unknown): SharedSubject => {
+        const row = (entry ?? {}) as Record<string, unknown>;
+
+        return {
+            id: asString(row.id),
+            displayName: asString(row.display_name),
+            type: asString(row.type),
+            avatarUpdatedAt: typeof row.avatar_updated_at === 'string' ? row.avatar_updated_at : null,
+        };
+    });
 }
 
 /**
@@ -142,10 +183,10 @@ export function useProviderEnhances(): boolean {
 
 /**
  * Asks for the signed-in person's shared props again — who they are and which taxpayers they work in
- * — and nothing else of the page. The frame stays mounted between screens and draws its switcher from
+ * — and nothing else of the page. `subjects` is a once prop, and a reload that names it reads it anew. The frame stays mounted between screens and draws its switcher from
  * these, so a change that is not a navigation (a picture uploaded, a taxpayer shared from another
  * device) reaches it this way: one small request, the page and its state left as they are.
  */
 export function refreshSharedAuth(): void {
-    router.reload({ only: ['auth'] });
+    router.reload({ only: ['auth', 'subjects'] });
 }

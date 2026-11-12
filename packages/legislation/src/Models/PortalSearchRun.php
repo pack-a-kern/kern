@@ -21,6 +21,7 @@ use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
  * @property array<array-key, mixed> $query
  * @property PortalSearchStatus $status
  * @property int $pages_read
+ * @property int $retries how many times the portal was asked again, over every page read
  * @property array<array-key, mixed> $acts
  * @property array<array-key, mixed> $last_links
  * @property PortalSearchFailure|null $failure
@@ -34,13 +35,14 @@ final class PortalSearchRun extends Model
     protected $table = 'ext_portal_searches';
 
     /** @var list<string> */
-    protected $fillable = ['user_id', 'query', 'status', 'pages_read', 'acts', 'last_links', 'failure', 'finished_at'];
+    protected $fillable = ['user_id', 'query', 'status', 'pages_read', 'retries', 'acts', 'last_links', 'failure', 'finished_at'];
 
     /** @var array<string, string> */
     protected $casts = [
         'query' => 'array',
         'status' => PortalSearchStatus::class,
         'pages_read' => 'integer',
+        'retries' => 'integer',
         'acts' => 'array',
         'last_links' => 'array',
         'failure' => PortalSearchFailure::class,

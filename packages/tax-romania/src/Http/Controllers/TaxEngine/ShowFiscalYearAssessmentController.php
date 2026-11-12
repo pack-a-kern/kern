@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Kern\TaxRomania\Http\Presenters\TaxEngine\AssessmentPresenter;
 use Kern\TaxRomania\TaxEngine\Contracts\LedgerIncomeProvider;
 use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
+use Kern\TaxRomania\TaxEngine\Services\FiscalYears;
 
 /**
  * `GET .../tax/assessments?fiscal_year=…` — the assessment already on file for a year.
@@ -29,9 +30,10 @@ final class ShowFiscalYearAssessmentController
         string $subject,
         AssessmentPresenter $presenter,
         LedgerIncomeProvider $ledger,
+        FiscalYears $years,
     ): JsonResponse {
         $data = $request->validate([
-            'fiscal_year' => ['required', 'integer', 'min:2018', 'max:2100'],
+            'fiscal_year' => $years->rule(),
         ]);
 
         /*
@@ -46,15 +48,16 @@ final class ShowFiscalYearAssessmentController
 
         /*
          * The years worth offering travel with the answer, because the screen needs both on the same load and
-         * a second request for a list of integers is a second chance to be out of step with the first.
+         * a second request for a list of integers is a second chance to be out of step with the first. The
+         * list is ready to show: within the years a request may name, this one included, newest first.
          */
-        $years = $ledger->yearsWithActivity($subject);
+        $offered = $years->offered($ledger->yearsWithActivity($subject));
 
         if (! $assessment instanceof TaxAssessment) {
             // 204 carries no body, so a year never assessed still has to hand the picker its options.
-            return response()->json(['assessment' => null, 'years' => $years]);
+            return response()->json(['assessment' => null, 'years' => $offered]);
         }
 
-        return response()->json(['assessment' => $presenter->present($assessment), 'years' => $years]);
+        return response()->json(['assessment' => $presenter->present($assessment), 'years' => $offered]);
     }
 }

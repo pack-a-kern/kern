@@ -54,8 +54,9 @@ final readonly class BrowserPortalSearch implements PortalSearchMethod
         $pause = $this->config->integer('sources.entries.' . self::SOURCE . '.search_refused_pause_ms');
 
         $answer = $this->ask($url);
+        $try = 0;
 
-        for ($try = 0; ($answer['outcome'] ?? null) === 'refused' && $try < $retries; $try++) {
+        for (; ($answer['outcome'] ?? null) === 'refused' && $try < $retries; $try++) {
             Sleep::for($pause)->milliseconds();
             $answer = $this->ask($url);
         }
@@ -70,6 +71,7 @@ final readonly class BrowserPortalSearch implements PortalSearchMethod
         return new PortalPage(
             array_map($this->act(...), $rows),
             count($rows) >= $this->config->integer('sources.entries.' . self::SOURCE . '.search_page_size'),
+            $try,
         );
     }
 

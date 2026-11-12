@@ -506,6 +506,8 @@ it('asks for names or for all, never both and never neither', function (): void 
  * the opposite of what searching for them was for.
  */
 it('does not page a search', function (): void {
+    withPageSizes('1,2,25', 25);
+
     [$user, $subjectId, $accountId] = directorySubject();
 
     foreach (['Bruma Mihaela', 'Mihaela Bruma', 'BRUMA ZINA', 'Altcineva'] as $index => $name) {
@@ -613,4 +615,27 @@ it('counts each party’s answered rows by direction, in one query for the page'
     ])
         // One per rule, before: four here.
         ->and($splitQueries)->toHaveCount(1);
+});
+
+it('suggests at most ten names holding what is typed, leaving out the one typed', function (): void {
+    [$user, $subjectId, $accountId] = directorySubject();
+
+    record($this, $user, $subjectId, $accountId, -1_000, 'Example Shop');
+    foreach (range(1, 11) as $index) {
+        record($this, $user, $subjectId, $accountId, -1_000 * ($index + 1), "Example Shop {$index}");
+    }
+    record($this, $user, $subjectId, $accountId, -1_000, 'Unrelated');
+
+    $names = $this->actingAs($user)
+        ->getJson("/api/v1/subjects/{$subjectId}/wallet/counterparties/suggestions?q=" . urlencode('example shop'))
+        ->assertOk()
+        ->json('names');
+
+    expect($names)->toHaveCount(10)
+        ->and($names)->not->toContain('Example Shop')
+        ->and($names)->not->toContain('Unrelated');
+
+    $this->actingAs($user)
+        ->getJson("/api/v1/subjects/{$subjectId}/wallet/counterparties/suggestions?q=e")
+        ->assertUnprocessable();
 });

@@ -32,8 +32,18 @@ export async function startStatementImport(subjectId: string, file: File, accoun
     return parseStatementImport(JSON.parse(await apiRequest(base(subjectId), { method: 'POST', body })));
 }
 
-export async function listStatementImports(subjectId: string, page = 1): Promise<StatementImportPage> {
-    return parseStatementImportPage(JSON.parse(await apiRequest(`${base(subjectId)}?page=${String(page)}`)) as unknown);
+export async function listStatementImports(
+    subjectId: string,
+    page = 1,
+    perPage?: number,
+): Promise<StatementImportPage> {
+    const query = new URLSearchParams({ page: String(page) });
+
+    if (perPage !== undefined) {
+        query.set('per_page', String(perPage));
+    }
+
+    return parseStatementImportPage(JSON.parse(await apiRequest(`${base(subjectId)}?${query.toString()}`)) as unknown);
 }
 
 /**

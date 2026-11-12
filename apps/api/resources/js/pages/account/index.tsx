@@ -2,12 +2,12 @@ import { useCallback, useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 import { KeyRoundIcon, MonitorSmartphoneIcon, RotateCcw, ShieldCheckIcon, UsersIcon } from 'lucide-react';
 
-import { getProfile, listDocumentAiConsents, listSubjects } from '../../api/accountApi';
+import { getProfile, getSubjectCounts } from '../../api/accountApi';
 import { fetchMfaStatus, listSessions } from '../../api/authApi';
 import { Page, PanelButton, Stat, StatGrid, Status } from '../../components/panel';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
-import type { Profile, SubjectsPage } from '../../types/account';
+import type { Profile } from '../../types/account';
 import type { MfaStatus, SessionSummary } from '../../types/auth';
 import AccountCard from './AccountCard';
 import GuaranteesCard from './GuaranteesCard';
@@ -37,8 +37,7 @@ export default function AccountPage(): JSX.Element {
     const [profile, setProfile] = useState<Profile | null>(null);
     const [mfa, setMfa] = useState<MfaStatus | null>(null);
     const [sessions, setSessions] = useState<SessionSummary[] | null>(null);
-    const [subjects, setSubjects] = useState<SubjectsPage | null>(null);
-    const [aiSubjects, setAiSubjects] = useState<number | null>(null);
+    const [counts, setCounts] = useState<{ active: number; aiConsented: number } | null>(null);
     const [failed, setFailed] = useState(false);
     const [reloadToken, setReloadToken] = useState(0);
 
@@ -95,20 +94,17 @@ export default function AccountPage(): JSX.Element {
                 }
             });
 
-        // Only for the summary tile — the taxpayers themselves are managed on their own screen.
-        // The first page is enough for the AI count only while it holds every taxpayer, so the
-        // *total* comes from the page's own count and the AI figure is qualified by it below.
-        void Promise.all([listSubjects(), listDocumentAiConsents()]).then(
-            ([page, consented]) => {
+        // Only for the summary tile, counted by the server over every taxpayer in use — the
+        // taxpayers themselves are managed on their own screen.
+        void getSubjectCounts().then(
+            (loaded) => {
                 if (active) {
-                    setSubjects(page);
-                    setAiSubjects(page.data.filter((subject) => consented.has(subject.id)).length);
+                    setCounts(loaded);
                 }
             },
             () => {
                 if (active) {
-                    setSubjects(null);
-                    setAiSubjects(0);
+                    setCounts(null);
                 }
             },
         );
@@ -182,8 +178,11 @@ export default function AccountPage(): JSX.Element {
                     />
                     <Stat
                         label={t((d) => d.pages.account.stats.subjects)}
-                        value={subjects === null ? '—' : subjects.total}
-                        sub={t((d) => d.pages.account.stats.subjectsSub).replace('{count}', String(aiSubjects ?? 0))}
+                        value={counts === null ? '—' : counts.active}
+                        sub={t((d) => d.pages.account.stats.subjectsSub).replace(
+                            '{count}',
+                            String(counts?.aiConsented ?? 0),
+                        )}
                         icon={<UsersIcon className="size-3.5" aria-hidden="true" />}
                     />
                 </StatGrid>

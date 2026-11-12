@@ -61,7 +61,10 @@ final class AssessmentPresenter
              * A screen that adds money is a second place money is decided, and the two drift. These come from
              * `tax_assessments.totals_json`, which the recorder wrote from the lines it had just recorded.
              */
-            'totals' => $this->totalsByTax($assessment),
+            'totals' => $totals = $this->totalsByTax($assessment),
+            // What the year comes to across every tax: the engine's totals added — every one in lei — here,
+            // once, so the screen shows a figure and adds none.
+            'total_owed_minor' => array_sum(array_column($totals, 'minor_units')),
             /*
              * The year's income, read from the facts rather than added up from the lines.
              *

@@ -12,6 +12,7 @@ use Kern\Legislation\Legislatie\ConsolidationPages;
 use Kern\Legislation\Legislatie\Exceptions\PortalAnswerException;
 use Kern\Legislation\Legislatie\PortalAct;
 use Kern\Legislation\Legislatie\PortalSearch;
+use Kern\Legislation\Models\IgnoredAct;
 use Kern\Legislation\Models\SourceDocument;
 use Kern\Legislation\Models\SourceDocumentVersion;
 use Kern\Legislation\Repositories\OfficialSourceRepository;
@@ -32,7 +33,8 @@ use Kern\Legislation\Repositories\OfficialSourceRepository;
  *
  * `$from` narrows the range: only consolidations from that date, and the one in force on it — the
  * text that applied on `$from` began earlier. `$portalId` picks one act where several share the type
- * and number that year — see {@see PortalSearch::find()}.
+ * and number that year — see {@see PortalSearch::find()}. `$watchId` is the watch reading it in, kept on
+ * a law read for the first time. An act read is no longer ignored: reading it is asking for it.
  */
 final readonly class SyncLegislationDocument
 {
@@ -45,7 +47,7 @@ final readonly class SyncLegislationDocument
     ) {
     }
 
-    public function __invoke(string $type, int $number, int $year, ?DateTimeImmutable $from = null, ?string $portalId = null): LegislationSyncStarted
+    public function __invoke(string $type, int $number, int $year, ?DateTimeImmutable $from = null, ?string $portalId = null, ?string $watchId = null): LegislationSyncStarted
     {
         $act = $this->search->find($type, $number, $year, $portalId);
         $found = $this->pages->forAct($act->link);
@@ -64,8 +66,10 @@ final readonly class SyncLegislationDocument
                 'document_type' => $act->typeKey(),
                 'external_identifier' => self::identifier($act),
             ],
-            ['canonical_url' => $consolidatedForm],
+            ['canonical_url' => $consolidatedForm, 'found_by_watch_id' => $watchId],
         );
+        $actId = ConsolidationPages::documentId($act->link);
+        IgnoredAct::query()->where('portal_document_id', $actId)->delete();
 
         // Kept alongside anything an earlier, wider sync listed; a failure mark is dropped, so a
         // consolidation that could not be read last time is tried again. An earlier entry for a day
@@ -97,7 +101,7 @@ final readonly class SyncLegislationDocument
             'official_journal' => $act->officialJournal,
             'official_journal_number' => $act->officialJournalNumber,
             'in_force_from' => $act->inForceFrom?->format('Y-m-d'),
-            'portal_document_id' => ConsolidationPages::documentId($act->link),
+            'portal_document_id' => $actId,
             'consolidated_document_id' => ConsolidationPages::documentId($consolidatedForm),
             'consolidations' => array_values($list),
             // Read again: whatever stopped the last reading is this one's to say again, or not.

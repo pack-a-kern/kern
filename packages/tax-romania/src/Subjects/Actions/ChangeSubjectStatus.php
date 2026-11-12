@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Subjects\Actions;
 
+use Illuminate\Support\Facades\DB;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
 use Kern\TaxRomania\Subjects\Enums\SubjectStatus;
+use Kern\TaxRomania\Subjects\Exceptions\TooManyActiveSubjectsException;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\Subjects\Services\SubjectAllowance;
 
 /**
- * Suspending, closing, or bringing a taxpayer back.
+ * Closing a taxpayer, or bringing it back.
  *
  * ## There is no delete, and there cannot be one
  *
@@ -25,10 +28,15 @@ use Kern\TaxRomania\Subjects\Models\TaxSubject;
  */
 final readonly class ChangeSubjectStatus
 {
-    public function __construct(private AuditChainService $audit)
+    public function __construct(private AuditChainService $audit, private SubjectAllowance $allowance)
     {
     }
 
+    /**
+     * @param string $actorId an owner of `$subject`: the one whose taxpayers in use a reactivation counts against
+     *
+     * @throws TooManyActiveSubjectsException reactivating past `SUBJECTS_MAX_ACTIVE`
+     */
     public function __invoke(TaxSubject $subject, SubjectStatus $status, string $actorId): TaxSubject
     {
         $previous = $subject->status;
@@ -37,8 +45,14 @@ final readonly class ChangeSubjectStatus
             return $subject;
         }
 
-        $subject->status = $status;
-        $subject->save();
+        DB::transaction(function () use ($subject, $status, $actorId): void {
+            if ($status === SubjectStatus::ACTIVE) {
+                $this->allowance->ensureActiveRoom($actorId);
+            }
+
+            $subject->status = $status;
+            $subject->save();
+        });
 
         $this->audit->record(AuditEventInput::occurringNow(
             subjectId: $subject->id,

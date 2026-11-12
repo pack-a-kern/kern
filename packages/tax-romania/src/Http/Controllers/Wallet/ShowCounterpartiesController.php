@@ -6,6 +6,7 @@ namespace Kern\TaxRomania\Http\Controllers\Wallet;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Kern\Platform\Routing\PageSizes;
 use Kern\TaxRomania\Wallet\Queries\CounterpartyList;
 use Kern\TaxRomania\Wallet\Services\TagDirectory;
 use Kern\TaxRomania\Wallet\Services\TaxCategoryCatalogue;
@@ -29,11 +30,12 @@ final class ShowCounterpartiesController
         CounterpartyList $counterparties,
         TaxCategoryCatalogue $categories,
         TagDirectory $tags,
+        PageSizes $sizes,
     ): JsonResponse {
         $validated = $request->validate([
             'q' => ['sometimes', 'nullable', 'string', 'max:120'],
             'page' => ['sometimes', 'integer', 'min:1'],
-            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'per_page' => $sizes->rule(),
         ]);
 
         $search = is_string($validated['q'] ?? null) && $validated['q'] !== '' ? $validated['q'] : null;
@@ -52,7 +54,7 @@ final class ShowCounterpartiesController
         $page = $search === null && is_numeric($validated['page'] ?? null) ? (int) $validated['page'] : 1;
         $perPage = $search !== null
             ? self::SEARCH_LIMIT
-            : (is_numeric($validated['per_page'] ?? null) ? (int) $validated['per_page'] : 25);
+            : $sizes->of($validated['per_page'] ?? null);
 
         return response()->json([
             ...$counterparties->page($search, $page, $perPage),

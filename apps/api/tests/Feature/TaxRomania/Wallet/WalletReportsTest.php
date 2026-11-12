@@ -219,3 +219,20 @@ it('leaves a transfer out of the totals whoever recorded it', function (): void 
         ->and($totals['out_minor'])->toBe(554)
         ->and($totals['count'])->toBe(2);
 });
+
+it('measures the ten largest parties against what was paid to every one of them', function (): void {
+    [$user, $subjectId, $accountId] = reportingSubject();
+
+    foreach (range(1, 12) as $index) {
+        spend($this, $user, $subjectId, $accountId, -1_000 * $index, ['counterparty' => "Example Shop {$index}"]);
+    }
+    // Paid to nobody named: not a party's, and not in their whole.
+    spend($this, $user, $subjectId, $accountId, -50_000);
+
+    $response = $this->actingAs($user)
+        ->getJson("/api/v1/subjects/{$subjectId}/wallet/reports?from=2026-01-01&to=2026-12-31")
+        ->assertOk();
+
+    expect($response->json('by_counterparty'))->toHaveCount(10)
+        ->and($response->json('counterparty_totals'))->toBe([['currency_code' => 'RON', 'total_minor' => 78_000]]);
+});

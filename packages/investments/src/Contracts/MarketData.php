@@ -40,4 +40,11 @@ interface MarketData
      * @return array<string, LatestPrice> by instrument id; one never priced is left out
      */
     public function latestPrices(array $instrumentIds): array;
+
+    /**
+     * The instruments whose terms were read from this law — a bond, from the order that issued it.
+     *
+     * @return list<string> their ids; none, empty
+     */
+    public function readFrom(string $documentId): array;
 }

@@ -16,6 +16,7 @@ use Kern\Documents\Models\Document;
 use Kern\Documents\Models\DocumentExtraction;
 use Kern\Documents\Parsing\ExtractionSchema;
 use Kern\Documents\Queries\ResolveTransactionImportState;
+use Kern\Platform\Routing\PageSizes;
 use Kern\Platform\Tenancy\Tenancy;
 use Kern\Platform\Tenancy\TenantContext;
 
@@ -54,16 +55,12 @@ use Kern\Platform\Tenancy\TenantContext;
  */
 final class ListDocumentsController
 {
-    /** Matches `ListDocumentExtractionsController`, so both document lists page identically. */
-    private const int DEFAULT_PER_PAGE = 20;
-
-    private const int MAX_PER_PAGE = 100;
-
     public function __invoke(
         Request $request,
         string $subject,
         TenantContext $tenant,
         ResolveTransactionImportState $importState,
+        PageSizes $sizes,
     ): JsonResponse {
         $validated = $request->validate([
             'status' => ['sometimes', Rule::enum(DocumentStatus::class)],
@@ -79,7 +76,7 @@ final class ListDocumentsController
             // language the column does, or the list offers words that appear nowhere in it.
             'stage' => ['sometimes', 'string', Rule::enum(DocumentStage::class)],
             'page' => ['sometimes', 'integer', 'min:1'],
-            'per_page' => ['sometimes', 'integer'],
+            'per_page' => $sizes->rule(),
         ]);
 
         // Newest first, ordered by the primary key rather than by `received_at`.
@@ -142,7 +139,7 @@ final class ListDocumentsController
                 ->whereNotIn('id', self::documentsThatProducedRecords($subjectId));
         }
 
-        $perPage = max(1, min(self::MAX_PER_PAGE, (int) ($validated['per_page'] ?? self::DEFAULT_PER_PAGE)));
+        $perPage = $sizes->of($validated['per_page'] ?? null);
 
         // Numbered pages, which means offset pagination and the `count(*)` that comes with it.
         //

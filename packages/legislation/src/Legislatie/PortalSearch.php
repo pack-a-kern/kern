@@ -79,23 +79,34 @@ final readonly class PortalSearch
     }
 
     /**
-     * Every act this query asks for, page after page, each once — within the search's own time
-     * (`search_deadline_seconds`), past which no further page is asked and the acts found are the answer.
-     *
-     * A page the portal still fails after the method's retries is thrown, whichever page it is: an answer
-     * missing a page it does not say it is missing is worse than none. The site answers a page past the
-     * last with an empty list, so a refusal is never where the results end.
+     * Every act this query asks for, page after page, each once — {@see collect()}'s acts.
      *
      * @return list<PortalAct>
      */
     public function all(PortalQuery $query): array
     {
+        return $this->collect($query)->acts;
+    }
+
+    /**
+     * Every act this query asks for, page after page, each once — within the search's own time
+     * (`search_deadline_seconds`), past which no further page is asked and the acts found are the answer —
+     * and how many times the portal was asked again on the way.
+     *
+     * A page the portal still fails after the method's retries is thrown, whichever page it is: an answer
+     * missing a page it does not say it is missing is worse than none. The site answers a page past the
+     * last with an empty list, so a refusal is never where the results end.
+     */
+    public function collect(PortalQuery $query): PortalFindings
+    {
         $deadline = microtime(true) + $this->config->integer('sources.entries.LEGISLATIE.search_deadline_seconds');
         $found = [];
         $previous = [];
+        $retries = 0;
 
         for ($number = 1; ; $number++) {
             $page = $this->page($query, $number);
+            $retries += $page->retries;
 
             foreach ($page->acts as $act) {
                 if ($query->keeps($act)) {
@@ -110,7 +121,7 @@ final readonly class PortalSearch
             $previous = $page->links();
         }
 
-        return array_values($found);
+        return new PortalFindings(array_values($found), $retries);
     }
 
     /** One page of results, as the portal listed it — {@see PortalQuery::keeps()} says which to keep. */

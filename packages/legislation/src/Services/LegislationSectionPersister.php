@@ -178,6 +178,8 @@ final readonly class LegislationSectionPersister
             'text' => $section->text,
             'text_hash' => $section->textHash(),
             'tables' => $section->tables === [] ? null : json_encode($section->tables, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+            // Only where a table merges a cell: most never do.
+            'table_spans' => array_filter($section->tableSpans) === [] ? null : json_encode($section->tableSpans, JSON_THROW_ON_ERROR),
             'amended_on' => SectionText::amendedOn($section->text),
             'normative_hash' => SectionText::fingerprint($section->fullText()),
             'outline_id' => $outlineId,

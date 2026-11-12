@@ -12,6 +12,7 @@ use Kern\TaxRomania\Subjects\DataTransferObjects\RegisterPfSubjectInput;
 use Kern\TaxRomania\Subjects\Exceptions\DuplicateCnpException;
 use Kern\TaxRomania\Subjects\Exceptions\InvalidCnpException;
 use Kern\TaxRomania\Subjects\Exceptions\SubjectLimitReachedException;
+use Kern\TaxRomania\Subjects\Exceptions\TooManyActiveSubjectsException;
 use Kern\TaxRomania\Subjects\Support\CnpParser;
 use Kern\TaxRomania\Wallet\Actions\EnsureGeneralSource;
 
@@ -85,6 +86,12 @@ final class RegisterPfSubjectController
             return response()->json([
                 'message' => $exception->getMessage(),
                 'reason' => 'SUBJECT_LIMIT_REACHED',
+                'limit' => $exception->limit,
+            ], 422);
+        } catch (TooManyActiveSubjectsException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'reason' => $exception::REASON,
                 'limit' => $exception->limit,
             ], 422);
         } catch (DuplicateCnpException $exception) {

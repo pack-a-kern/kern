@@ -16,7 +16,7 @@ return [
     ],
     'orders' => [
         'act_type' => 'ORDIN',
-        'title_patterns' => ['FIDELIS' => '/Programul FIDELIS/u', 'TEZAUR' => '/în cadrul Programului Tezaur/u'],
+        'title_patterns' => ['FIDELIS' => '/Programul FIDELIS/iu', 'TEZAUR' => '/în cadrul Programului Tezaur/iu'],
     ],
     'subscriptions' => [
         'page_url' => 'https://mfinante.gov.ro/subscriptions',

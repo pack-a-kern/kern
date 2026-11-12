@@ -4,35 +4,34 @@ declare(strict_types=1);
 
 namespace Kern\Legislation\Dependents;
 
-use Illuminate\Support\Facades\DB;
+use Closure;
 
 /**
- * What else in this installation was read from a whole law — not a paragraph of it, which is
- * `SectionDependents`' — and needs the law to stay: a government bond whose terms were read from the
- * order that issued it, for one.
+ * What else in this installation needs a whole law to stay — not a paragraph of it, which is
+ * `SectionDependents`' — a person's holding of a bond the law issued, for one.
  *
- * Whoever holds such a reference declares it with a name the screen can say ("instruments"), and
- * `DeleteLaw` asks here, so this package names no table of another.
+ * Whoever holds such a reference declares it with a name the screen can say ("holdings") and how to count
+ * it, and `DeleteLaw` asks here, so this package names no table of another. What was read from a law and
+ * is nobody's to keep is not declared here: it goes with the law, on `LawDeleting`.
  */
 final class DocumentDependents
 {
-    /** @var array<string, array{table: string, column: string}> */
+    /** @var array<string, Closure(string): int> */
     private array $declared = [];
 
-    /** "These rows were read from a law, which must survive them" — from the declaring package's provider. */
-    public function declare(string $name, string $table, string $column): void
+    /**
+     * "This many of these rest on a law, which must survive them" — from the declaring package's provider.
+     *
+     * @param  Closure(string): int  $count  how many rest on the law with this id
+     */
+    public function declare(string $name, Closure $count): void
     {
-        $this->declared[$name] = ['table' => $table, 'column' => $column];
+        $this->declared[$name] = $count;
     }
 
-    /** @return array<string, int> how many rows of each declared kind rest on this law; none, empty */
+    /** @return array<string, int> how many of each declared kind rest on this law; none, empty */
     public function countFor(string $documentId): array
     {
-        $counts = array_map(
-            static fn (array $dependent): int => DB::table($dependent['table'])->where($dependent['column'], $documentId)->count(),
-            $this->declared,
-        );
-
-        return array_filter($counts);
+        return array_filter(array_map(static fn (Closure $count): int => $count($documentId), $this->declared));
     }
 }

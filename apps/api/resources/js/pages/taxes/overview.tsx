@@ -80,6 +80,8 @@ interface Assessment {
      * is owed.
      */
     totals: Record<string, number>;
+    /** What the year comes to across every tax, added by the server from those totals. */
+    totalOwedMinor: number;
     /** The year's income, from the facts — where each income exists exactly once. */
     incomeAssessedMinor: number;
 }
@@ -156,6 +158,7 @@ function parse(payload: unknown): Assessment {
         status: str(body, 'status'),
         computedAt: typeof body.computed_at === 'string' ? body.computed_at : null,
         totals,
+        totalOwedMinor: int(body, 'total_owed_minor'),
         incomeAssessedMinor: int(body, 'income_assessed_minor'),
         lines: (Array.isArray(body.lines) ? body.lines : []).map((entry): Line => {
             const row = obj(entry);
@@ -175,16 +178,6 @@ function parse(payload: unknown): Assessment {
             };
         }),
     };
-}
-
-/**
- * What the year comes to across every tax — the engine's totals added, not the lines.
- *
- * Adding the six lines would be the same figure, but only because each line belongs to exactly one tax. Taking
- * the totals means the screen agrees with the assessment by construction rather than by coincidence.
- */
-function totalOwedMinor(assessment: Assessment): number {
-    return Object.values(assessment.totals).reduce((sum, minor) => sum + minor, 0);
 }
 
 /**
@@ -219,20 +212,6 @@ function taxName(taxCode: string, t: ReturnType<typeof useTranslation>['t']): st
 }
 
 /**
- * The years worth offering: the ones this taxpayer has records in, newest first.
- *
- * The ledger answers this, because which years exist is a fact about somebody's records. The current year is
- * added when it is missing, since a year in progress has figures worth seeing before it has transactions, and
- * a list with nothing in it would otherwise leave no year selectable at all.
- */
-function yearOptions(years: number[]): number[] {
-    const current = new Date().getFullYear();
-    const offered = years.includes(current) ? [...years] : [current, ...years];
-
-    return offered.filter((year) => year >= 2018).sort((left, right) => right - left);
-}
-
-/**
  * Taxes — what a year's recorded income comes to.
  *
  * Replaces a placeholder that said the engine was blocked on a dataset. It no longer is: the parameters are
@@ -260,7 +239,7 @@ const TAX_TINTS: Record<string, [string, number]> = {
 
 /** A tax's share of the bill, for the bar's width and the percentage beside its name. */
 function shareOf(minor: number, assessment: Assessment): number {
-    const total = totalOwedMinor(assessment);
+    const total = assessment.totalOwedMinor;
 
     return total === 0 ? 0 : minor / total;
 }
@@ -410,8 +389,11 @@ export default function TaxesOverview(): JSX.Element {
         [assessment],
     );
 
-    /** A year that has ended. 2026 cannot be final while income may still arrive in it. */
-    const yearHasClosed = Number(year) < new Date().getFullYear();
+    /**
+     * A year that has ended. 2026 cannot be final while income may still arrive in it. The server's list
+     * leads with this year on Romania's calendar, so no clock here decides it.
+     */
+    const yearHasClosed = loaded?.years[0] !== undefined && Number(year) < loaded.years[0];
 
     /**
      * One request, one outcome, the same error handling.
@@ -504,7 +486,8 @@ export default function TaxesOverview(): JSX.Element {
                             value={year}
                             onValueChange={setYear}
                             icon={<CalendarDays className="size-3.5" aria-hidden="true" />}
-                            options={yearOptions(loaded?.years ?? []).map((value) => ({
+                            // As the server offers them: in range, this year included, newest first.
+                            options={(loaded?.years ?? []).map((value) => ({
                                 value: String(value),
                                 label: String(value),
                             }))}
@@ -659,13 +642,13 @@ export default function TaxesOverview(): JSX.Element {
                                     <TooltipTrigger asChild>
                                         <div
                                             className="stat-value-lead mt-4 w-fit cursor-default"
-                                            aria-label={formatAmount(totalOwedMinor(assessment) / 100, 'RON', locale)}
+                                            aria-label={formatAmount(assessment.totalOwedMinor / 100, 'RON', locale)}
                                         >
-                                            {formatCompact(totalOwedMinor(assessment) / 100, locale)} RON
+                                            {formatCompact(assessment.totalOwedMinor / 100, locale)} RON
                                         </div>
                                     </TooltipTrigger>
                                     <TooltipContent side="bottom">
-                                        {formatAmount(totalOwedMinor(assessment) / 100, 'RON', locale)}
+                                        {formatAmount(assessment.totalOwedMinor / 100, 'RON', locale)}
                                     </TooltipContent>
                                 </Tooltip>
                                 <div className="note mt-1">
@@ -747,7 +730,7 @@ export default function TaxesOverview(): JSX.Element {
 
                         {/* A year with no assessable income would otherwise render three cards of zeroes,
                             which reads as a failure rather than as an answer. */}
-                        {totalOwedMinor(assessment) === 0 && assessment.incomeAssessedMinor === 0 ? (
+                        {assessment.totalOwedMinor === 0 && assessment.incomeAssessedMinor === 0 ? (
                             <p className="note">{t((d) => d.pages.taxes.nothingOwed)}</p>
                         ) : null}
 
@@ -915,7 +898,7 @@ export default function TaxesOverview(): JSX.Element {
                                                             95px — so it may be shortened, with the exact
                                                             figure a hover away. */}
                                                     <p className="text-sm font-semibold tabular-nums">
-                                                        {formatCompact(totalOwedMinor(assessment) / 100, locale)}
+                                                        {formatCompact(assessment.totalOwedMinor / 100, locale)}
                                                     </p>
                                                     <p className="note donut-note">RON</p>
                                                 </div>

@@ -15,8 +15,9 @@ final readonly class PortalPage
     /**
      * @param  list<PortalAct>  $acts  every act the page listed, in the portal's order
      * @param  bool  $full  whether it listed a whole page's worth — a shorter page is the last
+     * @param  int  $retries  how many times the portal was asked again before it answered this page
      */
-    public function __construct(public array $acts, public bool $full)
+    public function __construct(public array $acts, public bool $full, public int $retries)
     {
     }
 

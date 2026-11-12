@@ -259,11 +259,11 @@ it('pages a task history and keeps each task to its own', function (): void {
     $actor = operationsUser('SUPER_ADMIN');
     $key = OperationTask::ACCESS_SYNC->value;
 
-    $this->actingAs($actor)->getJson("/api/v1/operations/tasks/{$key}/runs")->assertOk()
+    $this->actingAs($actor)->getJson("/api/v1/operations/tasks/{$key}/runs?per_page=10")->assertOk()
         ->assertJsonCount(10, 'runs')
         ->assertJsonPath('total', 12);
 
-    $this->actingAs($actor)->getJson("/api/v1/operations/tasks/{$key}/runs?page=2")->assertOk()
+    $this->actingAs($actor)->getJson("/api/v1/operations/tasks/{$key}/runs?page=2&per_page=10")->assertOk()
         ->assertJsonCount(2, 'runs');
 
     // The other task's twelve neighbours are not in its history — the two never mix.

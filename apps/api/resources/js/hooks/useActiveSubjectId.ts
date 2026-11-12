@@ -1,15 +1,5 @@
-import { useSharedAuth, type SharedAuth } from '../lib/sharedProps';
+import { useSharedSubjects } from '../lib/sharedProps';
 import { getActiveSubjectId } from '../lib/subjectStore';
-
-type SharedSubject = SharedAuth['subjects'][number];
-
-/**
- * The taxpayers this person can work in: the ones that came with the page, less any that are closed.
- * A closed taxpayer is kept for its records, not for filing against.
- */
-export function useOpenSubjects(): SharedSubject[] {
-    return (useSharedAuth()?.subjects ?? []).filter((subject) => subject.status !== 'CLOSED');
-}
 
 /**
  * Which of `subjectIds` this browser is working in.
@@ -36,7 +26,7 @@ export function resolveActiveSubjectId(subjectIds: readonly string[], stored: st
  * (`SubjectSwitcher`), so the choice survives the next visit.
  */
 export function useActiveSubjectId(): string | null {
-    const subjects = useOpenSubjects();
+    const subjects = useSharedSubjects();
 
     return resolveActiveSubjectId(
         subjects.map((subject) => subject.id),

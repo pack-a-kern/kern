@@ -1,10 +1,11 @@
 import { apiRequest } from '../lib/http';
 import { runOperationTask } from './operationsApi';
 import {
+    type IgnoredAct,
     type LawDetail,
+    type LawsPage,
     type LawOutline,
     type LawPart,
-    type LawSummary,
     type LawText,
     type LawWatch,
     type LegislationSearchResult,
@@ -22,40 +23,35 @@ import {
     parseProvisionHistory,
 } from '../types/legislation';
 
-export interface LegislationSearchFilters {
-    source?: string;
-    tier?: string;
-    asOf?: string;
-    limit?: number;
+/** Which laws the laws screen shows, and which its search looks in: of one type, year or watch — each, or any. */
+export interface LawFilter {
+    type: string | null;
+    year: number | null;
+    watch: string | null;
+}
+
+/** The filter as the server asks for it; what is "any" is left out. */
+function lawFilterParams(filter: LawFilter): Record<string, string> {
+    return {
+        ...(filter.type === null ? {} : { type: filter.type }),
+        ...(filter.year === null ? {} : { year: String(filter.year) }),
+        ...(filter.watch === null ? {} : { watch: filter.watch }),
+    };
 }
 
 /**
- * `GET /api/v1/legislation/search` — hybrid lexical + semantic search over ingested legislation.
+ * `GET /api/v1/legislation/search` — the provisions of the laws the filter keeps, by words and, where the
+ * installation searches by meaning, by meaning.
  *
  * `asOf` decides which versions can match, so it is sent explicitly rather than left to the server's
  * clock: the same query run tomorrow would otherwise silently search different law.
  */
 export async function searchLegislation(
     query: string,
-    filters: LegislationSearchFilters = {},
+    asOf: string,
+    laws: LawFilter,
 ): Promise<LegislationSearchResult> {
-    const params = new URLSearchParams({ q: query });
-
-    if (filters.source !== undefined && filters.source !== '') {
-        params.set('source', filters.source);
-    }
-
-    if (filters.tier !== undefined && filters.tier !== '') {
-        params.set('tier', filters.tier);
-    }
-
-    if (filters.asOf !== undefined && filters.asOf !== '') {
-        params.set('as_of', filters.asOf);
-    }
-
-    if (filters.limit !== undefined) {
-        params.set('limit', String(filters.limit));
-    }
+    const params = new URLSearchParams({ q: query, as_of: asOf, ...lawFilterParams(laws) });
 
     return parseLegislationSearch(JSON.parse(await apiRequest(`/v1/legislation/search?${params.toString()}`)));
 }
@@ -120,9 +116,45 @@ export async function readPortalAct(
     });
 }
 
-/** Every law read from legislatie.just.ro. */
-export async function listLaws(): Promise<LawSummary[]> {
-    return parseLaws(JSON.parse(await apiRequest('/v1/legislation/laws')));
+/**
+ * `POST /api/v1/legislation/imports` — several acts a search found, each queued to be read one after
+ * another; those already read are passed over. How each goes is said over the socket (`subscribeToPortalActs` in `lib/echo`).
+ */
+export async function importPortalActs(
+    acts: Pick<PortalActResult, 'type' | 'number' | 'year' | 'portalId'>[],
+): Promise<{ queued: number; alreadyRead: number }> {
+    const answer = JSON.parse(
+        await apiRequest('/v1/legislation/imports', {
+            method: 'POST',
+            body: {
+                acts: acts.map((act) => ({
+                    type: act.type,
+                    number: Number(act.number),
+                    year: act.year ?? 0,
+                    portal_id: Number(act.portalId),
+                })),
+            },
+        }),
+    ) as { queued?: unknown; already_read?: unknown };
+
+    return {
+        queued: typeof answer.queued === 'number' ? answer.queued : 0,
+        alreadyRead: typeof answer.already_read === 'number' ? answer.already_read : 0,
+    };
+}
+
+/**
+ * One page of the laws read from legislatie.just.ro of one type, year or watch — each, or any — how many
+ * there are in all, and what may be filtered by.
+ */
+export async function listLaws(filter: LawFilter, page: number, pageSize: number): Promise<LawsPage> {
+    const query = new URLSearchParams({
+        ...lawFilterParams(filter),
+        page: String(page),
+        per_page: String(pageSize),
+    }).toString();
+
+    return parseLaws(JSON.parse(await apiRequest(`/v1/legislation/laws?${query}`)));
 }
 
 /**
@@ -131,8 +163,8 @@ export async function listLaws(): Promise<LawSummary[]> {
  * Refused with 409 while any fiscal value rests on one of its paragraphs: a value's whole claim is
  * the paragraph it was read in, and a law the values stand on is not something to lose by a click.
  */
-export async function deleteLaw(lawId: string): Promise<void> {
-    await apiRequest(`/v1/legislation/laws/${encodeURIComponent(lawId)}`, { method: 'DELETE' });
+export async function deleteLaw(lawId: string, ignore: boolean): Promise<void> {
+    await apiRequest(`/v1/legislation/laws/${encodeURIComponent(lawId)}`, { method: 'DELETE', body: { ignore } });
 }
 
 export async function getLaw(lawId: string): Promise<LawDetail> {
@@ -175,8 +207,8 @@ export async function getLawOutline(lawId: string, asOf: string): Promise<LawOut
     );
 }
 
-/** Every watched search, and the intervals a person may choose. */
-export async function listLawWatches(): Promise<{ watches: LawWatch[]; intervals: number[] }> {
+/** Every watched search, the intervals a person may choose, and the acts the watches ignore. */
+export async function listLawWatches(): Promise<{ watches: LawWatch[]; intervals: number[]; ignored: IgnoredAct[] }> {
     return parseLawWatches(JSON.parse(await apiRequest('/v1/legislation/watches')));
 }
 
@@ -223,4 +255,16 @@ export async function changeLawWatch(
 /** Stops watching a search a person kept; the laws it found stay. A package's is refused. */
 export async function deleteLawWatch(id: string): Promise<void> {
     await apiRequest(`/v1/legislation/watches/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+/** Runs a watch now, on the queue; it answers at once, and says over the socket when the run is done. */
+export async function runLawWatch(id: string): Promise<LawWatch> {
+    return parseLawWatch(
+        JSON.parse(await apiRequest(`/v1/legislation/watches/${encodeURIComponent(id)}/run`, { method: 'POST' })),
+    );
+}
+
+/** Takes an act off the ignored list: the next run that finds it reads it in. */
+export async function allowIgnoredAct(id: string): Promise<void> {
+    await apiRequest(`/v1/legislation/watches/ignored/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }

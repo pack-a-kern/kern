@@ -26,6 +26,7 @@ import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { formatDateTime } from '../../lib/format';
+import { usePaging } from '../../lib/sharedProps';
 import { useActiveSubjectId } from '../../hooks/useActiveSubjectId';
 import { cn } from '../../lib/utils';
 import type { StatementImport } from '../../types/statementImport';
@@ -103,7 +104,7 @@ export default function WalletImports(): JSX.Element {
 
     const [imports, setImports] = useState<StatementImport[] | null>(null);
     const [total, setTotal] = useState(0);
-    const [perPage, setPerPage] = useState(25);
+    const [perPage, setPerPage] = useState(usePaging().default);
     const [page, setPage] = useState(1);
     const [failed, setFailed] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
@@ -130,7 +131,7 @@ export default function WalletImports(): JSX.Element {
 
         let active = true;
 
-        listStatementImports(subjectId, page).then(
+        listStatementImports(subjectId, page, perPage).then(
             (loaded) => {
                 if (active) {
                     setImports(loaded.imports);
@@ -149,7 +150,7 @@ export default function WalletImports(): JSX.Element {
         return () => {
             active = false;
         };
-    }, [subjectId, page, reloadKey]);
+    }, [subjectId, page, perPage, reloadKey]);
 
     if (subjectId === null) {
         return (

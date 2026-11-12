@@ -18,6 +18,7 @@ use Kern\TaxRomania\Subjects\Models\PfProfile;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use Kern\TaxRomania\Subjects\Services\SubjectAllowance;
+use RuntimeException;
 
 /**
  * Registers a new PF `TaxSubject`: checks for a duplicate CNP across the whole system
@@ -89,6 +90,9 @@ final readonly class RegisterPfSubject
         }
 
         return DB::transaction(function () use ($input, $cnpBlindIndex): TaxSubject {
+            // A new taxpayer is one more in use.
+            $this->allowance->ensureActiveRoom($input->registeringUserId);
+
             $subject = new TaxSubject();
             $subject->type = SubjectType::PF;
             $subject->country_code = $this->country();
@@ -141,6 +145,6 @@ final readonly class RegisterPfSubject
     {
         $configured = config('subjects.default_country');
 
-        return is_string($configured) && $configured !== '' ? $configured : 'RO';
+        return is_string($configured) && $configured !== '' ? $configured : throw new RuntimeException('SUBJECTS_DEFAULT_COUNTRY must be set.');
     }
 }

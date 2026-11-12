@@ -82,8 +82,10 @@ it('carries the figures a screen needs, in the shape the computing endpoint retu
         ->json('assessment');
 
     expect(array_keys($read))->toEqualCanonicalizing([
-        'id', 'fiscal_year', 'status', 'computed_at', 'lines', 'totals', 'income_assessed_minor',
-    ])->and($read['computed_at'])->toBeString();
+        'id', 'fiscal_year', 'status', 'computed_at', 'lines', 'totals', 'total_owed_minor', 'income_assessed_minor',
+    ])->and($read['computed_at'])->toBeString()
+        // The year's whole, added by the server from the engine's totals, so the screen adds nothing.
+        ->and($read['total_owed_minor'])->toBe(array_sum(array_column((array) $read['totals'], 'minor_units')));
 });
 
 it('refuses a year outside the fiscal dataset', function (): void {
@@ -146,13 +148,43 @@ it('offers the years the ledger actually has, newest first', function (): void {
     expect($years)->toBe([2026, 2019]);
 });
 
-it('offers nothing for a taxpayer with no records', function (): void {
+it('offers this year alone to a taxpayer with no records', function (): void {
     $subject = assessableSubject();
+    $this->travelTo('2026-06-01 12:00:00');
 
     app()->instance(LedgerIncomeProvider::class, app(EloquentLedgerIncomeProvider::class));
 
     $this->actingAs(subjectOwner())
         ->getJson("/api/v1/subjects/{$subject->id}/tax/assessments?fiscal_year=2026")
         ->assertOk()
-        ->assertJsonPath('years', []);
+        ->assertJsonPath('years', [2026]);
+});
+
+it('offers and accepts the years from TAX_FIRST_FISCAL_YEAR to this one on Romania\'s calendar', function (): void {
+    config()->set('fiscal_parameters.first_fiscal_year', 2020);
+    $subject = assessableSubject();
+    app()->instance(LedgerIncomeProvider::class, new class () implements LedgerIncomeProvider {
+        public function yearsWithActivity(string $taxSubjectId): array
+        {
+            return [2021, 2019];
+        }
+
+        public function incomeIn(string $taxSubjectId, int $fiscalYear, array $categoryCodes): array
+        {
+            return [];
+        }
+    });
+    // 1 January 2027, half past midnight in Bucharest — still 2026 on the server's clock.
+    $this->travelTo('2026-12-31 22:30:00');
+
+    $this->actingAs(subjectOwner())
+        ->getJson("/api/v1/subjects/{$subject->id}/tax/assessments?fiscal_year=2027")
+        ->assertOk()
+        ->assertJsonPath('years', [2027, 2021]);
+
+    foreach ([2019, 2028] as $outside) {
+        $this->actingAs(subjectOwner())
+            ->getJson("/api/v1/subjects/{$subject->id}/tax/assessments?fiscal_year={$outside}")
+            ->assertStatus(422);
+    }
 });

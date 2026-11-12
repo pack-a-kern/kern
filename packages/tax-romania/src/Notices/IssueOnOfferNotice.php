@@ -23,6 +23,9 @@ use NumberFormatter;
  */
 final readonly class IssueOnOfferNotice implements NoticeType
 {
+    /** The one thing a notice keeps: the issue's instrument id, under this name. */
+    public const string INSTRUMENT = 'instrument_id';
+
     public function __construct(private MarketData $market)
     {
     }
@@ -34,7 +37,7 @@ final readonly class IssueOnOfferNotice implements NoticeType
 
     public static function about(string $instrumentId): Notice
     {
-        return new Notice(self::class, ['instrument_id' => $instrumentId]);
+        return new Notice(self::class, [self::INSTRUMENT => $instrumentId]);
     }
 
     public function label(string $locale): string
@@ -49,11 +52,11 @@ final readonly class IssueOnOfferNotice implements NoticeType
 
     public function render(array $notices, Model $notifiable, string $locale): array
     {
-        $instruments = $this->market->instruments(array_values(array_filter(array_column($notices, 'instrument_id'), is_string(...))));
+        $instruments = $this->market->instruments(array_values(array_filter(array_column($notices, self::INSTRUMENT), is_string(...))));
         $messages = [];
 
         foreach ($notices as $id => $data) {
-            $instrument = $instruments[is_string($data['instrument_id'] ?? null) ? $data['instrument_id'] : ''] ?? null;
+            $instrument = $instruments[is_string($data[self::INSTRUMENT] ?? null) ? $data[self::INSTRUMENT] : ''] ?? null;
 
             // Once its subscription is over, the news is too.
             if ($instrument === null || $instrument->status !== InstrumentStatus::ON_OFFER || $instrument->maturityDate === null) {

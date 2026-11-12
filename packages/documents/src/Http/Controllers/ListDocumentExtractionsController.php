@@ -10,6 +10,7 @@ use Kern\Documents\Models\Document;
 use Kern\Documents\Models\DocumentExtraction;
 use Kern\Documents\Parsing\ExtractionSchema;
 use Kern\Documents\Payments\ResolvePaymentParties;
+use Kern\Platform\Routing\PageSizes;
 
 /**
  * `GET /api/v1/subjects/{subject}/documents/{document}/extractions` — `BLUEPRINT.md` §14.6's human
@@ -30,16 +31,20 @@ final class ListDocumentExtractionsController
         string $subject,
         string $document,
         ResolvePaymentParties $parties,
+        PageSizes $sizes,
     ): JsonResponse {
+        $validated = $request->validate(['per_page' => $sizes->rule()]);
         $documentModel = Document::query()->findOrFail($document);
         $tenantId = $documentModel->tenantId();
 
         $cursor = $request->query('cursor');
-        $perPage = max(1, min(100, $request->integer('per_page', 20)));
+        $perPage = $sizes->of($validated['per_page'] ?? null);
 
         $paginator = DocumentExtraction::query()
             ->where('document_id', $documentModel->id)
-            ->orderBy('id')
+            // Newest first, by the UUIDv7 key: the reading a screen starts from is the latest one — after a
+            // correction, the person's, not the proposal it replaced.
+            ->orderByDesc('id')
             ->cursorPaginate($perPage, ['*'], 'cursor', is_string($cursor) ? $cursor : null)
             ->through(static fn (DocumentExtraction $extraction): array => self::summarize(
                 $extraction->withEncryptionSubjectId($tenantId),

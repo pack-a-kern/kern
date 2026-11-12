@@ -652,6 +652,8 @@ it('deletes an import whether or not it became transactions, and refuses only on
 });
 
 it('serves the page of rows that was asked for', function (): void {
+    withPageSizes('1,2,25', 25);
+
     [$user, $subjectId, $accountId] = importer();
     $import = startImport($this, $user, $subjectId, $accountId, 'extras-pagini.csv');
 

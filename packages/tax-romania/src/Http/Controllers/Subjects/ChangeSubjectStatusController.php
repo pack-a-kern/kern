@@ -9,11 +9,12 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Kern\TaxRomania\Subjects\Actions\ChangeSubjectStatus;
 use Kern\TaxRomania\Subjects\Enums\SubjectStatus;
+use Kern\TaxRomania\Subjects\Exceptions\TooManyActiveSubjectsException;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 
 /**
- * `PUT /api/v1/subjects/{subject}/status` — suspend, close, or reactivate a taxpayer.
+ * `PUT /api/v1/subjects/{subject}/status` — close or reactivate a taxpayer.
  *
  * This is the endpoint a "delete" button reaches. There is no delete: see
  * `Kern\TaxRomania\Subjects\Actions\ChangeSubjectStatus` for why the schema forbids one.
@@ -36,7 +37,15 @@ final class ChangeSubjectStatusController
             ? $data['status']
             : SubjectStatus::from((string) $data['status']);
 
-        $change($model, $status, $user->id);
+        try {
+            $change($model, $status, $user->id);
+        } catch (TooManyActiveSubjectsException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'reason' => $exception::REASON,
+                'limit' => $exception->limit,
+            ], 422);
+        }
 
         return response()->json(['id' => $model->id, 'status' => $status->value]);
     }

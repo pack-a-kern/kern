@@ -33,7 +33,7 @@ final readonly class FilingDeadline
     /** @return array{income_year: int, due_on: string, days_left: int}|null */
     public function next(): ?array
     {
-        $today = CarbonImmutable::today($this->config->string('fiscal_parameters.timezone'));
+        $today = $this->today();
 
         foreach ([$today->year - 1, $today->year] as $year) {
             $due = $this->dueFor($year);
@@ -46,6 +46,17 @@ final readonly class FilingDeadline
         }
 
         return null;
+    }
+
+    /** Until when `next()` holds: its count of days is right until Romania's next midnight. */
+    public function validUntil(): CarbonImmutable
+    {
+        return $this->today()->addDay();
+    }
+
+    private function today(): CarbonImmutable
+    {
+        return CarbonImmutable::today($this->config->string('fiscal_parameters.timezone'));
     }
 
     /** The day one year's declaration is due, where an approved value says it. */

@@ -1,9 +1,30 @@
 import { apiRequest } from '../lib/http';
 import { type AccessCatalogue, type AdminDirectory, parseAccessCatalogue, parseAdminDirectory } from '../types/admin';
 
-/** `GET /api/v1/admin/users` — accounts, their MFA posture, memberships, and what is enforced. */
-export async function getAdminDirectory(): Promise<AdminDirectory> {
-    return parseAdminDirectory(JSON.parse(await apiRequest('/v1/admin/users')));
+/** What the directory is narrowed to. `email` is a whole address: the server matches it, never part of one. */
+export interface DirectoryFilters {
+    email: string;
+    status: string;
+    role: string;
+    page: number;
+    perPage: number;
+}
+
+/** `GET /api/v1/admin/users` — one page of accounts, their MFA posture, memberships, and what is enforced. */
+export async function getAdminDirectory(filters: DirectoryFilters): Promise<AdminDirectory> {
+    const params = new URLSearchParams({ page: String(filters.page), per_page: String(filters.perPage) });
+
+    for (const [key, value] of [
+        ['email', filters.email.trim()],
+        ['status', filters.status],
+        ['role', filters.role],
+    ] as const) {
+        if (value !== '') {
+            params.set(key, value);
+        }
+    }
+
+    return parseAdminDirectory(JSON.parse(await apiRequest(`/v1/admin/users?${params.toString()}`)));
 }
 
 /** `GET /api/v1/admin/access` — the permission matrix as configured in the database. */

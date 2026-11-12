@@ -1,5 +1,4 @@
 import { useTranslation } from '../i18n';
-import { ADMIN_UI_ENABLED } from './featureFlags';
 import { useSharedAuth } from './sharedProps';
 
 /**
@@ -11,7 +10,7 @@ export function useSettingsLink(): { href: string; label: string } {
     const { t } = useTranslation();
     const permissions = useSharedAuth()?.user.permissions ?? [];
 
-    return ADMIN_UI_ENABLED && permissions.includes('system.settings.view')
+    return permissions.includes('system.settings.view')
         ? { href: '/admin/settings', label: t((d) => d.nav.adminSettings) }
         : { href: '/account', label: t((d) => d.nav.accountGroup) };
 }

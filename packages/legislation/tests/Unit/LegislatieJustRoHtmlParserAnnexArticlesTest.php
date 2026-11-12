@@ -42,3 +42,19 @@ it('keeps the annex article holding the table of issues, with its table', functi
     expect($issues->children[0]->tables)->not->toBe([])
         ->and(json_encode($issues->children[0]->tables, JSON_UNESCAPED_UNICODE))->toContain('0228');
 });
+
+it('keeps where a table merges cells, by their place among its rows, and only those', function (): void {
+    [, $annex] = tezaurProspectus();
+    $schedule = $annex->children[7];
+
+    // "Cod emisiune 0228" across the three columns; "Plata valorii nominale" two wide and two tall,
+    // so the date of the principal stands in the third column, under "Data de plată a valorii nominale".
+    expect($schedule->tableSpans[0])->toBe([
+        ['row' => 0, 'cell' => 0, 'colspan' => 3, 'rowspan' => 1],
+        ['row' => 3, 'cell' => 0, 'colspan' => 2, 'rowspan' => 2],
+    ])
+        ->and($schedule->tables[0][3])->toBe(['Plata valorii nominale', 'Data de plată a valorii nominale'])
+        ->and($schedule->tables[0][4])->toBe(['10 noiembrie 2027'])
+        ->and($schedule->tableSpans)->toHaveCount(count($schedule->tables))
+        ->and($annex->children[1]->children[0]->tableSpans)->toBe([[]]);
+});

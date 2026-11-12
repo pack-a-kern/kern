@@ -118,6 +118,8 @@ final class ReadPortalSearchPage implements ShouldQueue
                 'acts' => $acts,
                 'last_links' => $page->links(),
                 'pages_read' => $this->page,
+                // The portal asked again within the page, and this job tried again before it answered.
+                'retries' => $search->retries + $page->retries + $this->attempts() - 1,
                 'status' => $last ? PortalSearchStatus::DONE : PortalSearchStatus::RUNNING,
                 'finished_at' => $last ? now() : null,
             ])->save();

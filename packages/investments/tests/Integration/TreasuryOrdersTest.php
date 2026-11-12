@@ -19,10 +19,13 @@ use Kern\Investments\Services\TreasuryOrders;
 use Kern\Legislation\Events\LawConsolidationsRead;
 use Kern\Legislation\Models\SourceDocument;
 use Kern\Legislation\Models\SourceDocumentVersion;
+use Kern\Legislation\Parsing\LegislatieJustRoHtmlParser;
+use Kern\Legislation\Queries\LawFlags;
 use Kern\Legislation\Repositories\OfficialSourceRepository;
+use Kern\Legislation\Services\LegislationSectionPersister;
 use Kern\Legislation\Storage\RawSourceObjectStore;
 
-/** A real order, kept as kern/legislation keeps one it has read: the document, and its page stored. */
+/** A real order, kept as kern/legislation keeps one it has read: the document, its page stored, and its provisions. */
 function storedOrder(string $fixture, string $title, array $changes = []): SourceDocument
 {
     $page = strtr((string) file_get_contents(__DIR__ . "/../Fixtures/orders/{$fixture}.html"), $changes);
@@ -35,13 +38,14 @@ function storedOrder(string $fixture, string $title, array $changes = []): Sourc
         'title' => $title,
         'issuer' => 'Ministerul Finanțelor',
     ]);
-    SourceDocumentVersion::query()->create([
+    $version = SourceDocumentVersion::query()->create([
         'source_document_id' => $order->id,
         'retrieved_at' => now(),
         'content_sha256' => $stored->sha256,
         'raw_object_path' => $stored->path,
         'size_bytes' => strlen($page),
     ]);
+    app(LegislationSectionPersister::class)->persist($version->id, (new LegislatieJustRoHtmlParser())->parse($page));
 
     return $order;
 }
@@ -99,6 +103,23 @@ it('reads an order once: read again, it changes nothing', function (): void {
         ->and(TreasuryOrder::query()->count())->toBe(1);
 });
 
+it('leaves a bond another order wrote as it is, and says beside the order how many it skipped', function (): void {
+    $first = storedOrder('fidelis-terms', 'ORDIN … Programul FIDELIS');
+    $second = storedOrder('fidelis-terms', 'ORDIN … Programul FIDELIS', ['7,60% pe an' => '9,99% pe an']);
+
+    app(TreasuryOrders::class)->read($first->id, Programme::FIDELIS);
+    app(TreasuryOrders::class)->read($second->id, Programme::FIDELIS);
+
+    $issue = FinancialInstrument::query()->where('isin', 'ROQEJCC1VXP7')->firstOrFail();
+
+    expect(FinancialInstrument::query()->count())->toBe(7)
+        ->and($issue->rate)->toBe('7.60')
+        ->and($issue->terms_document_id)->toBe($first->id)
+        ->and(TreasuryOrder::query()->where('source_document_id', $first->id)->firstOrFail()->skipped_issues)->toBe([])
+        ->and(TreasuryOrder::query()->where('source_document_id', $second->id)->firstOrFail()->skipped_issues)->toHaveCount(7)
+        ->and(app(LawFlags::class)->for([$first->id, $second->id]))->toBe([$second->id => [['code' => 'bonds_skipped', 'count' => 7]]]);
+});
+
 it('records an order with no issue as read, and writes nothing for it', function (): void {
     $order = storedOrder('tezaur-prospectus', 'ORDIN … Programul FIDELIS');
 
@@ -106,6 +127,26 @@ it('records an order with no issue as read, and writes nothing for it', function
 
     expect(FinancialInstrument::query()->count())->toBe(0)
         ->and(TreasuryOrder::query()->value('issues_count'))->toBe(0);
+});
+
+it('reads again an order read as having no issue, and writes the issues it finds now', function (): void {
+    // As a reading that did not know this layout recorded it.
+    $order = storedOrder('fidelis-terms', 'ORDIN … Programul FIDELIS');
+    TreasuryOrder::query()->create(['source_document_id' => $order->id, 'programme' => Programme::FIDELIS, 'issues_count' => 0, 'read_at' => now()->subDay()]);
+
+    app(TreasuryOrders::class)->read($order->id, Programme::FIDELIS);
+
+    expect(TreasuryOrder::query()->sole()->issues_count)->toBe(7)
+        ->and(FinancialInstrument::query()->count())->toBe(7);
+});
+
+it('reads an order from its provisions as stored, its page gone from the object store', function (): void {
+    $order = storedOrder('tezaur-prospectus', 'ORDIN … în cadrul Programului Tezaur');
+    app(RawSourceObjectStore::class)->forget((string) SourceDocumentVersion::query()->where('source_document_id', $order->id)->value('raw_object_path'));
+
+    app(TreasuryOrders::class)->read($order->id, Programme::TEZAUR);
+
+    expect(FinancialInstrument::query()->pluck('issue_code')->sort()->values()->all())->toBe(['0228', '0229', '0230']);
 });
 
 it('writes nothing of an order whose terms do not read', function (): void {

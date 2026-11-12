@@ -6,7 +6,7 @@ namespace Kern\TaxRomania\Http\Controllers\Operations;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
+use Kern\Platform\Routing\PageSizes;
 use Kern\TaxRomania\Operations\Enums\OperationTask;
 use Kern\TaxRomania\Operations\Models\TaskRun;
 
@@ -23,22 +23,17 @@ use Kern\TaxRomania\Operations\Models\TaskRun;
  */
 final class ShowTaskRunsController
 {
-    private const int DEFAULT_PAGE_SIZE = 10;
-
-    /** Mirrors `PAGE_SIZES` in `resources/js/components/Pagination.tsx`. */
-    private const array PAGE_SIZES = [10, 25, 50, 100];
-
-    public function __invoke(Request $request, string $task): JsonResponse
+    public function __invoke(Request $request, string $task, PageSizes $sizes): JsonResponse
     {
         $resolved = OperationTask::tryFrom($task);
         abort_if($resolved === null, 404);
 
         $validated = $request->validate([
             'page' => ['nullable', 'integer', 'min:1'],
-            'per_page' => ['nullable', 'integer', Rule::in(self::PAGE_SIZES)],
+            'per_page' => $sizes->rule(),
         ]);
 
-        $perPage = isset($validated['per_page']) ? (int) $validated['per_page'] : self::DEFAULT_PAGE_SIZE;
+        $perPage = $sizes->of($validated['per_page'] ?? null);
         $page = isset($validated['page']) ? (int) $validated['page'] : 1;
 
         $query = TaskRun::query()->where('task_key', $resolved->value);

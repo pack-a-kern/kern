@@ -7,7 +7,9 @@ namespace Kern\TaxRomania;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Kern\Investments\Events\InstrumentsWithdrawn;
 use Kern\Investments\Events\IssueOnOffer;
+use Kern\Legislation\Dependents\DocumentDependents;
 use Kern\Legislation\Dependents\SectionDependents;
 use Kern\Notifications\Services\NoticeTypes;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexReindexers;
@@ -35,11 +37,13 @@ use Kern\TaxRomania\Notices\DepositMaturityNotice;
 use Kern\TaxRomania\Notices\HoldingPayoutNotice;
 use Kern\TaxRomania\Notices\IssueOnOfferNotice;
 use Kern\TaxRomania\Notices\StatementImportNotice;
+use Kern\TaxRomania\Notices\WithdrawIssueNotices;
 use Kern\TaxRomania\Spv\SpvServiceProvider;
 use Kern\TaxRomania\StatementImport\StatementImportServiceProvider;
 use Kern\TaxRomania\Subjects\SubjectsServiceProvider;
 use Kern\TaxRomania\TaxEngine\Contracts\LedgerIncomeProvider;
 use Kern\TaxRomania\Wallet\Providers\EloquentLedgerIncomeProvider;
+use Kern\TaxRomania\Wallet\Queries\HoldingsOfALaw;
 
 /**
  * Romanian tax for an individual: the taxpayer, what the law says a tax costs, and everything a
@@ -160,6 +164,10 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
         $dependents->declare('fiscal_parameter_versions', 'source_section_id');
         $dependents->declare('tax_rule_sources', 'source_section_id');
 
+        // A person's holding of a bond keeps the order the bond was read from; nobody holding one, the
+        // order goes with its bonds and their notices.
+        $this->app->make(DocumentDependents::class)->declare('holdings', fn (string $law): int => $this->app->make(HoldingsOfALaw::class)($law));
+
         PackageRoutes::load(__DIR__ . '/../routes/api.php');
 
         ConfiguredRateLimit::register('statement-import-model-per-subject', 'statement_import.rate_limits.model_per_subject', ConfiguredRateLimit::perTenant());
@@ -205,6 +213,7 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
 
         // `kern/investments` raises it when it first reads an issue still on offer; the notice is this package's (ADR 0025 §8).
         Event::listen(IssueOnOffer::class, [AnnounceIssueOnOffer::class, 'handle']);
+        Event::listen(InstrumentsWithdrawn::class, [WithdrawIssueNotices::class, 'handle']);
     }
 
     /**

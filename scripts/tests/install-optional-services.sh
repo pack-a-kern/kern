@@ -38,8 +38,7 @@ answer() {
         ENV_FILE="$TEST_ENV_FILE"
         TRUSTED_DIR="$(dirname "$TEST_ENV_FILE")/trusted"
         '"$1"' >/dev/null
-        write_optional_service "$PROCESSING_MODE" PROCESSING_URL PROCESSING_CA_CERT INTERNAL_SERVICE_AUTH_TOKEN \
-            "$PROCESSING_URL_ANSWER" "$PROCESSING_CA" "$PROCESSING_TOKEN"
+        write_processing
         write_optional_service "$BROWSER_MODE" BROWSER_WORKER_URL BROWSER_WORKER_CA_CERT BROWSER_WORKER_TOKEN \
             "$BROWSER_URL_ANSWER" "$BROWSER_CA" "$BROWSER_TOKEN"
     ' "$ROOT/scripts/install.sh"
@@ -55,33 +54,41 @@ for service in processing browser; do
     if [ "$service" = processing ]; then
         ask=ask_processing url=PROCESSING_URL ca=PROCESSING_CA_CERT token=INTERNAL_SERVICE_AUTH_TOKEN
         default_url=https://python-api:8000
+        # Asked after the plane, here and elsewhere: by meaning when installed here, by words when elsewhere.
+        here='1
+' elsewhere='2
+'
     else
         ask=ask_browser_worker url=BROWSER_WORKER_URL ca=BROWSER_WORKER_CA_CERT token=BROWSER_WORKER_TOKEN
         default_url=https://browser-worker:8090
+        here='' elsewhere=''
     fi
 
     printf '\n%s, installed here\n' "$service"
-    out=$(answer "$ask" '1
-')
+    out=$(answer "$ask" "1
+$here")
     check 'a generated token of 64 hex digits' "$(value "$out" "$token" | grep -cE '^[0-9a-f]{64}$')" 1
     check 'the address left at the compose default' "$(value "$out" "$url")" "$default_url"
+    [ "$service" = browser ] || check 'the laws searched by meaning' "$(value "$out" RETRIEVAL_EMBEDDING_ENABLED)" true
 
     printf '\n%s, reached elsewhere (an http:// address refused first)\n' "$service"
-    out=$(answer "$ask" '2
+    out=$(answer "$ask" "2
 http://elsewhere.example
 https://elsewhere.example
 
 the-shared-secret
-')
+$elsewhere")
     check 'the https:// address' "$(value "$out" "$url")" https://elsewhere.example
     check 'no private CA' "$(value "$out" "$ca")" ''
     check 'the token as typed' "$(value "$out" "$token")" the-shared-secret
+    [ "$service" = browser ] || check 'the laws searched by words alone' "$(value "$out" RETRIEVAL_EMBEDDING_ENABLED)" false
 
     printf '\n%s, left out\n' "$service"
     out=$(answer "$ask" '3
 ')
     check 'the address written empty' "$(value "$out" "$url")" ''
     check 'no token' "$(value "$out" "$token")" '<unset>'
+    [ "$service" = browser ] || check 'no plane, so by words alone' "$(value "$out" RETRIEVAL_EMBEDDING_ENABLED)" false
 done
 
 [ "$FAILED" = 0 ] || { printf '\nThe installer answered wrongly.\n'; exit 1; }

@@ -22,9 +22,8 @@ use Orchestra\Testbench\TestCase as Testbench;
  * because the law belongs to nobody — every table here is unscoped, which is why searching it needs
  * no tenant at all.
  *
- * Embeddings are off: `ai.embeddings.enabled` defaults to false and stays there, so search is
- * lexical plus citation similarity. That is the shipped default for the same reason it is right here —
- * an installation without the embedding service must degrade rather than fail mid-backfill.
+ * Embeddings are off: `ai.embeddings.enabled` is set false, so search is lexical plus citation
+ * similarity — what an installation without the embedding service runs.
  */
 abstract class TestCase extends Testbench
 {
@@ -66,7 +65,9 @@ abstract class TestCase extends Testbench
         $app['config']->set('sources.browser.user_agent', 'Mozilla/5.0 (Test) Chrome/128.0.0.0');
         $app['config']->set('sources.crawler.name', 'Kern-Test-Crawler/1.0');
         $app['config']->set('ai.embeddings.enabled', false);
+        $app['config']->set('legislation.search', ['weight_meaning' => '0.5', 'weight_words' => '0.3', 'weight_label' => '0.2', 'min_label' => '0.3', 'min_meaning' => '0.3', 'results' => '20', 'max_results' => '50']);
         $app['config']->set('legislation.watches', ['lock_seconds' => '900', 'overlap_days' => '31', 'intervals' => '24,168,720', 'max_new_acts' => '50', 'max_per_person' => '20', 'declared' => []]);
+        $app['config']->set('legislation.imports', ['max_acts' => '50']);
 
         // Reading a law is queued work — one consolidation per job — and this suite wants the reading
         // itself, not a queue. `sync` runs each job where it is dispatched.

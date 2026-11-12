@@ -44,13 +44,11 @@ import ImpersonationBanner from './ImpersonationBanner';
 import { usePageHeader } from '../lib/pageHeader';
 import { getDictionary, useTranslation } from '../i18n';
 import type { Dictionary } from '../i18n/dictionary';
-import { ADMIN_UI_ENABLED } from '../lib/featureFlags';
 import { cn } from '../lib/utils';
 import { BOTTOM_BAR } from '../lib/bottomBar';
 import { subscribeToTaxpayerChanges, subscribeToUserNotifications } from '../lib/echo';
 import { formatDate, formatDateTime } from '../lib/format';
-import { getFilingDeadline } from '../api/fiscalParametersApi';
-import type { FilingDeadline } from '../types/fiscalParameters';
+import { parseFilingDeadline } from '../types/fiscalParameters';
 import { refreshSharedAuth, useAppName, useSharedAuth } from '../lib/sharedProps';
 import type { Notice } from '../types/notifications';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
@@ -208,10 +206,15 @@ const ADMIN_GROUP: NavLink = {
     label: (d) => d.nav.adminGroup,
     icon: Settings,
     children: [
-        { href: '/admin/settings', label: (d) => d.nav.adminSettings, icon: Settings },
-        { href: '/admin/users', label: (d) => d.nav.adminUsers, icon: Users },
-        /* Hidden rather than refused: both read the operations API, and a row that answers 403 when
-           pressed tells a person about a permission instead of about the installation. */
+        /* Hidden rather than refused: a row that answers 403 when pressed tells a person about a
+           permission instead of about the installation. */
+        {
+            href: '/admin/settings',
+            label: (d) => d.nav.adminSettings,
+            icon: Settings,
+            permission: 'system.settings.view',
+        },
+        { href: '/admin/users', label: (d) => d.nav.adminUsers, icon: Users, permission: 'users.view' },
         { href: '/admin/jobs', label: (d) => d.nav.adminJobs, icon: ListTodo, permission: 'operations.view' },
         {
             href: '/admin/tasks',
@@ -617,28 +620,11 @@ function NavRow({
  * approved its day from the law (`RO.INCOME_TAX.FILING_DEADLINE`). Opens the taxes page.
  *
  * Nothing at all until that day is known — not a placeholder date, which would be a deadline made
- * up — and nothing when the request fails: the connection banner already says what is wrong.
+ * up. Handed with the page (`filingDeadline`), so it costs no request of its own.
  */
 function FiscalSnapshot(): JSX.Element | null {
     const { t, locale } = useTranslation();
-    const [deadline, setDeadline] = useState<FilingDeadline | null>(null);
-
-    useEffect(() => {
-        let current = true;
-
-        getFilingDeadline().then(
-            (next) => {
-                if (current) {
-                    setDeadline(next);
-                }
-            },
-            () => undefined,
-        );
-
-        return () => {
-            current = false;
-        };
-    }, []);
+    const deadline = parseFilingDeadline(usePage().props.filingDeadline);
 
     if (deadline === null) {
         return null;
@@ -697,9 +683,10 @@ function useVisibleSections(): typeof NAV_SECTIONS {
     return NAV_SECTIONS.map((section) => ({
         ...section,
         items: section.items
-            .filter((item) => item !== ADMIN_GROUP || ADMIN_UI_ENABLED)
             .filter(allowed)
-            .map((item) => (item.children === undefined ? item : { ...item, children: item.children.filter(allowed) })),
+            .map((item) => (item.children === undefined ? item : { ...item, children: item.children.filter(allowed) }))
+            // A group whose every row is refused is not offered empty.
+            .filter((item) => item.children === undefined || item.children.length > 0),
     })).filter((section) => section.items.length > 0);
 }
 

@@ -22,6 +22,8 @@ final readonly class SubjectSummary
         public string $displayName,
         public SubjectStatus $status,
         public MembershipRole $role,
+        /** Whether its documents may be read by an external AI (`DocumentAiConsentGate`). */
+        public bool $aiConsent,
         /** The currency this subject's wallet totals are added up in — a display preference. */
         public string $displayCurrency,
         /**
@@ -35,7 +37,7 @@ final readonly class SubjectSummary
     }
 
     /**
-     * @return array{id: string, type: string, display_name: string, status: string, role: string, display_currency: string, avatar_updated_at: string|null}
+     * @return array{id: string, type: string, display_name: string, status: string, role: string, ai_consent: bool, display_currency: string, avatar_updated_at: string|null}
      */
     public function toArray(): array
     {
@@ -45,6 +47,7 @@ final readonly class SubjectSummary
             'display_name' => $this->displayName,
             'status' => $this->status->value,
             'role' => $this->role->value,
+            'ai_consent' => $this->aiConsent,
             'display_currency' => $this->displayCurrency,
             'avatar_updated_at' => $this->avatarUpdatedAt,
         ];

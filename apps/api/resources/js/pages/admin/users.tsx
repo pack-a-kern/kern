@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
+import { useCallback, useEffect, useState, type JSX } from 'react';
 import {
     Calculator,
     Check as CheckIcon,
@@ -137,33 +137,52 @@ export default function AdminUsers(): JSX.Element {
         setReloadToken((token) => token + 1);
     }, []);
 
+    const { page, pageSize, setPage, setPageSize } = useRememberedPaging('admin.users');
+
+    // Refetch whenever a filter or the page changes; debounced while an address is typed, so a
+    // keystroke is not a request.
     useEffect(() => {
         let active = true;
+        const timer = window.setTimeout(
+            () => {
+                getAdminDirectory({ email: search, status: statusFilter, role: roleFilter, page, perPage: pageSize })
+                    .then((loaded) => {
+                        if (active) {
+                            setDirectory(loaded);
+                            // The server clamps a page past the end back to the last one with rows.
+                            setPage(loaded.page);
+                            setFailed(false);
+                        }
+                    })
+                    .catch((cause: unknown) => {
+                        if (!active) {
+                            return;
+                        }
 
-        getAdminDirectory()
-            .then((loaded) => {
-                if (active) {
-                    setDirectory(loaded);
-                    setFailed(false);
-                }
-            })
-            .catch((cause: unknown) => {
-                if (!active) {
-                    return;
-                }
+                        if (cause instanceof ApiError && cause.status === 403) {
+                            setForbidden(true);
 
-                if (cause instanceof ApiError && cause.status === 403) {
-                    setForbidden(true);
+                            return;
+                        }
 
-                    return;
-                }
+                        setFailed(true);
+                        toast.error(
+                            t((d) => d.pages.adminUsers.loadFailed),
+                            { description: describeFailure(cause) },
+                        );
+                    });
+            },
+            search === '' ? 0 : 250,
+        );
 
-                setFailed(true);
-                toast.error(
-                    t((d) => d.pages.adminUsers.loadFailed),
-                    { description: describeFailure(cause) },
-                );
-            });
+        return () => {
+            active = false;
+            window.clearTimeout(timer);
+        };
+    }, [search, statusFilter, roleFilter, page, pageSize, setPage, reloadToken, describeFailure, t]);
+
+    useEffect(() => {
+        let active = true;
 
         void getAccessCatalogue().then(
             (loaded) => {
@@ -181,7 +200,7 @@ export default function AdminUsers(): JSX.Element {
         return () => {
             active = false;
         };
-    }, [reloadToken, describeFailure, t]);
+    }, [reloadToken]);
 
     /*
      * Who is looking, and at whom.
@@ -236,35 +255,9 @@ export default function AdminUsers(): JSX.Element {
         }
     };
 
-    const { page, pageSize, setPage, setPageSize } = useRememberedPaging('admin.users');
-
-    const visible = useMemo((): AdminUser[] => {
-        const term = search.trim().toLowerCase();
-
-        return (directory?.users ?? []).filter(
-            (user) =>
-                (term === '' || user.email.toLowerCase().includes(term)) &&
-                (statusFilter === '' || user.status === statusFilter) &&
-                (roleFilter === '' || user.roles.includes(roleFilter)),
-        );
-    }, [directory, search, statusFilter, roleFilter]);
-
-    /*
-     * Paged in the browser, over what the directory returned.
-     *
-     * Not on the server, because the server cannot help: an email is encrypted at rest, so it can
-     * neither be searched nor sorted by SQL — which is why this screen loads the directory (capped
-     * at 200, with `truncated` saying so) and filters here. Paging the same list keeps the filters
-     * and the pager telling the same story; paging on the server would leave a search that only
-     * ever looked at the current page.
-     */
-    const pageCount = Math.max(1, Math.ceil(visible.length / pageSize));
-    const currentPage = Math.min(page, pageCount);
-    const paged = visible.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-
-    const total = directory?.users.length ?? 0;
-    const withMfa = (directory?.users ?? []).filter((user) => user.passkeys > 0 || user.totp).length;
-    const admins = (directory?.users ?? []).filter((user) => user.roles.includes(SUPER_ADMIN_ROLE)).length;
+    const total = directory?.stats.users ?? 0;
+    const withMfa = directory?.stats.withMfa ?? 0;
+    const admins = directory?.stats.roles[SUPER_ADMIN_ROLE] ?? 0;
 
     /*
      * The one row that changed, rather than the whole directory again.
@@ -432,9 +425,9 @@ export default function AdminUsers(): JSX.Element {
                             }
                             foot={
                                 <Pagination
-                                    page={currentPage}
+                                    page={page}
                                     pageSize={pageSize}
-                                    total={visible.length}
+                                    total={directory?.total ?? 0}
                                     unit={t((d) => d.pages.adminUsers.unit)}
                                     onPageChange={setPage}
                                     onPageSizeChange={(size) => {
@@ -502,7 +495,7 @@ export default function AdminUsers(): JSX.Element {
                                         <Skeleton key={index} className="tile h-11 w-full" />
                                     ))}
                                 </div>
-                            ) : visible.length === 0 ? (
+                            ) : directory.users.length === 0 ? (
                                 <EmptyState
                                     icon={<UserSearch className="size-5" />}
                                     title={t((d) => d.pages.adminUsers.empty)}
@@ -539,7 +532,7 @@ export default function AdminUsers(): JSX.Element {
                                         </>
                                     }
                                 >
-                                    {paged.map((user) => (
+                                    {directory.users.map((user) => (
                                         <tr key={user.id}>
                                             <td className="col-primary">
                                                 <Identity
@@ -685,10 +678,6 @@ export default function AdminUsers(): JSX.Element {
                                     ))}
                                 </DataTable>
                             )}
-
-                            {directory?.truncated === true ? (
-                                <p className="note border-t p-3">{t((d) => d.pages.adminUsers.truncated)}</p>
-                            ) : null}
                         </Panel>
                     </div>
                 ) : null}
@@ -699,7 +688,7 @@ export default function AdminUsers(): JSX.Element {
                             const held = (access?.groups ?? [])
                                 .flatMap((group) => group.permissions)
                                 .filter((row) => row.roles[role] === true);
-                            const members = (directory?.users ?? []).filter((user) => user.roles.includes(role)).length;
+                            const members = directory?.stats.roles[role] ?? 0;
 
                             return (
                                 <Panel

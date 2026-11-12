@@ -59,6 +59,7 @@ final readonly class WalletReports
      *     by_bank: list<array{bank_id: ?string, name: ?string, currency_code: string, in_minor: int, out_minor: int}>,
      *     by_category: list<array{category_code: string, currency_code: string, total_minor: int}>,
      *     by_counterparty: list<array{name: ?string, currency_code: string, total_minor: int, count: int}>,
+     *     counterparty_totals: list<array{currency_code: string, total_minor: int}>,
      *     by_account: list<array{account_id: string, name: ?string, kind: string, currency_code: string, in_minor: int, out_minor: int}>,
      *     years: list<int>,
      *     totals: list<array{currency_code: string, in_minor: int, out_minor: int, count: int}>,
@@ -78,6 +79,7 @@ final readonly class WalletReports
             'by_bank' => $this->byBank($from, $to),
             'by_category' => $this->byCategory($from, $to),
             'by_counterparty' => $this->byCounterparty($from, $to),
+            'counterparty_totals' => $this->counterpartyTotals($from, $to),
             'by_account' => $this->byAccount($from, $to),
             'cash_flow' => $this->cashFlow($from, $to),
             'largest' => $this->largest($from, $to),
@@ -278,6 +280,25 @@ final readonly class WalletReports
         }
 
         return $result;
+    }
+
+    /**
+     * What was paid to a named party, per currency — every one of them, not only the ten `byCounterparty`
+     * names: the whole the screen measures each of those ten against.
+     *
+     * @return list<array{currency_code: string, total_minor: int}>
+     */
+    private function counterpartyTotals(string $from, string $to): array
+    {
+        return array_values(array_map(static fn (object $row): array => [
+            'currency_code' => (string) $row->currency_code,
+            'total_minor' => (int) $row->total,
+        ], $this->base($from, $to)
+            ->where('amount_minor', '<', 0)
+            ->whereNotNull('counterparty_blind_index')
+            ->groupBy('financial_transactions.currency_code')
+            ->get(['financial_transactions.currency_code', DB::raw('sum(-amount_minor) as total')])
+            ->all()));
     }
 
     /**

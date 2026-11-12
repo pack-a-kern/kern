@@ -9,6 +9,16 @@
             <directory>tests</directory>
         </testsuite>
     </testsuites>
+    <php>
+        <env name="SUBJECTS_DEFAULT_COUNTRY" value="RO" force="true"/>
+        <env name="SUBJECTS_LIMIT_DEFAULT" value="1" force="true"/>
+        <env name="SUBJECTS_LIMIT_VIEWER" value="1" force="true"/>
+        <env name="SUBJECTS_LIMIT_ACCOUNTANT" value="50" force="true"/>
+        <env name="SUBJECTS_LIMIT_ADMIN" value="100" force="true"/>
+        <env name="SUBJECTS_LIMIT_SUPER_ADMIN" value="1000" force="true"/>
+        <env name="SUBJECTS_MAX_ACTIVE" value="50" force="true"/>
+        <env name="TAX_FIRST_FISCAL_YEAR" value="2018" force="true"/>
+    </php>
     <source>
         <include>
             <directory>src</directory>

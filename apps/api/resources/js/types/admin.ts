@@ -33,9 +33,21 @@ export interface RoleCount {
     members: number;
 }
 
+/** Counts over every account, whatever the page shows. */
+export interface DirectoryStats {
+    users: number;
+    withMfa: number;
+    /** Platform role → how many accounts hold it. */
+    roles: Record<string, number>;
+}
+
 export interface AdminDirectory {
+    /** One page of the accounts the filters match. */
     users: AdminUser[];
-    truncated: boolean;
+    /** How many accounts the filters match, over every page. */
+    total: number;
+    page: number;
+    stats: DirectoryStats;
     roles: RoleCount[];
     /**
      * What this installation actually enforces. `rolesEnforced` is false today: `MembershipRole`
@@ -52,9 +64,20 @@ export function parseAdminDirectory(payload: unknown): AdminDirectory {
 
     const body = payload as Record<string, unknown>;
 
-    if (!Array.isArray(body.users) || !Array.isArray(body.roles)) {
-        throw new TypeError('Directory response is missing users or roles.');
+    if (
+        !Array.isArray(body.users) ||
+        !Array.isArray(body.roles) ||
+        typeof body.stats !== 'object' ||
+        body.stats === null
+    ) {
+        throw new TypeError('Directory response is missing users, roles or stats.');
     }
+
+    const stats = body.stats as Record<string, unknown>;
+    const heldRoles = (typeof stats.roles === 'object' && stats.roles !== null ? stats.roles : {}) as Record<
+        string,
+        unknown
+    >;
 
     const enforcement = (
         typeof body.enforcement === 'object' && body.enforcement !== null ? body.enforcement : {}
@@ -85,7 +108,13 @@ export function parseAdminDirectory(payload: unknown): AdminDirectory {
                     : [],
             };
         }),
-        truncated: body.truncated === true,
+        total: num(body, 'total'),
+        page: num(body, 'page'),
+        stats: {
+            users: num(stats, 'users'),
+            withMfa: num(stats, 'with_mfa'),
+            roles: Object.fromEntries(Object.keys(heldRoles).map((role) => [role, num(heldRoles, role)])),
+        },
         roles: body.roles.map((entry): RoleCount => {
             const row = (typeof entry === 'object' && entry !== null ? entry : {}) as Record<string, unknown>;
 

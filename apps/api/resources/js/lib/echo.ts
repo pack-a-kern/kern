@@ -160,7 +160,14 @@ const userListeners = {
     notices: new Set<(noticeId: string) => void>(),
     taxpayers: new Set<() => void>(),
     portalSearches: new Set<(searchId: string) => void>(),
+    lawWatches: new Set<(watchId: string) => void>(),
+    portalActs: new Set<(portalId: string, read: boolean) => void>(),
 };
+
+/** The `id` a socket message carries, or null when it carries none. */
+function idOf(raw: unknown): string | null {
+    return typeof raw === 'object' && raw !== null && 'id' in raw && typeof raw.id === 'string' ? raw.id : null;
+}
 let userChannel: string | null = null;
 
 function joinUserChannel(userId: string): void {
@@ -192,12 +199,30 @@ function joinUserChannel(userId: string): void {
             });
         })
         .listen('.legislation.portal-search.changed', (raw: unknown): void => {
-            const id =
-                typeof raw === 'object' && raw !== null && 'id' in raw && typeof raw.id === 'string' ? raw.id : null;
+            const id = idOf(raw);
 
             if (id !== null) {
                 userListeners.portalSearches.forEach((listener) => {
                     listener(id);
+                });
+            }
+        })
+        .listen('.legislation.watch.ran', (raw: unknown): void => {
+            const id = idOf(raw);
+
+            if (id !== null) {
+                userListeners.lawWatches.forEach((listener) => {
+                    listener(id);
+                });
+            }
+        })
+        .listen('.legislation.act.read', (raw: unknown): void => {
+            const id = idOf(raw);
+            const read = typeof raw === 'object' && raw !== null && 'read' in raw && raw.read === true;
+
+            if (id !== null) {
+                userListeners.portalActs.forEach((listener) => {
+                    listener(id, read);
                 });
             }
         });
@@ -251,6 +276,34 @@ export function subscribeToPortalSearches(userId: string, onChange: (searchId: s
 
     return () => {
         userListeners.portalSearches.delete(onChange);
+        leaveUserChannelIfUnheard();
+    };
+}
+
+/**
+ * Calls `onRead` with an act's portal id, and whether it was read in, when an act this person chose in
+ * "Import selected" is done (`Kern\Legislation\Events\PortalActRead`). The caller fetches the rest over HTTPS.
+ */
+export function subscribeToPortalActs(userId: string, onRead: (portalId: string, read: boolean) => void): () => void {
+    joinUserChannel(userId);
+    userListeners.portalActs.add(onRead);
+
+    return () => {
+        userListeners.portalActs.delete(onRead);
+        leaveUserChannelIfUnheard();
+    };
+}
+
+/**
+ * Calls `onRan` with a watch's id when a run this person asked for ends (`Kern\Legislation\Events\LawWatchRan`).
+ * The socket carries the id only: the caller fetches what the run did over HTTPS.
+ */
+export function subscribeToLawWatchRuns(userId: string, onRan: (watchId: string) => void): () => void {
+    joinUserChannel(userId);
+    userListeners.lawWatches.add(onRan);
+
+    return () => {
+        userListeners.lawWatches.delete(onRan);
         leaveUserChannelIfUnheard();
     };
 }

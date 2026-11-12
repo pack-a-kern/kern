@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Kern\TaxRomania\Http\Presenters\TaxEngine\AssessmentPresenter;
 use Kern\TaxRomania\TaxEngine\Actions\FinaliseFiscalYear;
+use Kern\TaxRomania\TaxEngine\Services\FiscalYears;
 
 /**
  * `POST .../tax/assessments/final` — mark a fiscal year final.
@@ -22,9 +23,10 @@ final class FinaliseFiscalYearController
         string $subject,
         FinaliseFiscalYear $finalise,
         AssessmentPresenter $presenter,
+        FiscalYears $years,
     ): JsonResponse {
         $data = $request->validate([
-            'fiscal_year' => ['required', 'integer', 'min:2018', 'max:2100'],
+            'fiscal_year' => $years->rule(),
         ]);
 
         return response()->json($presenter->present($finalise($subject, (int) $data['fiscal_year'])), 201);

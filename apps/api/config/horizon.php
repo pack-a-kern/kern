@@ -111,6 +111,8 @@ return [
         // A law is ninety consolidations read one after another: an hour's backlog is a sync in
         // progress, not a stuck queue.
         'redis-legislation:' . env('LEGISLATION_QUEUE', 'legislation') => 3600,
+        // A watch run is minutes on the portal, one after another.
+        'redis-legislation:' . env('LEGISLATION_WATCHES_QUEUE') => 3600,
     ],
 
     /*
@@ -257,6 +259,24 @@ return [
         ],
 
         /*
+         * A watch run a person asked for: minutes of searching the portal, on a worker of its own so the
+         * laws it starts are read meanwhile rather than after it. The legislation supervisor's connection
+         * and timeout: the job is held to `legislation.job_timeout_seconds` too.
+         */
+        'supervisor-legislation-watches' => [
+            'connection' => 'redis-legislation',
+            'queue' => [env('LEGISLATION_WATCHES_QUEUE')],
+            'balance' => 'simple',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 256,
+            'tries' => 1,
+            'timeout' => (int) env('LEGISLATION_QUEUE_TIMEOUT_SECONDS', 1800),
+            'nice' => 0,
+        ],
+
+        /*
          * The tasks that read a source's history — a bank backfill, a year of exchange rates — which
          * the default supervisor's sixty seconds stopped part-way (`OperationTask::isLong()`). One
          * process: they download from one publisher at a time, and one at a time is enough.
@@ -301,6 +321,9 @@ return [
             'supervisor-legislation' => [
                 'maxProcesses' => 1,
             ],
+            'supervisor-legislation-watches' => [
+                'maxProcesses' => 1,
+            ],
             'supervisor-operations-long' => [
                 'maxProcesses' => 1,
             ],
@@ -316,6 +339,9 @@ return [
                 'maxProcesses' => 1,
             ],
             'supervisor-legislation' => [
+                'maxProcesses' => 1,
+            ],
+            'supervisor-legislation-watches' => [
                 'maxProcesses' => 1,
             ],
             'supervisor-operations-long' => [

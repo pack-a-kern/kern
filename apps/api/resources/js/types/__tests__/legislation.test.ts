@@ -8,6 +8,8 @@ describe('parsePortalSearch', () => {
             id: 's-1',
             status: 'incomplete',
             pages_read: 1,
+            retries: 3,
+            in_library: 0,
             failure: 'portal_search_refused',
             poll_after_ms: null,
             acts: [
@@ -31,6 +33,8 @@ describe('parsePortalSearch', () => {
             id: 's-1',
             status: 'incomplete',
             pagesRead: 1,
+            retries: 3,
+            inLibrary: 0,
             failure: 'portal_search_refused',
             pollAfterMs: null,
         });

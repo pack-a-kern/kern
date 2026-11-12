@@ -4,8 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Legislation\LawWatchesApiTest;
 
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
+use Kern\Legislation\Events\LawWatchRan;
+use Kern\Legislation\Jobs\RunLawWatchNow;
+use Kern\Legislation\Models\IgnoredAct;
 use Kern\Legislation\Models\LawWatch;
+use Kern\Legislation\Watches\LawWatchRunner;
 
 /** A search kept by a person, by the API, and its id. Made up. */
 function keep(\Tests\TestCase $case, \Kern\Platform\Identity\Models\User $user): string
@@ -115,15 +122,71 @@ it('keeps no more watches for a person than allowed', function (): void {
         ->assertUnprocessable()->assertJsonPath('reason', 'TOO_MANY_WATCHES');
 });
 
-it('asks again for the password or code before a watch is kept, changed or removed', function (): void {
+it('asks again for the password or code before a watch is kept, changed or removed, or an act allowed again', function (): void {
     $package = declared();
+    $ignored = IgnoredAct::query()->create(['portal_document_id' => '900001', 'title' => 'ORDIN nr. 77 privind exemplul']);
     withAuthenticator($this->operator);
     forgetVerification();
 
+    $this->actingAs($this->operator)->deleteJson("/api/v1/legislation/watches/ignored/{$ignored->id}")->assertForbidden();
     $this->actingAs($this->operator)->postJson('/api/v1/legislation/watches', ['search_words' => 'exemplul', 'act_type' => 'ORDIN', 'first_year' => 2025, 'every_hours' => 168])->assertForbidden();
     $this->actingAs($this->operator)->patchJson("/api/v1/legislation/watches/{$package->id}", ['enabled' => false])->assertForbidden();
     $this->actingAs($this->operator)->deleteJson("/api/v1/legislation/watches/{$package->id}")->assertForbidden();
     $this->actingAs($this->operator)->getJson('/api/v1/legislation/watches')->assertOk();
 
-    expect(LawWatch::query()->count())->toBe(1)->and($package->fresh()?->enabled)->toBeTruthy();
+    expect(LawWatch::query()->count())->toBe(1)->and($package->fresh()?->enabled)->toBeTruthy()->and(IgnoredAct::query()->count())->toBe(1);
+});
+
+it('runs a watch now on the queue, once however often asked, and not one that is paused', function (): void {
+    Queue::fake();
+    $watch = declared();
+
+    $this->actingAs($this->operator)->postJson("/api/v1/legislation/watches/{$watch->id}/run")
+        ->assertStatus(202)
+        ->assertJsonPath('running', true);
+    $this->actingAs($this->operator)->postJson("/api/v1/legislation/watches/{$watch->id}/run")->assertStatus(202);
+
+    Queue::assertPushed(RunLawWatchNow::class, 1);
+
+    $watch->update(['enabled' => false, 'run_requested_at' => null]);
+    $this->actingAs($this->operator)->postJson("/api/v1/legislation/watches/{$watch->id}/run")
+        ->assertStatus(409)
+        ->assertJsonPath('reason', 'WATCH_PAUSED');
+});
+
+it('runs a watch on a queue of its own, not the one laws are read on, with a worker that outlasts it', function (): void {
+    $job = new RunLawWatchNow('00000000-0000-0000-0000-000000000000', $this->operator->id);
+    $supervisor = 'horizon.defaults.supervisor-legislation-watches';
+
+    expect($job->queue)->toBe(config('legislation.watches.queue'))
+        ->and($job->queue)->not->toBe(config('legislation.queue'))
+        ->and(config()->array($supervisor . '.queue'))->toBe([$job->queue])
+        ->and(config()->integer($supervisor . '.timeout'))->toBeGreaterThanOrEqual($job->timeout)
+        ->and(config()->integer('queue.connections.' . config()->string($supervisor . '.connection') . '.retry_after'))->toBeGreaterThan(config()->integer($supervisor . '.timeout'));
+});
+
+it('says on the asker\'s own channel when a watch run now is done, and lets the request go', function (): void {
+    Event::fake([LawWatchRan::class]);
+    $watch = declared();
+    $watch->update(['enabled' => false, 'run_requested_at' => now()]);
+
+    (new RunLawWatchNow($watch->id, $this->operator->id))->handle(app(LawWatchRunner::class));
+
+    expect($watch->refresh()->run_requested_at)->toBeNull();
+    Event::assertDispatched(LawWatchRan::class, fn (LawWatchRan $ran): bool => $ran->watchId === $watch->id
+        && array_map(static fn (PrivateChannel $channel): string => $channel->name, $ran->broadcastOn()) === ["private-users.{$this->operator->id}"]
+        && $ran->broadcastWith() === ['id' => $watch->id]);
+});
+
+it('lists the acts the watches ignore, and allows one again, recorded', function (): void {
+    $ignored = IgnoredAct::query()->create(['portal_document_id' => '900001', 'title' => 'ORDIN nr. 77 privind exemplul']);
+
+    $this->actingAs($this->operator)->getJson('/api/v1/legislation/watches')
+        ->assertJsonPath('ignored.0.id', $ignored->id)
+        ->assertJsonPath('ignored.0.portalId', '900001');
+
+    $this->actingAs($this->operator)->deleteJson("/api/v1/legislation/watches/ignored/{$ignored->id}")->assertNoContent();
+
+    expect(IgnoredAct::query()->count())->toBe(0)
+        ->and(DB::table('audit_events')->where('event_type', 'IgnoredActAllowed')->count())->toBe(1);
 });

@@ -6,6 +6,7 @@ namespace Kern\TaxRomania\Http\Controllers\StatementImport;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Kern\Platform\Routing\PageSizes;
 use Kern\TaxRomania\StatementImport\Models\StatementImport;
 use Kern\TaxRomania\StatementImport\Queries\StatementImportSummary;
 
@@ -17,17 +18,17 @@ use Kern\TaxRomania\StatementImport\Queries\StatementImportSummary;
  */
 final class ListStatementImportsController
 {
-    private const int PER_PAGE = 25;
-
-    public function __invoke(Request $request, string $subject): JsonResponse
+    public function __invoke(Request $request, string $subject, PageSizes $sizes): JsonResponse
     {
-        $page = max(1, $request->integer('page', 1));
+        $validated = $request->validate(['page' => ['nullable', 'integer', 'min:1'], 'per_page' => $sizes->rule()]);
+        $page = isset($validated['page']) ? max(1, (int) $validated['page']) : 1;
+        $perPage = $sizes->of($validated['per_page'] ?? null);
 
         $query = StatementImport::query()->orderByDesc('created_at');
         $total = (clone $query)->count();
 
         /** @var list<StatementImport> $imports */
-        $imports = $query->forPage($page, self::PER_PAGE)->get()->all();
+        $imports = $query->forPage($page, $perPage)->get()->all();
 
         return response()->json([
             'imports' => array_map(
@@ -36,7 +37,7 @@ final class ListStatementImportsController
             ),
             'total' => $total,
             'page' => $page,
-            'per_page' => self::PER_PAGE,
+            'per_page' => $perPage,
         ]);
     }
 }

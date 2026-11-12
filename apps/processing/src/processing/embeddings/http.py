@@ -7,6 +7,7 @@ either works or the service is unavailable. There is no per-text rejection.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from starlette.concurrency import run_in_threadpool
 
 from processing.embeddings.config import EmbeddingSettings
 from processing.embeddings.model import EmbeddingModel, EmbeddingModelError
@@ -36,8 +37,12 @@ async def embed(
     request: EmbedRequest,
     embedding_model: EmbeddingModel = _MODEL_DEPENDENCY,
 ) -> EmbedResponse:
+    # Waited on from a thread: a batch is seconds of CPU, and run here it would hold every other
+    # request in the service — the health check among them — until it was done.
     try:
-        vectors = embedding_model.embed(request.texts, is_query=request.input_type == "query")
+        vectors = await run_in_threadpool(
+            embedding_model.embed, request.texts, is_query=request.input_type == "query"
+        )
     except EmbeddingModelError as cause:
         # 503, not 500: the model being absent or unloadable is an operational
         # state the caller should retry against, not a defect in its request.

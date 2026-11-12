@@ -215,6 +215,13 @@ it('corrects a proposed extraction: the original row is preserved, a new accepte
         ->and(json_decode($corrected->result_ciphertext, true))->toBe(['invoice_number' => 'INV-999']);
 
     expect(DocumentExtraction::query()->where('document_id', $document->id)->count())->toBe(2);
+
+    // Listed newest first, so the reading a screen starts from — its confidence, its suggested name — is
+    // the person's correction rather than the proposal it replaced.
+    $listed = dataRows($this->actingAs($user, 'web')
+        ->getJson("/api/v1/subjects/{$subject->id}/documents/{$document->id}/extractions")
+        ->assertOk());
+    expect(array_column($listed, 'id'))->toBe([$correctedId, $original->id]);
 });
 
 it('refuses to correct an already-reviewed extraction', function (): void {

@@ -42,6 +42,8 @@ export interface RentalFormOptions {
 
 export interface RentalList {
     rentals: RentalSummary[];
+    /** This year on Romania's calendar, from the server: the year "owed this year" means. */
+    currentYear: number;
     formOptions: RentalFormOptions;
 }
 
@@ -65,6 +67,7 @@ const rentalListValidator = vObject({
             years: vArray(vObject({ year: vNumber, share_minor: vNumber })),
         }),
     ),
+    current_year: vNumber,
     form_options: vObject({
         property_types: vArray(vString),
         tenant_types: vArray(vString),
@@ -93,6 +96,7 @@ export function parseRentals(text: string): RentalList {
             sourceDocumentId: rental.source_document_id,
             years: rental.years.map((entry) => ({ year: entry.year, shareMinor: entry.share_minor })),
         })),
+        currentYear: body.current_year,
         formOptions: {
             propertyTypes: body.form_options.property_types,
             tenantTypes: body.form_options.tenant_types,

@@ -18,7 +18,6 @@ export interface LegislationHit {
     /** The law the hit is in — for opening it at the searched date. */
     sourceDocumentId: string;
     sourceCode: string;
-    trustTier: string;
     documentType: string;
     issuer: string | null;
     citation: string;
@@ -48,7 +47,6 @@ function parseHit(payload: unknown): LegislationHit {
         sectionId: str(row, 'section_id'),
         sourceDocumentId: str(row, 'source_document_id'),
         sourceCode: str(row, 'source_code'),
-        trustTier: str(row, 'trust_tier'),
         documentType: str(row, 'document_type'),
         issuer: nullableStr(row, 'issuer'),
         citation: str(row, 'citation'),
@@ -105,6 +103,23 @@ export interface LawSummary extends Law {
     consolidationsFailed: number;
     firstConsolidation: string | null;
     lastConsolidation: string | null;
+    /** What another part of the app flags beside this law — `bonds_skipped` and how many. */
+    flags: LawFlag[];
+    /** The watch that read it in; null when read by hand, or its watch was removed. */
+    watchId: string | null;
+}
+
+/** What the laws list may be filtered by, read by the server from every law here. */
+export interface LawFilters {
+    types: { value: string; label: string }[];
+    years: number[];
+    /** Only for those who may see the watches; empty for everyone else. */
+    watches: { id: string; words: string }[];
+}
+
+export interface LawFlag {
+    code: string;
+    count: number;
 }
 
 export interface LawConsolidation {
@@ -125,8 +140,19 @@ export interface LawDetail extends Law {
     consolidations: LawConsolidation[];
 }
 
-/** One table's rows of cells. */
-export type LawTable = string[][];
+/** A cell spanning more than one column or row: its place among the table's rows, as they list it. */
+export interface LawSpan {
+    row: number;
+    cell: number;
+    colspan: number;
+    rowspan: number;
+}
+
+/** One table: its rows of cells, and the cells it merges — "Cod emisiune 0105" across three columns. */
+export interface LawTable {
+    rows: string[][];
+    spans: LawSpan[];
+}
 
 /** A heading of the table of contents: "Titlul IV" "Impozitul pe venit". */
 export interface LawHeading {
@@ -297,12 +323,25 @@ export interface ProvisionVersion {
     notes: LawNote[];
 }
 
-function tables(value: unknown): LawTable[] {
-    return (Array.isArray(value) ? value : []).map((table) =>
-        (Array.isArray(table) ? table : []).map((row) =>
+/** Each table's rows, and its merged cells from `table_spans`, the same table at the same index. */
+function tables(value: unknown, spans: unknown): LawTable[] {
+    const merged = Array.isArray(spans) ? spans : [];
+
+    return (Array.isArray(value) ? value : []).map((table, index): LawTable => ({
+        rows: (Array.isArray(table) ? table : []).map((row) =>
             (Array.isArray(row) ? row : []).map((cell) => (typeof cell === 'string' ? cell : '')),
         ),
-    );
+        spans: (Array.isArray(merged[index]) ? (merged[index] as unknown[]) : []).map((entry): LawSpan => {
+            const span = obj(entry);
+
+            return {
+                row: num(span, 'row'),
+                cell: num(span, 'cell'),
+                colspan: num(span, 'colspan'),
+                rowspan: num(span, 'rowspan'),
+            };
+        }),
+    }));
 }
 
 function parseHeading(entry: unknown): LawHeading {
@@ -359,7 +398,29 @@ function parseLaw(row: Record<string, unknown>): Law {
     };
 }
 
-export function parseLaws(payload: unknown): LawSummary[] {
+/** One page of the laws a filter keeps, how many it keeps in all, and what the list may be filtered by. */
+export interface LawsPage {
+    laws: LawSummary[];
+    total: number;
+    filters: LawFilters;
+}
+
+export function parseLaws(payload: unknown): LawsPage {
+    const filters = obj(obj(payload).filters);
+    const list = (key: string): unknown[] => (Array.isArray(filters[key]) ? (filters[key] as unknown[]) : []);
+
+    return {
+        laws: parseLawRows(payload),
+        total: num(obj(payload), 'total'),
+        filters: {
+            types: list('types').map((entry) => ({ value: str(obj(entry), 'value'), label: str(obj(entry), 'label') })),
+            years: list('years').filter((year): year is number => typeof year === 'number'),
+            watches: list('watches').map((entry) => ({ id: str(obj(entry), 'id'), words: str(obj(entry), 'words') })),
+        },
+    };
+}
+
+function parseLawRows(payload: unknown): LawSummary[] {
     return (Array.isArray(obj(payload).laws) ? (obj(payload).laws as unknown[]) : []).map((entry) => {
         const row = obj(entry);
 
@@ -370,6 +431,12 @@ export function parseLaws(payload: unknown): LawSummary[] {
             consolidationsFailed: num(row, 'consolidations_failed'),
             firstConsolidation: nullableStr(row, 'first_consolidation'),
             lastConsolidation: nullableStr(row, 'last_consolidation'),
+            flags: (Array.isArray(row.flags) ? (row.flags as unknown[]) : []).map((flag) => {
+                const said = obj(flag);
+
+                return { code: str(said, 'code'), count: num(said, 'count') };
+            }),
+            watchId: nullableStr(row, 'watch_id'),
         };
     });
 }
@@ -417,7 +484,7 @@ export function parseLawText(payload: unknown): LawText {
                 label: str(row, 'label'),
                 depth: num(row, 'depth'),
                 text: str(row, 'text'),
-                tables: tables(row.tables),
+                tables: tables(row.tables, row.table_spans),
                 amendedOn: nullableStr(row, 'amended_on'),
                 notes: notes(row.notes),
                 headings: (Array.isArray(row.headings) ? row.headings : []).map(parseHeading),
@@ -439,7 +506,7 @@ export function parseProvisionHistory(payload: unknown): ProvisionVersion[] {
             coverageComplete: row.coverage_complete !== false,
             datedByNote: row.dated_by_note === true,
             text: str(row, 'text'),
-            tables: tables(row.tables),
+            tables: tables(row.tables, row.table_spans),
             notes: notes(row.notes),
         };
     });
@@ -460,6 +527,8 @@ export interface PortalActResult {
     url: string;
     /** Whether it can be read here: its type is one the ingest task takes. */
     importable: boolean;
+    /** Not importable for its year: older than the laws this installation reads. */
+    beforeMinYear: boolean;
     /** The law it already is, once read. */
     lawId: string | null;
 }
@@ -479,6 +548,7 @@ export function parsePortalActs(payload: unknown): PortalActResult[] {
             portalId: nullableStr(row, 'portal_id'),
             url: str(row, 'url'),
             importable: row.importable === true,
+            beforeMinYear: row.before_min_year === true,
             lawId: nullableStr(row, 'law_id'),
         };
     });
@@ -497,7 +567,11 @@ export interface PortalSearchState {
     id: string;
     status: PortalSearchStatus;
     pagesRead: number;
-    /** Why it stopped short — `portal_search_refused`, `portal_browser_busy`… — when it did. */
+    /** How many times the portal was asked again before it answered, over every page read. */
+    retries: number;
+    /** How many of the acts found are already laws here. */
+    inLibrary: number;
+    /** Why it stopped short — `portal_search_refused`, `portal_search_down`… — when it did. */
     failure: string | null;
     /** While it runs: how soon to ask again if no message comes over the socket. */
     pollAfterMs: number | null;
@@ -517,6 +591,8 @@ export function parsePortalSearch(payload: unknown): PortalSearchState {
         id: str(row, 'id'),
         status,
         pagesRead: num(row, 'pages_read'),
+        retries: num(row, 'retries'),
+        inLibrary: num(row, 'in_library'),
         failure: nullableStr(row, 'failure'),
         pollAfterMs: nullableNum(row, 'poll_after_ms'),
         acts: parsePortalActs(payload),
@@ -536,7 +612,34 @@ export interface LawWatch {
     enabled: boolean;
     nextRunAt: string;
     lastRunAt: string | null;
-    lastResult: string | null;
+    /** What its last run did; null before its first. */
+    lastSummary: WatchRunSummary | null;
+    /** A run a person asked for is on its way. */
+    running: boolean;
+    /** How many laws it read in. */
+    laws: number;
+}
+
+/** One run of a watch, as counts — `Kern\Legislation\Watches\WatchRun`. */
+export interface WatchRunSummary {
+    years: number[];
+    found: number;
+    started: number;
+    known: number;
+    ignored: number;
+    waiting: number;
+    failed: number;
+    retries: number;
+    /** Why the search stopped — `portal_search_down`… — when it did. */
+    failure: string | null;
+}
+
+/** An act a person asked the watches to pass over. */
+export interface IgnoredAct {
+    id: string;
+    title: string;
+    portalId: string;
+    ignoredAt: string;
 }
 
 export function parseLawWatch(payload: unknown): LawWatch {
@@ -553,18 +656,47 @@ export function parseLawWatch(payload: unknown): LawWatch {
         enabled: bool(row, 'enabled'),
         nextRunAt: str(row, 'nextRunAt'),
         lastRunAt: nullableStr(row, 'lastRunAt'),
-        lastResult: nullableStr(row, 'lastResult'),
+        lastSummary: row.lastSummary === null || row.lastSummary === undefined ? null : parseWatchRun(row.lastSummary),
+        running: bool(row, 'running'),
+        laws: num(row, 'laws'),
     };
 }
 
-/** Every watch, and the intervals — in hours — a person may choose for one of their own. */
-export function parseLawWatches(payload: unknown): { watches: LawWatch[]; intervals: number[] } {
+function parseWatchRun(payload: unknown): WatchRunSummary {
+    const row = obj(payload);
+
+    return {
+        years: (Array.isArray(row.years) ? row.years : []).filter((year): year is number => typeof year === 'number'),
+        found: num(row, 'found'),
+        started: num(row, 'started'),
+        known: num(row, 'known'),
+        ignored: num(row, 'ignored'),
+        waiting: num(row, 'waiting'),
+        failed: num(row, 'failed'),
+        retries: num(row, 'retries'),
+        failure: nullableStr(row, 'failure'),
+    };
+}
+
+/** Every watch, the intervals — in hours — a person may choose for one of their own, and the acts ignored. */
+export function parseLawWatches(payload: unknown): { watches: LawWatch[]; intervals: number[]; ignored: IgnoredAct[] } {
     const row = obj(payload);
     const watches = Array.isArray(row.watches) ? row.watches : [];
     const intervals = Array.isArray(row.intervals) ? row.intervals : [];
+    const ignored = Array.isArray(row.ignored) ? row.ignored : [];
 
     return {
         watches: watches.map(parseLawWatch),
+        ignored: ignored.map((entry) => {
+            const act = obj(entry);
+
+            return {
+                id: str(act, 'id'),
+                title: str(act, 'title'),
+                portalId: str(act, 'portalId'),
+                ignoredAt: str(act, 'ignoredAt'),
+            };
+        }),
         intervals: intervals.filter(
             (hours): hours is number => typeof hours === 'number' && Number.isInteger(hours) && hours > 0,
         ),

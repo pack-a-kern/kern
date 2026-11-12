@@ -1260,9 +1260,15 @@ export function ToolbarRows({ children }: { children: ReactNode }): JSX.Element 
  * "manage tags" and the bulk actions somewhere, and the far end is where they stop reading as
  * filters.
  */
-export function ToolbarRow(props: { label?: string; children: ReactNode; end?: ReactNode }): JSX.Element {
+export function ToolbarRow(props: {
+    label?: string;
+    children: ReactNode;
+    end?: ReactNode;
+    /** A row set apart from the one above it — a rule between the search and its filters. */
+    divided?: boolean;
+}): JSX.Element {
     return (
-        <div className="toolbar-row">
+        <div className={cn('toolbar-row', props.divided === true && 'border-border/60 border-t pt-2.5')}>
             {/* Only where the row needs naming. A line holding one search box explains itself, and an
                 eyebrow in front of it is a word to read before the thing it labels. */}
             {props.label === undefined ? null : <span className="toolbar-label">{props.label}</span>}

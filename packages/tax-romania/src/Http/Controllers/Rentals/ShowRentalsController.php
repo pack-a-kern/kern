@@ -10,6 +10,7 @@ use Kern\TaxRomania\Rental\Enums\RentalPaymentFrequency;
 use Kern\TaxRomania\Rental\Enums\TenantType;
 use Kern\TaxRomania\Rental\Queries\RentalQuery;
 use Kern\TaxRomania\Rental\Queries\RentalSummary;
+use Kern\TaxRomania\TaxEngine\Services\FiscalYears;
 
 /**
  * `GET /api/v1/subjects/{subject}/rentals` — rentals, what each owes per year, and the form's choices.
@@ -19,10 +20,12 @@ use Kern\TaxRomania\Rental\Queries\RentalSummary;
  */
 final class ShowRentalsController
 {
-    public function __invoke(RentalQuery $rentals): JsonResponse
+    public function __invoke(RentalQuery $rentals, FiscalYears $years): JsonResponse
     {
         return response()->json([
             'rentals' => array_map(static fn (RentalSummary $rental): array => $rental->toArray(), $rentals->rentals()),
+            // The year "owed this year" means, on Romania's calendar — the screen keeps no clock of its own.
+            'current_year' => $years->current(),
             'form_options' => [
                 'property_types' => array_map(static fn (PropertyType $type): string => $type->value, PropertyType::cases()),
                 // `UNKNOWN` is for a contract read from a document that did not say; a person entering

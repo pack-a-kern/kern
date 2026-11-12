@@ -15,11 +15,14 @@ use Kern\Investments\Config\InvestmentsConfig;
 use Kern\Investments\Console\ImportBvbCommand;
 use Kern\Investments\Console\ImportGovernmentBondsCommand;
 use Kern\Investments\Contracts\MarketData;
+use Kern\Investments\Listeners\ForgetTheIssuesOfADeletedOrder;
 use Kern\Investments\Listeners\ReadIssuesFromANewOrder;
+use Kern\Investments\Models\TreasuryOrder;
 use Kern\Investments\Queries\EloquentMarketData;
 use Kern\Legislation\Config\OfficialSourceRegistry;
-use Kern\Legislation\Dependents\DocumentDependents;
 use Kern\Legislation\Events\LawConsolidationsRead;
+use Kern\Legislation\Events\LawDeleting;
+use Kern\Legislation\Queries\LawFlags;
 use Kern\Platform\Routing\ConfiguredRateLimit;
 use Kern\Platform\Routing\PackageRoutes;
 
@@ -71,8 +74,17 @@ final class InvestmentsServiceProvider extends ServiceProvider
             $this->commands([ImportGovernmentBondsCommand::class, ImportBvbCommand::class]);
         }
 
-        // A bond's terms are read from the order that issued it: that law stays while the bond does.
-        $this->app->make(DocumentDependents::class)->declare('instruments', 'ext_financial_instruments', 'terms_document_id');
+        // A bond's terms are read from the order that issued it: deleting that law, nobody holding one,
+        // takes them with it.
+        Event::listen(LawDeleting::class, [ForgetTheIssuesOfADeletedOrder::class, 'handle']);
+
+        // An order that listed bonds another order already wrote says so beside it, on the laws screen.
+        $this->app->make(LawFlags::class)->declare('bonds_skipped', static fn (array $lawIds): array => TreasuryOrder::query()
+            ->whereIn('source_document_id', $lawIds)
+            ->whereNotNull('skipped_issues')
+            ->get(['source_document_id', 'skipped_issues'])
+            ->mapWithKeys(static fn (TreasuryOrder $order): array => [$order->source_document_id => count($order->skipped_issues ?? [])])
+            ->all());
 
         // A programme's order, once read as a law, is read for its issues.
         Event::listen(LawConsolidationsRead::class, [ReadIssuesFromANewOrder::class, 'handle']);

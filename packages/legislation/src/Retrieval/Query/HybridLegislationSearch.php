@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
 use Kern\Legislation\Enums\SectionType;
 use Kern\Legislation\Enums\TrustTier;
+use Kern\Legislation\Queries\LegislationLibrary;
 use Kern\Legislation\Retrieval\Embedding\EmbeddingProvider;
 use Kern\Legislation\Retrieval\Embedding\EmbeddingPurpose;
 use Kern\Legislation\Retrieval\Embedding\Exceptions\EmbeddingProviderNotConfiguredException;
@@ -56,20 +57,10 @@ use stdClass;
  */
 final readonly class HybridLegislationSearch
 {
-    /** Ranking weights — retrieval relevance only, never a fiscal calculation (BLUEPRINT.md §15.5). */
-    private const float WEIGHT_SEMANTIC = 0.5;
-
-    private const float WEIGHT_LEXICAL = 0.3;
-
-    private const float WEIGHT_CITATION = 0.2;
-
-    /** pg_trgm's own conventional default (`pg_trgm.similarity_threshold`). */
-    private const float CITATION_SIMILARITY_THRESHOLD = 0.3;
-
-    private const float SEMANTIC_SIMILARITY_THRESHOLD = 0.3;
-
     public function __construct(
         private EmbeddingProvider $embeddingProvider,
+        private SearchSettings $settings,
+        private LegislationLibrary $library,
     ) {
     }
 
@@ -85,12 +76,11 @@ final readonly class HybridLegislationSearch
             $filterBindings[] = $this->toPostgresTextArray($query->sourceCodes);
         }
 
-        if ($query->trustTiers !== null) {
-            $filterSql .= ' AND os.trust_tier = ANY(?::text[])';
-            $filterBindings[] = $this->toPostgresTextArray(array_map(
-                static fn (TrustTier $tier): string => $tier->value,
-                $query->trustTiers,
-            ));
+        // The laws the list shows under the same filter, and only those.
+        if ($query->laws?->narrows() === true) {
+            $laws = $this->library->matching($query->laws)->select('id')->toBase();
+            $filterSql .= " AND sd.id IN ({$laws->toSql()})";
+            array_push($filterBindings, ...$laws->getBindings());
         }
 
         if ($query->sectionType !== null) {
@@ -190,12 +180,12 @@ final readonly class HybridLegislationSearch
             $query->asOf->format('Y-m-d'),
             $queryEmbeddingLiteral,
             ...$filterBindings,
-            self::WEIGHT_SEMANTIC,
-            self::WEIGHT_LEXICAL,
-            self::WEIGHT_CITATION,
-            self::CITATION_SIMILARITY_THRESHOLD,
-            self::SEMANTIC_SIMILARITY_THRESHOLD,
-            $query->limit,
+            $this->settings->weightMeaning,
+            $this->settings->weightWords,
+            $this->settings->weightLabel,
+            $this->settings->minLabel,
+            $this->settings->minMeaning,
+            $query->limit ?? $this->settings->results,
         ];
 
         /** @var list<stdClass> $rows */

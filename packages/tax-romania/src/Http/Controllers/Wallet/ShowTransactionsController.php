@@ -7,6 +7,7 @@ namespace Kern\TaxRomania\Http\Controllers\Wallet;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Kern\Platform\Routing\PageSizes;
 use Kern\TaxRomania\StatementImport\Queries\StatementLines;
 use Kern\TaxRomania\Wallet\Enums\MoneyDirection;
 use Kern\TaxRomania\Wallet\Enums\TransactionClassificationStatus;
@@ -29,15 +30,12 @@ use Kern\TaxRomania\Wallet\Services\TaxCategoryCatalogue;
  */
 final class ShowTransactionsController
 {
-    private const int DEFAULT_PER_PAGE = 25;
-
-    private const int MAX_PER_PAGE = 250;
-
     public function __invoke(
         Request $request,
         WalletQuery $wallet,
         TaxCategoryCatalogue $categories,
         StatementLines $statementLines,
+        PageSizes $sizes,
     ): JsonResponse {
         $validated = $request->validate([
             'account_id' => ['sometimes', 'nullable', 'uuid'],
@@ -58,7 +56,7 @@ final class ShowTransactionsController
             // hash of a whole name.
             'counterparty' => ['sometimes', 'nullable', 'string', 'max:120'],
             'page' => ['sometimes', 'integer', 'min:1'],
-            'per_page' => ['sometimes', 'integer', 'min:1', 'max:' . self::MAX_PER_PAGE],
+            'per_page' => $sizes->rule(),
         ]);
 
         /*
@@ -70,9 +68,7 @@ final class ShowTransactionsController
          *
          * Every other paged endpoint in this application already casts. This one did not.
          */
-        $perPage = is_numeric($validated['per_page'] ?? null)
-            ? (int) $validated['per_page']
-            : self::DEFAULT_PER_PAGE;
+        $perPage = $sizes->of($validated['per_page'] ?? null);
         $page = is_numeric($validated['page'] ?? null) ? (int) $validated['page'] : 1;
 
         /** @var array{account_id?: ?string, bank_id?: ?string, tag_id?: ?string, counterparty?: ?string, classification?: ?string, category_code?: ?string, direction?: ?string, from?: ?string, to?: ?string} $filters */

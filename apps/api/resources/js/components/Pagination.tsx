@@ -3,6 +3,7 @@ import type { JSX } from 'react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '../i18n';
 import { formatNumber } from '../lib/format';
+import { usePaging } from '../lib/sharedProps';
 
 /**
  * The pager that sits in a card's foot: a range summary, a rows-per-page choice, numbered pages and
@@ -12,9 +13,6 @@ import { formatNumber } from '../lib/format';
  * asks of a list they are working through, and a bare pair of arrows cannot answer it. Long runs
  * collapse around the current page so the control stays one row wide however many pages there are.
  */
-
-/** How many rows a page may hold. Kept here so every list offers the same choices. */
-export const PAGE_SIZES = [10, 25, 50, 100] as const;
 
 /**
  * The page numbers to draw, with `null` standing for a gap.
@@ -60,6 +58,7 @@ export default function Pagination(props: {
     unit: string;
 }): JSX.Element {
     const { t, locale } = useTranslation();
+    const { sizes } = usePaging();
     const totalPages = Math.max(1, Math.ceil(props.total / props.pageSize));
     const first = props.total === 0 ? 0 : (props.page - 1) * props.pageSize + 1;
     const last = Math.min(props.page * props.pageSize, props.total);
@@ -97,7 +96,7 @@ export default function Pagination(props: {
                                 }}
                                 className="border-border bg-card text-muted-foreground h-7 rounded-lg border px-2 text-2xs font-semibold"
                             >
-                                {PAGE_SIZES.map((size) => (
+                                {sizes.map((size) => (
                                     <option key={size} value={size}>
                                         {size}
                                     </option>

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Subjects\Queries;
 
 use Illuminate\Pagination\LengthAwarePaginator;
+use Kern\Documents\Consent\DocumentAiConsentGate;
+use Kern\Platform\Tenancy\Tenancy;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
 use RuntimeException;
@@ -27,14 +29,16 @@ use RuntimeException;
  * neither question. The cost is a `count()` per request, which on a table keyed by one user's
  * memberships is not a cost.
  */
-final class ListSubjectsForUser
+final readonly class ListSubjectsForUser
 {
-    private const int DEFAULT_PER_PAGE = 20;
+    public function __construct(private DocumentAiConsentGate $consent)
+    {
+    }
 
     /**
      * @return LengthAwarePaginator<int, SubjectSummary>
      */
-    public function __invoke(string $userId, int $page = 1, int $perPage = self::DEFAULT_PER_PAGE): LengthAwarePaginator
+    public function __invoke(string $userId, int $page, int $perPage): LengthAwarePaginator
     {
         $memberships = SubjectMembership::query()
             ->where('user_id', $userId)
@@ -44,6 +48,10 @@ final class ListSubjectsForUser
 
         $subjectsById = TaxSubject::query()
             ->whereIn('id', $memberships->getCollection()->pluck('subject_id'))
+            ->select('tax_subjects.*')
+            // Whether its documents may go to an external AI, in this same query: the gate says what
+            // an active consent is, this only asks it per row.
+            ->addSelect(['ai_consent' => $this->consent->consentedSubjectIds()->whereColumn(Tenancy::column(), 'tax_subjects.id')->limit(1)])
             ->get()
             ->keyBy('id');
 
@@ -70,6 +78,7 @@ final class ListSubjectsForUser
                 displayName: $subject->display_name_ciphertext ?? '',
                 status: $subject->status,
                 role: $membership->role,
+                aiConsent: $subject->getAttribute('ai_consent') !== null,
                 // Stored in clear, so no decrypt: it is a preference, not personal data.
                 displayCurrency: $subject->displayCurrency(),
                 // Same: a timestamp, and the cache key for the picture's URL.

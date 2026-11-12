@@ -37,7 +37,7 @@ import {
     TableSkeleton,
     type StatusTone,
 } from '../../components/panel';
-import Pagination, { PAGE_SIZES } from '../../components/Pagination';
+import Pagination from '../../components/Pagination';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { describeCron } from '../../lib/cron';
 import type { Dictionary } from '../../i18n/dictionary';
@@ -47,6 +47,7 @@ import { Switch } from '../../components/ui/switch';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
 import { ApiError } from '../../lib/http';
+import { usePaging } from '../../lib/sharedProps';
 import type { OperationTaskView, OperationsOverview, TaskRun } from '../../types/operations';
 
 /**
@@ -521,7 +522,7 @@ function TaskHistoryDialog(props: {
     const [runs, setRuns] = useState<TaskRun[] | null>(null);
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[0]);
+    const [pageSize, setPageSize] = useState<number>(usePaging().default);
     const [expanded, setExpanded] = useState<string | null>(null);
 
     const taskKey = props.task?.key ?? null;

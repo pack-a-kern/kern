@@ -8,7 +8,6 @@ import {
     parseTaskRunsPage,
 } from '../types/operations';
 
-/** The page sizes the pager offers — mirrors `PAGE_SIZES` server-side. */
 function pageQuery(page: number | undefined, perPage: number | undefined): URLSearchParams {
     const params = new URLSearchParams();
 

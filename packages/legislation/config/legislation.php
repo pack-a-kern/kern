@@ -48,6 +48,25 @@ return [
     ],
 
     /*
+     * How "Find a provision" ranks what it finds (`HybridLegislationSearch`). No default for any of these
+     * (ADR 0025 §4): the values are in .env.example, and one missing or out of range fails by name.
+     *
+     * A result's score is meaning × its weight + words × its weight + label × its weight, each part from 0
+     * to 1. A part only counts as a match above its minimum: a label like "art 43" close enough to
+     * "Art. 43", a paragraph close enough in meaning. Words count whenever they match at all.
+     */
+    'search' => [
+        'weight_meaning' => env('LEGISLATION_SEARCH_WEIGHT_MEANING'),
+        'weight_words' => env('LEGISLATION_SEARCH_WEIGHT_WORDS'),
+        'weight_label' => env('LEGISLATION_SEARCH_WEIGHT_LABEL'),
+        'min_label' => env('LEGISLATION_SEARCH_MIN_LABEL'),
+        'min_meaning' => env('LEGISLATION_SEARCH_MIN_MEANING'),
+        // Results shown when none are asked for, and the most that may be asked for.
+        'results' => env('LEGISLATION_SEARCH_RESULTS'),
+        'max_results' => env('LEGISLATION_SEARCH_MAX_RESULTS'),
+    ],
+
+    /*
      * Searches per account. Each one embeds the query on this server's CPU; typing a question and
      * refining it a few times is far inside this, a loop is not.
      */
@@ -111,6 +130,9 @@ return [
      * its provider — never written here.
      */
     'watches' => [
+        // The queue a watch run asked for now is worked on: its own, so a run of minutes on the portal never
+        // holds up the reading of the laws it, or anything else, has started.
+        'queue' => env('LEGISLATION_WATCHES_QUEUE'),
         // How long one watch's run may hold its lock, in seconds: a slow search is never run twice at once.
         'lock_seconds' => env('LEGISLATION_WATCHES_LOCK_SECONDS'),
         // An act of late December is published in January: while the year is younger than this many
@@ -123,6 +145,12 @@ return [
         'max_new_acts' => env('LEGISLATION_WATCHES_MAX_NEW_ACTS'),
         'max_per_person' => env('LEGISLATION_WATCHES_MAX_PER_PERSON'),
         'declared' => [],
+    ],
+
+    'imports' => [
+        // The most acts one "Import selected" queues at once, each read on the watches' queue
+        // (`watches.queue`), one after another: a choice from a search, not a crawl of the portal.
+        'max_acts' => env('LEGISLATION_IMPORT_MAX_ACTS'),
     ],
 
     'portal_search' => [

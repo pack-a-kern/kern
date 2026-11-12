@@ -322,6 +322,8 @@ it('refuses a tax category the catalogue does not have', function (): void {
  * lived entirely in reading the request.
  */
 it('pages the ledger', function (): void {
+    withPageSizes('1,2,25', 25);
+
     [$user, $subjectId, $accountId] = bankFilterSubject();
 
     for ($amount = 1; $amount <= 5; $amount++) {

@@ -90,8 +90,9 @@ final class LegislatieJustRoHtmlParser
      * standing after the provision it belongs to is nested into it.
      * 1.4.0 — the table of contents: titles, chapters and sections, with the articles under each.
      * 1.5.0 — the portal's notes ("Notă") are kept beside the provision they stand in, out of its text.
+     * 1.6.0 — the preamble and the signature are kept, each a section of its own.
      */
-    public const string VERSION = '1.5.0';
+    public const string VERSION = '1.6.0';
 
     /** @var array<string, SectionType> */
     private const array CONTAINER_CLASSES = [
@@ -125,7 +126,7 @@ final class LegislatieJustRoHtmlParser
      *
      * @var list<string>
      */
-    private const array BLOCK_CLASSES = ['S_PAR'];
+    private const array BLOCK_CLASSES = ['S_PAR', 'S_SMN_PAR'];
 
     /** @var list<string> */
     private const array BLOCK_ELEMENTS = ['p', 'div', 'br', 'li'];
@@ -207,19 +208,7 @@ final class LegislatieJustRoHtmlParser
 
             $seenCitationLabels[$section->citationLabel] = true;
 
-            $children = $this->pruneAmbiguousCitations($section->children, $seenCitationLabels, $ambiguousCitationLabels);
-
-            $kept[] = new ParsedSection(
-                $section->sectionType,
-                $section->rawLabel,
-                $section->citationLabel,
-                $section->ordinal,
-                $section->text,
-                $children,
-                $section->tables,
-                $section->outlineIndex,
-                $section->notes,
-            );
+            $kept[] = $section->withChildren($this->pruneAmbiguousCitations($section->children, $seenCitationLabels, $ambiguousCitationLabels));
         }
 
         return $kept;
@@ -252,7 +241,8 @@ final class LegislatieJustRoHtmlParser
 
     /**
      * The articles and annexes in reading order, each told which heading it stands under; the
-     * headings themselves go to `$outline`.
+     * headings themselves go to `$outline`. Before them the preamble, and after the act's own articles
+     * its signature, each as a section of its own ({@see looseSections()}).
      *
      * @param  list<ParsedOutlineNode>  $outline
      * @return list<ParsedSection>
@@ -262,30 +252,141 @@ final class LegislatieJustRoHtmlParser
         $sections = [];
         $ordinal = 1;
 
-        foreach ($this->findTopLevelContainers($root, $outline, null) as [$container, $outlineIndex]) {
+        foreach ($this->looseSections($this->findTopLevelItems($root, $outline, null)) as [$item, $outlineIndex]) {
+            if ($item instanceof ParsedSection) {
+                $sections[] = $item->at($ordinal++, null);
+
+                continue;
+            }
+
             // ARTICOL numbers are unique across the whole act, so (like today) it gets no
             // ancestor context. ANEXA numbers are only unique per-Titlu (verified: the real
             // Codul fiscal has three distinct "Anexa nr. 1"s) — see buildCitationLabel().
-            $topLevelContext = $this->matchingContainerToken($container) === 'S_ANX'
-                ? $this->ancestorWrapperContext($container)
+            $topLevelContext = $this->matchingContainerToken($item) === 'S_ANX'
+                ? $this->ancestorWrapperContext($item)
                 : null;
 
-            $parsed = $this->parseContainer($container, $topLevelContext, $ordinal);
-            $sections[] = new ParsedSection(
-                $parsed->sectionType,
-                $parsed->rawLabel,
-                $parsed->citationLabel,
-                $parsed->ordinal,
-                $parsed->text,
-                $parsed->children,
-                $parsed->tables,
-                $outlineIndex,
-                $parsed->notes,
-            );
+            $sections[] = $this->parseContainer($item, $topLevelContext, $ordinal)->at($ordinal, $outlineIndex);
             $ordinal++;
         }
 
         return $sections;
+    }
+
+    /**
+     * The words an act prints outside its articles, kept as sections where they stand:
+     *
+     * - the **preamble** — the paragraphs before the first article or annex: "Având în vedere
+     *   prevederile:", the acts it lists, "ministrul finanțelor emite următorul ordin:";
+     * - the **signature** — the portal's `S_SMN` block, with the paragraphs just before it ("Această
+     *   lege a fost adoptată de …") and just after it ("București, 27 octombrie 2022.", "Nr. 3.957.").
+     *
+     * Any other paragraph standing between provisions is left as before: its dashes, if it holds any,
+     * are provisions of their own, its words are not kept.
+     *
+     * @param  list<array{0: string, 1: DOMElement, 2: int|null}>  $items  {@see findTopLevelItems()}
+     * @return list<array{0: DOMElement|ParsedSection, 1: int|null}> each container or loose section, and its heading
+     */
+    private function looseSections(array $items): array
+    {
+        $out = [];
+        $pending = [];
+        $signature = null;
+        $signatures = 0;
+        $seenProvision = false;
+
+        // One more turn past the last item, as if a provision followed: what waits is told then.
+        foreach ([...$items, ['end', null, null]] as [$kind, $element, $heading]) {
+            if ($kind === 'paragraph' && $element !== null) {
+                if ($signature === null) {
+                    $pending[] = $element;
+                } else {
+                    $signature[] = $element;
+                }
+
+                continue;
+            }
+
+            if ($kind === 'signature' && $element !== null) {
+                $signature = [...($signature ?? $pending), $element];
+                $pending = [];
+
+                continue;
+            }
+
+            if ($signature !== null) {
+                $out[] = [$this->loose(SectionType::SEMNATURA, ++$signatures, $signature), null];
+            } elseif ($pending !== [] && ! $seenProvision) {
+                $out[] = [$this->loose(SectionType::PREAMBUL, 1, $pending), null];
+            } else {
+                foreach ($pending as $paragraph) {
+                    foreach ($this->dashesIn($paragraph) as $dash) {
+                        $out[] = [$dash, null];
+                    }
+                }
+            }
+
+            $pending = [];
+            $signature = null;
+
+            if ($element !== null) {
+                $seenProvision = true;
+                $out[] = [$element, $heading];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * The dashes a paragraph holds, outermost, in reading order.
+     *
+     * @return list<DOMElement>
+     */
+    private function dashesIn(DOMElement $paragraph): array
+    {
+        $dashes = [];
+
+        foreach ($paragraph->childNodes as $child) {
+            if ($child instanceof DOMElement) {
+                array_push($dashes, ...($this->matchingContainerToken($child) === null ? $this->dashesIn($child) : [$child]));
+            }
+        }
+
+        return $dashes;
+    }
+
+    /**
+     * A preamble or a signature — the `$nth` of its kind — the elements' words line by line, their
+     * dashes as lines of it.
+     *
+     * @param  non-empty-list<DOMElement>  $elements
+     */
+    private function loose(SectionType $type, int $nth, array $elements): ParsedSection
+    {
+        $textParts = [];
+        $tables = [];
+        $notes = [];
+        $none = [];
+
+        foreach ($elements as $element) {
+            $textParts[] = "\n";
+            $this->collectBodyContent($element, $textParts, $none, $tables, $notes, true);
+            $textParts[] = "\n";
+        }
+
+        return new ParsedSection(
+            $type,
+            '',
+            $this->buildCitationLabel($type, '', null, $nth),
+            0,
+            $this->normalizeLines(implode(' ', $textParts)),
+            [],
+            array_column($tables, 'rows'),
+            null,
+            $notes,
+            array_column($tables, 'spans'),
+        );
     }
 
     /**
@@ -328,10 +429,13 @@ final class LegislatieJustRoHtmlParser
      * label, "Capitolul IV", and its name, "Venituri din cedarea folosinței bunurilor" — and every
      * container found inside it is told which heading it stands under.
      *
+     * A paragraph (`S_PAR`) that holds no provision but dashes, and a signature block (`S_SMN`), are
+     * listed as they stand, for {@see looseSections()} to tell what they are.
+     *
      * @param  list<ParsedOutlineNode>  $outline
-     * @return list<array{0: DOMElement, 1: int|null}> each container, and the index of its heading
+     * @return list<array{0: 'container'|'paragraph'|'signature', 1: DOMElement, 2: int|null}> each item, and the index of its heading
      */
-    private function findTopLevelContainers(DOMNode $node, array &$outline, ?int $heading): array
+    private function findTopLevelItems(DOMNode $node, array &$outline, ?int $heading): array
     {
         $results = [];
 
@@ -341,7 +445,21 @@ final class LegislatieJustRoHtmlParser
             }
 
             if ($this->matchingContainerToken($child) !== null) {
-                $results[] = [$child, $heading];
+                $results[] = ['container', $child, $heading];
+
+                continue;
+            }
+
+            $classes = $this->classTokens($child);
+
+            if (in_array('S_SMN', $classes, true)) {
+                $results[] = ['signature', $child, $heading];
+
+                continue;
+            }
+
+            if (in_array('S_PAR', $classes, true) && ! $this->holdsProvisions($child)) {
+                $results[] = ['paragraph', $child, $heading];
 
                 continue;
             }
@@ -349,10 +467,24 @@ final class LegislatieJustRoHtmlParser
             $level = $this->outlineLevel($child);
             $inside = $level === null ? $heading : $this->addHeading($child, $level, $outline, $heading);
 
-            array_push($results, ...$this->findTopLevelContainers($child, $outline, $inside));
+            array_push($results, ...$this->findTopLevelItems($child, $outline, $inside));
         }
 
         return $results;
+    }
+
+    /** Whether an element holds a provision other than a dash — an article, a paragraph, a letter, a point, an annex. */
+    private function holdsProvisions(DOMElement $element): bool
+    {
+        foreach ($element->getElementsByTagName('*') as $descendant) {
+            $token = $this->matchingContainerToken($descendant);
+
+            if ($token !== null && $token !== 'S_LIN') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function outlineLevel(DOMElement $element): ?OutlineLevel
@@ -399,7 +531,7 @@ final class LegislatieJustRoHtmlParser
         $token = $this->matchingContainerToken($container);
 
         if ($token === null) {
-            // Cannot happen: every caller only ever passes an element findTopLevelContainers() or
+            // Cannot happen: every caller only ever passes an element findTopLevelItems() or
             // splitBodyContent() already confirmed matches a container token. Thrown, not
             // silently defaulted, per docs/CODE-QUALITY.md §4 ("no catch-all that swallows").
             throw new RuntimeException('parseContainer() called with a non-container element.');
@@ -425,7 +557,7 @@ final class LegislatieJustRoHtmlParser
             $childOrdinal++;
         }
 
-        return new ParsedSection($sectionType, $rawLabel, $citationLabel, $ordinal, $ownText, $children, $tables, null, $notes);
+        return new ParsedSection($sectionType, $rawLabel, $citationLabel, $ordinal, $ownText, $children, array_column($tables, 'rows'), null, $notes, array_column($tables, 'spans'));
     }
 
     /**
@@ -519,7 +651,7 @@ final class LegislatieJustRoHtmlParser
      * mislabelled, genuinely absent from the parse tree.
      *
      * This method now walks every descendant (depth-first, document order — the same strategy
-     * {@see findTopLevelContainers()} already used at the document root), stopping the descent the
+     * {@see findTopLevelItems()} already used at the document root), stopping the descent the
      * instant it finds a container token (that subtree becomes a child, its own text is never
      * touched here) or a non-citable annotation (that subtree is dropped entirely, see below).
      * Only a genuine dead end — a text node, or an element with neither a container token nor an
@@ -538,7 +670,7 @@ final class LegislatieJustRoHtmlParser
      * and a `<table>` is taken out whole: its rows and cells go to the third element, a marker line
      * holds its place in the text ({@see SectionText::tableMarker()}).
      *
-     * @return array{0: string, 1: list<DOMElement>, 2: list<list<list<string>>>, 3: list<string>}
+     * @return array{0: string, 1: list<DOMElement>, 2: list<array{rows: list<list<string>>, spans: list<array{row: int, cell: int, colspan: int, rowspan: int}>}>, 3: list<string>}
      */
     private function splitBodyContent(DOMElement $body): array
     {
@@ -557,10 +689,11 @@ final class LegislatieJustRoHtmlParser
     /**
      * @param list<string> $textParts
      * @param list<DOMElement> $childContainers
-     * @param list<list<list<string>>> $tables
+     * @param list<array{rows: list<list<string>>, spans: list<array{row: int, cell: int, colspan: int, rowspan: int}>}> $tables
      * @param list<string> $notes
+     * @param bool $provisionsAsText a preamble's or a signature's: a dash in it is a line of its words, not a provision
      */
-    private function collectBodyContent(DOMElement $node, array &$textParts, array &$childContainers, array &$tables, array &$notes): void
+    private function collectBodyContent(DOMElement $node, array &$textParts, array &$childContainers, array &$tables, array &$notes, bool $provisionsAsText = false): void
     {
         foreach ($node->childNodes as $child) {
             if ($child instanceof DOMText) {
@@ -588,7 +721,7 @@ final class LegislatieJustRoHtmlParser
                 continue;
             }
 
-            if ($this->matchingContainerToken($child) !== null) {
+            if (! $provisionsAsText && $this->matchingContainerToken($child) !== null) {
                 $childContainers[] = $child;
 
                 continue;
@@ -601,7 +734,7 @@ final class LegislatieJustRoHtmlParser
                 continue;
             }
 
-            $isBlock = $this->isBlock($child);
+            $isBlock = $this->isBlock($child) || ($provisionsAsText && $this->matchingContainerToken($child) !== null);
 
             if ($isBlock) {
                 $textParts[] = "\n";
@@ -610,7 +743,7 @@ final class LegislatieJustRoHtmlParser
             // A plain wrapper (S_PAR, S_LGI, <a>/<b>/...) — recurse rather than flattening its
             // whole subtree into text, since it may itself directly contain a container (the
             // Art. 3 case above).
-            $this->collectBodyContent($child, $textParts, $childContainers, $tables, $notes);
+            $this->collectBodyContent($child, $textParts, $childContainers, $tables, $notes, $provisionsAsText);
 
             if ($isBlock) {
                 $textParts[] = "\n";
@@ -634,13 +767,16 @@ final class LegislatieJustRoHtmlParser
     }
 
     /**
-     * A table as rows of cell texts — its own rows only, not those of a table nested in a cell.
+     * A table as rows of cell texts — its own rows only, not those of a table nested in a cell — and
+     * the cells it merges: "Cod emisiune 0105" across three columns, "Plata valorii nominale" two wide
+     * and two tall, each by its place among the rows kept.
      *
-     * @return list<list<string>>
+     * @return array{rows: list<list<string>>, spans: list<array{row: int, cell: int, colspan: int, rowspan: int}>}
      */
     private function tableRows(DOMElement $table): array
     {
         $rows = [];
+        $spans = [];
 
         foreach ((new DOMXPath($table->ownerDocument ?? new DOMDocument()))->query('.//tr', $table) ?: [] as $row) {
             if (! $row instanceof DOMElement || $this->closestTable($row) !== $table) {
@@ -648,19 +784,36 @@ final class LegislatieJustRoHtmlParser
             }
 
             $cells = [];
+            $merged = [];
 
             foreach ($row->childNodes as $cell) {
                 if ($cell instanceof DOMElement && in_array(strtolower($cell->nodeName), ['td', 'th'], true)) {
+                    $colspan = self::span($cell, 'colspan');
+                    $rowspan = self::span($cell, 'rowspan');
+
+                    if ($colspan > 1 || $rowspan > 1) {
+                        $merged[] = ['row' => count($rows), 'cell' => count($cells), 'colspan' => $colspan, 'rowspan' => $rowspan];
+                    }
+
                     $cells[] = $this->normalizeWhitespace($cell->textContent);
                 }
             }
 
             if (array_filter($cells, static fn (string $cell): bool => $cell !== '') !== []) {
                 $rows[] = $cells;
+                array_push($spans, ...$merged);
             }
         }
 
-        return $rows;
+        return ['rows' => $rows, 'spans' => $spans];
+    }
+
+    /** A cell's `colspan` or `rowspan` as the portal writes it — often `""`, which is one. */
+    private static function span(DOMElement $cell, string $attribute): int
+    {
+        $value = trim($cell->getAttribute($attribute));
+
+        return ctype_digit($value) && (int) $value > 1 ? (int) $value : 1;
     }
 
     private function closestTable(DOMElement $element): ?DOMElement
@@ -698,6 +851,9 @@ final class LegislatieJustRoHtmlParser
             // A dash carries no number of its own — its label is "–" — so it is cited by position,
             // the way a lawyer counts them: "liniuța a 2-a" is the second.
             SectionType::LINIUTA => trim($parentPrefix . ' liniuța ' . $ordinal),
+            SectionType::PREAMBUL => 'Preambul',
+            // An act signed twice — a law's annex with its own signature — keeps both, the second numbered.
+            SectionType::SEMNATURA => $ordinal === 1 ? 'Semnătura' : "Semnătura {$ordinal}",
         };
     }
 

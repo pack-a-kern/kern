@@ -10,7 +10,6 @@ use Kern\TaxRomania\Http\Controllers\Banks\ShowBankLogosController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\ApproveFiscalParameterVersionController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\DropFiscalParameterValuesController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\RejectFiscalParameterVersionController;
-use Kern\TaxRomania\Http\Controllers\FiscalParameters\ShowFilingDeadlineController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\ShowFiscalParameterBoardController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\StartFiscalYearController;
 use Kern\TaxRomania\Http\Controllers\Fx\ShowCurrencyCatalogueController;
@@ -52,6 +51,7 @@ use Kern\TaxRomania\Http\Controllers\Subjects\InspectCnpController;
 use Kern\TaxRomania\Http\Controllers\Subjects\ListSubjectsController;
 use Kern\TaxRomania\Http\Controllers\Subjects\RegisterPfSubjectController;
 use Kern\TaxRomania\Http\Controllers\Subjects\ShowSubjectAvatarController;
+use Kern\TaxRomania\Http\Controllers\Subjects\ShowSubjectCountsController;
 use Kern\TaxRomania\Http\Controllers\Subjects\UpdatePfSubjectController;
 use Kern\TaxRomania\Http\Controllers\Subjects\UpdateSubjectAvatarController;
 use Kern\TaxRomania\Http\Controllers\TaxEngine\AssessFiscalYearController;
@@ -78,6 +78,7 @@ use Kern\TaxRomania\Http\Controllers\Wallet\SellHoldingController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowAccountsController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowBanksController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowCounterpartiesController;
+use Kern\TaxRomania\Http\Controllers\Wallet\ShowCounterpartySuggestionsController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowDuplicateTransactionsController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowHoldingsController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowTagsController;
@@ -103,6 +104,7 @@ use Kern\TaxRomania\Http\Controllers\Wallet\UpdateTransactionController;
 
 Route::prefix('v1/subjects')->middleware('auth:web')->group(function (): void {
     Route::get('/', ListSubjectsController::class);
+    Route::get('counts', ShowSubjectCountsController::class);
     Route::post('pf', RegisterPfSubjectController::class);
     // Reads a CNP and answers what it contains — including whether it is already registered, which
     // is what makes the throttle matter: the endpoint writes nothing, but answered without limit it
@@ -190,6 +192,7 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
      * are rows a person creates, renames and merges rather than a config file.
      */
     Route::get('wallet/counterparties', ShowCounterpartiesController::class);
+    Route::get('wallet/counterparties/suggestions', ShowCounterpartySuggestionsController::class);
     Route::post('wallet/counterparties/merge', MergeCounterpartiesController::class);
     Route::post('wallet/counterparties/forget', ForgetCounterpartiesController::class);
     Route::patch('wallet/counterparties/{counterparty}', UpdateCounterpartyController::class)
@@ -345,9 +348,6 @@ Route::prefix('v1/fx')->middleware('auth:web')->group(function (): void {
 
 Route::prefix('v1/fiscal-parameters')->middleware('auth:web')->group(function (): void {
     Route::get('/', ShowFiscalParameterBoardController::class)->middleware('permission:fiscal.parameters.view');
-    // The next declaration's day, for the sidebar every signed-in person has. Not behind a
-    // permission, as the reference rates are not: it is the law's, the same day for everyone.
-    Route::get('filing-deadline', ShowFilingDeadlineController::class);
 
     Route::middleware('permission:fiscal.parameters.approve')->group(function (): void {
         Route::post('versions/{version}/approve', ApproveFiscalParameterVersionController::class)->whereUuid('version');

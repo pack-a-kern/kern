@@ -86,6 +86,9 @@ final readonly class RegisterPfaSubject
         }
 
         return DB::transaction(function () use ($input, $registrationNumberBlindIndex): TaxSubject {
+            // A new taxpayer is one more in use.
+            $this->allowance->ensureActiveRoom($input->registeringUserId);
+
             $subject = new TaxSubject();
             $subject->type = SubjectType::PFA;
             $subject->country_code = 'RO';

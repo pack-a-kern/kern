@@ -14,6 +14,8 @@ use Kern\Legislation\Repositories\OfficialSourceRepository;
  * `DELETE /api/v1/legislation/laws/{law}` — a law read in from the portal, removed with everything
  * read from it.
  *
+ * `ignore` passes the act over in every watch's searches from then on, when a watch read it in.
+ *
  * Only a legislation document: the same table holds the exchange-rate history and the bank lists,
  * which have no provisions to protect them and are what every past-year conversion rests on. Those
  * are not laws and are not found here.
@@ -49,8 +51,9 @@ final class DeleteLawController
             ], 409);
         }
 
+        $ignore = $request->validate(['ignore' => ['sometimes', 'boolean']])['ignore'] ?? false;
         $actor = $request->user()?->getAuthIdentifier();
 
-        return response()->json($delete($found, is_scalar($actor) ? (string) $actor : null), 200);
+        return response()->json($delete($found, is_scalar($actor) ? (string) $actor : null, (bool) $ignore), 200);
     }
 }

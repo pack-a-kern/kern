@@ -7,6 +7,7 @@ namespace Kern\TaxRomania\Http\Controllers\StatementImport;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Kern\Platform\Routing\PageSizes;
 use Kern\TaxRomania\StatementImport\Enums\RowProposalSource;
 use Kern\TaxRomania\StatementImport\Models\StatementImport;
 use Kern\TaxRomania\StatementImport\Models\StatementImportRow;
@@ -28,10 +29,6 @@ use Kern\TaxRomania\Wallet\Services\TaxCategoryCatalogue;
  */
 final class ShowStatementImportController
 {
-    private const int DEFAULT_PER_PAGE = 50;
-
-    private const int MAX_PER_PAGE = 200;
-
     /** What a person narrows the review to. */
     private const string FILTER_NEW = 'new';
 
@@ -44,6 +41,7 @@ final class ShowStatementImportController
         string $subject,
         string $import,
         TaxCategoryCatalogue $categories,
+        PageSizes $sizes,
     ): JsonResponse {
         // Tenant-scoped: another subject's import is not found rather than shown.
         $model = StatementImport::query()->findOrFail($import);
@@ -51,13 +49,13 @@ final class ShowStatementImportController
         $validated = $request->validate([
             'filter' => ['sometimes', 'nullable', Rule::in([self::FILTER_NEW, self::FILTER_DUPLICATES, self::FILTER_UNANSWERED])],
             'page' => ['sometimes', 'integer', 'min:1'],
-            'per_page' => ['sometimes', 'integer', 'min:1', 'max:' . self::MAX_PER_PAGE],
+            'per_page' => $sizes->rule(),
         ]);
 
         // Read as integers: a query string is text, and `is_int('2')` is false — which served page one
         // for every page a person asked for.
         $page = $request->integer('page', 1);
-        $perPage = $request->integer('per_page', self::DEFAULT_PER_PAGE);
+        $perPage = $sizes->of($validated['per_page'] ?? null);
 
         $query = StatementImportRow::query()->where('import_id', $model->id)->orderBy('row_number');
 

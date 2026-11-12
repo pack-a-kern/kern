@@ -16,6 +16,8 @@ return [
     | These are ceilings on *owned* taxpayers. Access granted by someone else
     | does not count against them — see SubjectAllowance.
     |
+    | No defaults: a value missing fails where it is read, naming the variable.
+    |
     */
 
     /*
@@ -31,17 +33,23 @@ return [
     |
     */
 
-    'default_country' => env('SUBJECTS_DEFAULT_COUNTRY', 'RO'),
+    'default_country' => env('SUBJECTS_DEFAULT_COUNTRY'),
 
     'limits' => [
-        'default' => (int) env('SUBJECTS_LIMIT_DEFAULT', 1),
+        'default' => env('SUBJECTS_LIMIT_DEFAULT'),
 
         'per_role' => [
-            'VIEWER' => (int) env('SUBJECTS_LIMIT_VIEWER', 1),
-            'ACCOUNTANT' => (int) env('SUBJECTS_LIMIT_ACCOUNTANT', 50),
-            'ADMIN' => (int) env('SUBJECTS_LIMIT_ADMIN', 100),
-            'SUPER_ADMIN' => (int) env('SUBJECTS_LIMIT_SUPER_ADMIN', 1000),
+            'VIEWER' => env('SUBJECTS_LIMIT_VIEWER'),
+            'ACCOUNTANT' => env('SUBJECTS_LIMIT_ACCOUNTANT'),
+            'ADMIN' => env('SUBJECTS_LIMIT_ADMIN'),
+            'SUPER_ADMIN' => env('SUBJECTS_LIMIT_SUPER_ADMIN'),
         ],
+
+        /*
+         * How many of them may be in use at once, whatever the role: each one in use is named in the
+         * taxpayer switcher on every page, and each name is decrypted under its own key.
+         */
+        'max_active' => env('SUBJECTS_MAX_ACTIVE'),
     ],
 
 ];

@@ -6,7 +6,7 @@ namespace Kern\Audit\Http\Controllers\Audit;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
+use Kern\Audit\Contracts\PageSizes;
 use Kern\Audit\Queries\AuditEventQuery;
 use Kern\Audit\Queries\AuditReach;
 
@@ -23,12 +23,7 @@ use Kern\Audit\Queries\AuditReach;
  */
 final class ShowAuditEventsController
 {
-    private const int DEFAULT_PAGE_SIZE = 25;
-
-    /** The sizes the screen's pager offers — mirrors `PAGE_SIZES` in `resources/js`. */
-    private const array PAGE_SIZES = [10, 25, 50, 100];
-
-    public function __invoke(Request $request, AuditEventQuery $query): JsonResponse
+    public function __invoke(Request $request, AuditEventQuery $query, PageSizes $sizes): JsonResponse
     {
         $validated = $request->validate([
             'q' => ['nullable', 'string', 'max:120'],
@@ -37,7 +32,7 @@ final class ShowAuditEventsController
             'since' => ['nullable', 'date'],
             'anchor' => ['nullable', 'date'],
             'page' => ['nullable', 'integer', 'min:1'],
-            'per_page' => ['nullable', 'integer', Rule::in(self::PAGE_SIZES)],
+            'per_page' => $sizes->rule(),
         ]);
 
         $reach = AuditReach::for($request->user());
@@ -51,7 +46,7 @@ final class ShowAuditEventsController
                 'since' => $validated['since'] ?? null,
                 'anchor' => $validated['anchor'] ?? null,
             ],
-            isset($validated['per_page']) ? (int) $validated['per_page'] : self::DEFAULT_PAGE_SIZE,
+            $sizes->of($validated['per_page'] ?? null),
             isset($validated['page']) ? (int) $validated['page'] : 1,
         ), 'reach' => $reach->value]);
     }

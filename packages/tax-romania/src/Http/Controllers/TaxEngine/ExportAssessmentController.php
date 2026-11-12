@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Kern\TaxRomania\TaxEngine\Exports\AssessmentCsv;
 use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
+use Kern\TaxRomania\TaxEngine\Services\FiscalYears;
 use Kern\TaxRomania\Wallet\Services\WalletAudit;
 
 /**
@@ -23,10 +24,10 @@ use Kern\TaxRomania\Wallet\Services\WalletAudit;
  */
 final class ExportAssessmentController
 {
-    public function __invoke(Request $request, string $subject, AssessmentCsv $csv, WalletAudit $audit): Response
+    public function __invoke(Request $request, string $subject, AssessmentCsv $csv, WalletAudit $audit, FiscalYears $years): Response
     {
         $data = $request->validate([
-            'fiscal_year' => ['required', 'integer', 'min:2018', 'max:2100'],
+            'fiscal_year' => $years->rule(),
             'part' => ['required', 'string', 'in:figures,evidence'],
         ]);
 

@@ -4,81 +4,34 @@ declare(strict_types=1);
 
 namespace Kern\Legislation\Watches;
 
-use Illuminate\Contracts\Cache\Factory as Cache;
-use Illuminate\Contracts\Cache\LockProvider;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Kern\Legislation\Actions\SyncLegislationDocument;
-use Kern\Legislation\Legislatie\PortalAct;
-use Kern\Legislation\Legislatie\PortalQuery;
-use Kern\Legislation\Legislatie\PortalSearch;
 use Kern\Legislation\Models\LawWatch;
-use Kern\Legislation\Models\SourceDocument;
-use RuntimeException;
-use Throwable;
 
 /**
- * Every watch that is due, run (the hourly `legislation.watch` task): its search made the way the
- * settings say, as the "Add a law" dialog makes it, and each new act it finds read as a law — whoever
- * watches for it reads what it needs from it once read, through `LawConsolidationsRead`.
+ * Every watch that is due, run (the hourly `legislation.watch` task) — each by `LawWatchRunner`, on its own
+ * clock and under a lock of its own, failing alone: the others still run.
  *
  * The packages' watches are mirrored first from their declarations: one new is added, one changed takes
- * its new search, one no longer declared is removed. Each watch then runs on its own clock — its first
- * run every year from its first, each later run this year and, early in the year, the last — under a
- * lock of its own, and fails alone: its reason is its last result, it is tried again within the hour,
- * and the others still run.
+ * its new search, one no longer declared is removed.
  */
 final readonly class RunLawWatches
 {
-    public function __construct(
-        private PortalSearch $search,
-        private SyncLegislationDocument $sync,
-        private Cache $cache,
-    ) {
+    public function __construct(private LawWatchRunner $runner)
+    {
     }
 
     /** @return list<string> a line per watch run, for the run's output */
     public function __invoke(WatchSettings $settings): array
     {
         $this->mirror($settings->declared);
-        // The cache *store* locks, not the repository; one that cannot is refused rather than left to
-        // let two runs of a watch race.
-        $locks = $this->cache->store()->getStore();
-
-        if (! $locks instanceof LockProvider) {
-            throw new RuntimeException('The configured cache store provides no atomic locks.');
-        }
-
         $lines = [];
 
         foreach (LawWatch::query()->where('enabled', true)->where('next_run_at', '<=', now())->orderBy('next_run_at')->cursor() as $watch) {
-            $lock = $locks->lock("legislation.watch.{$watch->id}", $settings->lockSeconds);
+            $run = $this->runner->run($watch, $settings);
 
-            if (! $lock->get()) {
-                continue;
+            if ($run !== null) {
+                $lines[] = ($watch->key ?? $watch->id) . ': ' . $run->line();
             }
-
-            // What failed is said in a few words a screen can show; the exception itself goes to the log, where
-            // its addresses and internals belong.
-            try {
-                [$result, $finished] = $this->run($watch, $settings);
-            } catch (Throwable $exception) {
-                report($exception);
-                [$result, $finished] = ['FAILED: the portal search did not finish', false];
-            } finally {
-                $lock->release();
-            }
-
-            // A run that did not finish — failed, all or in part, or left acts for later — is tried again at the
-            // next hourly run, and is not the clean run `last_run_at` records: a first run that did not finish
-            // still searches every year next time.
-            $now = now();
-            $watch->forceFill([
-                'last_run_at' => $finished ? $now : $watch->last_run_at,
-                'next_run_at' => $now->copy()->addHours($finished ? $watch->every_hours : 1),
-                'last_result' => mb_substr($result, 0, 500),
-            ])->save();
-            $lines[] = ($watch->key ?? $watch->id) . ": {$result}";
         }
 
         return $lines;
@@ -102,51 +55,5 @@ final readonly class RunLawWatches
 
             LawWatch::query()->whereNotNull('key')->whereNotIn('key', array_map(static fn (WatchDeclaration $d): string => $d->key, $declared))->delete();
         });
-    }
-
-    /** @return array{string, bool} what the run did, and whether it read everything it found */
-    private function run(LawWatch $watch, WatchSettings $settings): array
-    {
-        $today = Carbon::today();
-        $years = $watch->last_run_at === null
-            ? range($watch->first_year, $today->year)
-            : ($today->dayOfYear <= $settings->overlapDays ? [$today->year - 1, $today->year] : [$today->year]);
-        $found = 0;
-        $started = 0;
-        $failed = 0;
-        $waiting = 0;
-
-        foreach ($years as $year) {
-            $acts = array_filter($this->search->all(PortalQuery::byTitle($watch->search_words, $year, $watch->act_type)), static fn (PortalAct $act): bool => $watch->keeps($act->title));
-            $found += count($acts);
-
-            foreach ($acts as $act) {
-                if (SourceDocument::query()->where('portal_document_id', $act->portalId())->exists()) {
-                    continue;
-                }
-
-                // A search too broad reads no more than its share a run; the rest wait for the next.
-                if ($started + $failed >= $settings->maxNewActs) {
-                    $waiting++;
-
-                    continue;
-                }
-
-                // One act that will not start is that act's failure, not the watch's.
-                try {
-                    ($this->sync)($watch->act_type, (int) $act->number, $act->year() ?? $year, null, $act->portalId());
-                    $started++;
-                } catch (Throwable $exception) {
-                    report($exception);
-                    $failed++;
-                }
-            }
-        }
-
-        $line = sprintf('%d acts found in %s, %d new read as laws', $found, implode(', ', $years), $started)
-            . ($waiting === 0 ? '' : "; {$waiting} left for the next run")
-            . ($failed === 0 ? '' : "; FAILED to start {$failed}");
-
-        return [$line, $waiting === 0 && $failed === 0];
     }
 }

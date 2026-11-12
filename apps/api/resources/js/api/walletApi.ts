@@ -424,3 +424,19 @@ export async function recordTransaction(subjectId: string, body: RecordTransacti
         body: { ...body },
     });
 }
+
+/**
+ * `GET wallet/counterparties/suggestions?q=` — names already used that hold what is typed: a shortlist
+ * the server cuts, the name typed already left out.
+ */
+export async function suggestCounterparties(subjectId: string, typed: string): Promise<string[]> {
+    const query = new URLSearchParams({ q: typed });
+    const body: unknown = JSON.parse(
+        await apiRequest(
+            `/v1/subjects/${encodeURIComponent(subjectId)}/wallet/counterparties/suggestions?${query.toString()}`,
+        ),
+    );
+    const names = typeof body === 'object' && body !== null ? (body as { names?: unknown }).names : null;
+
+    return Array.isArray(names) ? names.filter((name): name is string => typeof name === 'string') : [];
+}

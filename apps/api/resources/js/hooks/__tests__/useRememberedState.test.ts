@@ -3,16 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The taxpayers the page would carry. A per-taxpayer key follows the stored choice among them, exactly as
 // the screens do (`useActiveSubjectId`).
+// The page sizes `HandleInertiaRequests` shares from KERN_PAGE_SIZES — demo values, as in .env.example.
 vi.mock('../../lib/sharedProps', () => ({
-    useSharedAuth: () => ({
-        subjects: ['subject-a', 'subject-b'].map((id) => ({
-            id,
-            displayName: id,
-            status: 'ACTIVE',
-            type: 'PF',
-            avatarUpdatedAt: null,
-        })),
-    }),
+    usePaging: () => ({ sizes: [10, 25, 50, 100], default: 25 }),
+    useSharedSubjects: () =>
+        ['subject-a', 'subject-b'].map((id) => ({ id, displayName: id, type: 'PF', avatarUpdatedAt: null })),
 }));
 
 import { setActiveSubjectId } from '../../lib/subjectStore';

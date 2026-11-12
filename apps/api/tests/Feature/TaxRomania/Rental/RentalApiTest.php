@@ -232,3 +232,13 @@ it('never touches another taxpayer’s rental', function (): void {
 
     expect(DB::table('rental_contracts')->count())->toBe(1);
 });
+
+it('says which year is this one, on Romania\'s calendar rather than the server\'s', function (): void {
+    [$user, $subjectId] = landlord();
+    // 1 January 2027, half past midnight in Bucharest — still 2026 on the server's clock.
+    $this->travelTo('2026-12-31 22:30:00');
+
+    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/rentals")
+        ->assertOk()
+        ->assertJsonPath('current_year', 2027);
+});

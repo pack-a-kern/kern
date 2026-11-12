@@ -6,7 +6,6 @@ use App\Http\Controllers\Api\V1\Admin\ShowUsersController;
 use App\Http\Controllers\Api\V1\Documents\CreateTransactionFromDocumentController;
 use App\Http\Controllers\Api\V1\Settings\ShowPlatformDataController;
 use Illuminate\Support\Facades\Route;
-use Kern\Documents\Http\Controllers\ShowDocumentAiConsentsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -32,10 +31,6 @@ use Kern\Documents\Http\Controllers\ShowDocumentAiConsentsController;
 Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])->group(function (): void {
     Route::post('documents/{document}/transaction', CreateTransactionFromDocumentController::class);
 });
-
-// Which tax subjects permit external AI processing. A set rather than a value per subject, so a
-// consent screen needs one request instead of one per row.
-Route::get('v1/documents/ai-consents', ShowDocumentAiConsentsController::class)->middleware('auth:web');
 
 /*
  * The two administrative endpoints that compose a package's facts with this product's.

@@ -30,4 +30,14 @@ enum SectionType: string
 
     /** A dash item — "– plan de rambursare a datoriilor;" — cited by its position under its parent. */
     case LINIUTA = 'LINIUTA';
+
+    /**
+     * What an act says before its first article — "Având în vedere prevederile: – …", "ministrul
+     * finanțelor emite următorul ordin:" — the acts it rests on and who issues it. Its dashes are its
+     * own lines, not provisions: they are cited as the preamble, never on their own.
+     */
+    case PREAMBUL = 'PREAMBUL';
+
+    /** Who signed the act, where and when, and its number — "p. Ministrul finanțelor, …", "București, 27 octombrie 2022.", "Nr. 3.957." */
+    case SEMNATURA = 'SEMNATURA';
 }

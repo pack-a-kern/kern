@@ -5,11 +5,11 @@ import { SubjectChooser } from '../SubjectSwitcher';
 const page = vi.hoisted(() => ({ subjects: [] as Record<string, unknown>[] }));
 
 vi.mock('@inertiajs/react', () => ({
-    usePage: () => ({ props: { auth: { user: { id: 'u-1' }, subjects: page.subjects } } }),
+    usePage: () => ({ props: { auth: { user: { id: 'u-1' } }, subjects: page.subjects } }),
 }));
 
-function subject(id: string, name: string, status = 'ACTIVE'): Record<string, unknown> {
-    return { id, display_name: name, status, type: 'PERSON', avatar_updated_at: null };
+function subject(id: string, name: string): Record<string, unknown> {
+    return { id, display_name: name, type: 'PERSON', avatar_updated_at: null };
 }
 
 const signOut = <button type="button">Sign out</button>;
@@ -47,8 +47,8 @@ describe('the taxpayer chooser', () => {
         cleanup();
 
         window.localStorage.clear();
-        // One open taxpayer beside a closed one is one choice, made for the person.
-        page.subjects = [subject('s-1', 'Ana Pop'), subject('s-2', 'Ion Pop', 'CLOSED')];
+        // One taxpayer in use is one choice, made for the person (a closed one is never sent).
+        page.subjects = [subject('s-1', 'Ana Pop')];
 
         render(<SubjectChooser footer={signOut} />);
         expect(screen.queryByRole('dialog')).toBeNull();

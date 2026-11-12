@@ -1408,11 +1408,16 @@ export interface Dictionary {
             search: string;
             /** The search card's own heading, above the field. */
             searchTitle: string;
-            searchHint: string;
-            tier: string;
+            /** The lede where the laws are searched by meaning as well as by words is `description`; this one where by words alone. */
+            descriptionWords: string;
+            /** Under the search card's heading: what its filters narrow. */
+            searchScope: string;
             asOf: string;
             asOfHint: string;
-            allTiers: string;
+            /** Leaves a search's answer for the laws list. */
+            backToLaws: string;
+            /** Said over a search's answer while a filter narrows the laws it looked in. */
+            searchScoped: string;
             /** Shown before any search has been run. */
             empty: string;
             searchFailed: string;
@@ -1435,6 +1440,25 @@ export interface Dictionary {
             /** Opens the law a hit is in, at the date searched. */
             openInLaw: string;
             laws: {
+                /** Names the filters on a phone — its button and its sheet — which narrow the list and the search alike. */
+                filterLabel: string;
+                /** The phone's filter button, `{count}` how many are set. */
+                filterCount: string;
+                /** What the pager under the list counts. */
+                unit: string;
+                /** The filters above the list, each with its "any" choice. */
+                type: string;
+                anyType: string;
+                year: string;
+                anyYear: string;
+                watch: string;
+                anyWatch: string;
+                /** Filters chosen, and no law matches them. */
+                noMatch: string;
+                clearFilters: string;
+                /** The delete dialog's choice, for an act a watch read in. */
+                ignoreInWatches: string;
+                ignoreInWatchesHint: string;
                 /** Opens the dialog that finds an act on the portal. */
                 add: string;
                 /** No law read yet — says where to read one. */
@@ -1457,6 +1481,8 @@ export interface Dictionary {
                 consolidations: string;
                 /** `{count}` that could not be read. */
                 consolidationsFailed: string;
+                /** What another part of the app flags beside a law, by its code; `{count}` how many. */
+                flags: { bonds_skipped: string };
                 /** The reading stopped on this side, not the portal's. */
                 readingStopped: string;
                 /** The consolidation in force now: the latest read. */
@@ -1479,8 +1505,38 @@ export interface Dictionary {
                 /** `{hours}` */
                 everyHours: string;
                 notRun: string;
-                /** `{date}`, `{result}` */
-                lastRun: string;
+                /** The button that opens the list, `{count}` watches. */
+                open: string;
+                runNow: string;
+                running: string;
+                /** A watch paused is not run now. */
+                paused: string;
+                /** `{date}` of its last run that read everything it found. */
+                lastComplete: string;
+                /** `{date}` of its next run. */
+                nextRun: string;
+                /** `{count}` laws it read in. */
+                laws: string;
+                /** What its last run did, each `{count}`; said only where it is not nothing, but the first two. */
+                summary: {
+                    found: string;
+                    started: string;
+                    known: string;
+                    ignored: string;
+                    waiting: string;
+                    failed: string;
+                    retries: string;
+                };
+                /** Why its last run's search stopped, by the server's code. */
+                failure: Record<string, string>;
+                /** The acts a person asked the watches to pass over. */
+                ignoredTitle: string;
+                ignoredHint: string;
+                /** `{date}` it was ignored. */
+                ignoredOn: string;
+                allow: string;
+                allowed: string;
+                close: string;
                 active: string;
                 interval: string;
                 remove: string;
@@ -1528,9 +1584,25 @@ export interface Dictionary {
                 unsupported: string;
                 started: string;
                 busy: string;
+                /** "Import selected": its select-all, one act's box (`{title}`), its button (`{count}` ticked). */
+                selectAll: string;
+                select: string;
+                importSelected: string;
+                /** Asked before it starts; `{count}` acts. */
+                confirmMany: string;
+                /** More ticked than one import takes; `{max}` — `LEGISLATION_IMPORT_MAX_ACTS`. */
+                tooMany: string;
+                /** Said once they are queued; `{count}` queued, those already read passed over. */
+                queued: string;
+                /** An act an import queued that could not be read in. */
+                failedRead: string;
+                /** An act older than the laws read here; `{year}` the first year read. */
+                tooOld: string;
                 portalDown: string;
                 /** The site's search page answered with its error page: nothing matched, or it failed. */
                 searchRefused: string;
+                /** The web service answered with a server error every time: the portal's own search is down. */
+                searchDown: string;
                 browserBusy: string;
                 browserUnavailable: string;
                 /** `{pages}` read so far, `{count}` acts found so far. */
@@ -1539,6 +1611,12 @@ export interface Dictionary {
                 stopped: string;
                 /** `{page}` the page that would not answer, `{reason}` why. */
                 incomplete: string;
+                /** Every page read: `{pages}` pages, `{count}` acts found. */
+                done: string;
+                /** `{count}` of the acts found already laws here — said only when there are any. */
+                doneInLibrary: string;
+                /** `{count}` times the portal was asked again — said only when it was. */
+                doneRetries: string;
             };
             law: {
                 /** A history stretch whose start is the portal note's day. */
@@ -1880,7 +1958,6 @@ export interface Dictionary {
             save: string;
             saved: string;
             saveFailed: string;
-            deactivate: string;
             reactivate: string;
             close: string;
             closeTitle: string;
@@ -2191,7 +2268,6 @@ export interface Dictionary {
             clearFilters: string;
             empty: string;
             never: string;
-            truncated: string;
             usersTitle: string;
             usersDescription: string;
             unit: string;

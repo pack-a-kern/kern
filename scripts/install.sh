@@ -389,6 +389,7 @@ STORAGE_BUCKET=kern-documents
 STORAGE_QUARANTINE=kern-quarantine
 
 PROCESSING_MODE=local
+SEARCH_BY_MEANING=false
 PROCESSING_URL_ANSWER=''
 PROCESSING_CA=''
 PROCESSING_TOKEN=''
@@ -645,6 +646,15 @@ ask_processing() {
     PROCESSING_URL_ANSWER="$SERVICE_URL"
     PROCESSING_CA="$SERVICE_CA"
     PROCESSING_TOKEN="$SERVICE_TOKEN"
+
+    # The laws are always searched by their words. By meaning too only with the model, which runs in
+    # the processing plane: without one there is nothing to ask.
+    [ "$PROCESSING_MODE" = skip ] || {
+        choose 'Search the laws by meaning, as well as by their words? The model runs in the processing plane.' 1 \
+            'Yes — "taxa pe dividende" also finds "impozit pe dividende"' \
+            'No — by their words alone'
+        [ "$CHOICE" = 2 ] || SEARCH_BY_MEANING=true
+    }
 }
 
 ask_browser_worker() {
@@ -770,9 +780,10 @@ print_summary() {
     [ "$BROWSER_MODE" != remote ] || printf '    SPV automation   %s\n' "$BROWSER_URL_ANSWER"
     [ "$MAIL_MODE" != smtp ] || printf '    email            %s:%s\n' "$MAIL_HOST_ANSWER" "$MAIL_PORT_ANSWER"
 
-    if [ "$PROCESSING_MODE" = skip ] || [ "$BROWSER_MODE" = skip ] || [ "$MAIL_MODE" = log ]; then
+    if [ "$SEARCH_BY_MEANING" = false ] || [ "$BROWSER_MODE" = skip ] || [ "$MAIL_MODE" = log ]; then
         printf '\n  left out:\n'
         [ "$PROCESSING_MODE" != skip ] || printf '    document AI      no AI features\n'
+        [ "$SEARCH_BY_MEANING" = true ] || printf '    law search       by words alone, not by meaning\n'
         [ "$BROWSER_MODE" != skip ] || printf '    SPV automation   no automated ANAF sign-in\n'
         [ "$MAIL_MODE" != log ] || printf '    email            written to the application log\n'
     fi
@@ -819,6 +830,13 @@ write_optional_service() {
             set_env "$2" ''
             ;;
     esac
+}
+
+# The processing plane's answers, and whether the laws are searched by meaning through it.
+write_processing() {
+    write_optional_service "$PROCESSING_MODE" PROCESSING_URL PROCESSING_CA_CERT INTERNAL_SERVICE_AUTH_TOKEN \
+        "$PROCESSING_URL_ANSWER" "$PROCESSING_CA" "$PROCESSING_TOKEN"
+    set_env RETRIEVAL_EMBEDDING_ENABLED "$SEARCH_BY_MEANING"
 }
 
 write_environment_file() {
@@ -929,8 +947,7 @@ write_environment_file() {
     set_env AWS_BUCKET "$STORAGE_BUCKET"
     set_env QUARANTINE_BUCKET "$STORAGE_QUARANTINE"
 
-    write_optional_service "$PROCESSING_MODE" PROCESSING_URL PROCESSING_CA_CERT INTERNAL_SERVICE_AUTH_TOKEN \
-        "$PROCESSING_URL_ANSWER" "$PROCESSING_CA" "$PROCESSING_TOKEN"
+    write_processing
     write_optional_service "$BROWSER_MODE" BROWSER_WORKER_URL BROWSER_WORKER_CA_CERT BROWSER_WORKER_TOKEN \
         "$BROWSER_URL_ANSWER" "$BROWSER_CA" "$BROWSER_TOKEN"
 

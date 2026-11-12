@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Kern\Platform\Identity\Enums\UserStatus;
 use Kern\Platform\Identity\Models\User;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
@@ -122,3 +123,49 @@ it('is closed to a user who is not a settings administrator', function (): void 
 
     $this->actingAs($user)->getJson('/api/v1/admin/users')->assertForbidden();
 });
+
+it('finds an account by its whole address, never by part of one', function (): void {
+    $admin = settingsAdminUser();
+    $wanted = User::factory()->withEmail('wanted@example.test')->create();
+    User::factory()->create();
+
+    $whole = $this->actingAs($admin)->getJson('/api/v1/admin/users?email=' . urlencode(' Wanted@Example.test '))->assertOk();
+    $part = $this->actingAs($admin)->getJson('/api/v1/admin/users?email=wanted')->assertOk();
+
+    expect(array_column((array) $whole->json('users'), 'id'))->toBe([$wanted->id])
+        ->and($whole->json('total'))->toBe(1)
+        ->and($part->json('users'))->toBe([])
+        ->and($part->json('total'))->toBe(0);
+});
+
+it('narrows by status and by platform role on the server', function (): void {
+    $admin = settingsAdminUser();
+    $suspended = User::factory()->create(['status' => UserStatus::SUSPENDED]);
+
+    $byStatus = $this->actingAs($admin)->getJson('/api/v1/admin/users?status=SUSPENDED')->assertOk();
+    $byRole = $this->actingAs($admin)->getJson('/api/v1/admin/users?role=SUPER_ADMIN')->assertOk();
+
+    expect(array_column((array) $byStatus->json('users'), 'id'))->toBe([$suspended->id])
+        ->and(array_column((array) $byRole->json('users'), 'id'))->toBe([$admin->id]);
+});
+
+it('pages the accounts and counts over all of them, whatever the page holds', function (): void {
+    $admin = settingsAdminUser();
+    User::factory()->count(11)->create();
+
+    $second = $this->actingAs($admin)->getJson('/api/v1/admin/users?page=2&per_page=10')->assertOk();
+    $pastTheEnd = $this->actingAs($admin)->getJson('/api/v1/admin/users?page=9&per_page=10')->assertOk();
+    $filtered = $this->actingAs($admin)->getJson('/api/v1/admin/users?status=SUSPENDED')->assertOk();
+
+    expect($second->json('users'))->toHaveCount(2)
+        ->and($second->json('total'))->toBe(12)
+        ->and($pastTheEnd->json('page'))->toBe(2)
+        ->and($filtered->json('total'))->toBe(0)
+        ->and($filtered->json('stats.users'))->toBe(12)
+        ->and($filtered->json('stats.with_mfa'))->toBe(0)
+        ->and($filtered->json('stats.roles'))->toBe(['SUPER_ADMIN' => 1]);
+});
+
+it('refuses a role, status or page size it does not know', function (string $query): void {
+    $this->actingAs(settingsAdminUser())->getJson('/api/v1/admin/users?' . $query)->assertUnprocessable();
+})->with(['role=NOBODY', 'status=GONE', 'per_page=7', 'page=0']);

@@ -22,7 +22,7 @@ export function lines(text: string, tables: LawTable[]): TextLine[] {
             const marker = TABLE_MARKER.exec(line);
 
             if (marker !== null) {
-                return { kind: 'table', table: tables[Number(marker[1]) - 1] ?? [] };
+                return { kind: 'table', table: tables[Number(marker[1]) - 1] ?? { rows: [], spans: [] } };
             }
 
             return { kind: AMENDMENT_NOTE.test(line) ? 'note' : 'text', text: line };
@@ -32,7 +32,7 @@ export function lines(text: string, tables: LawTable[]): TextLine[] {
 /** The text with each table written out row by row — what two versions are compared on. */
 export function withTables(text: string, tables: LawTable[]): string {
     return lines(text, tables)
-        .map((line) => (line.kind === 'table' ? line.table.map((row) => row.join(' | ')).join('\n') : line.text))
+        .map((line) => (line.kind === 'table' ? line.table.rows.map((row) => row.join(' | ')).join('\n') : line.text))
         .join('\n');
 }
 

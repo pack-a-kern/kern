@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Http\Inertia\LazilyKeyedOnceProp;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 use Inertia\Middleware;
 use Kern\Documents\FileSecurity\SniffedFileType;
+use Kern\Platform\Routing\PageSizes;
 use Kern\Platform\Settings\Services\AiProviderCatalogue;
 use Kern\Platform\Settings\Services\WatchSystemHealth;
+use Kern\TaxRomania\FiscalParameters\Queries\FilingDeadline;
 use Kern\TaxRomania\Fx\Services\CurrencyCatalogue;
-use Kern\TaxRomania\Subjects\Queries\ListSubjectsForUser;
-use Kern\TaxRomania\Subjects\Queries\SubjectSummary;
+use Kern\TaxRomania\Subjects\Queries\ActiveSubjectsForUser;
+use Kern\TaxRomania\Subjects\Queries\SwitcherSubject;
 
 final class HandleInertiaRequests extends Middleware
 {
@@ -91,21 +95,32 @@ final class HandleInertiaRequests extends Middleware
                     // and every route still checks the permission itself.
                     'permissions' => $user->getAllPermissions()->pluck('name')->all(),
                 ],
-                // The first page only: a switcher is a shortcut, not a directory. Someone holding
-                // more taxpayers than that manages them on the taxpayers screen, which paginates.
-                'subjects' => array_map(
-                    static fn (SubjectSummary $summary): array => [
-                        'id' => $summary->id,
-                        'display_name' => $summary->displayName,
-                        'status' => $summary->status->value,
-                        'type' => $summary->type->value,
-                        // The switcher draws the taxpayer on every page, so the picture's cache key
-                        // travels with the name rather than costing a request per page load.
-                        'avatar_updated_at' => $summary->avatarUpdatedAt,
-                    ],
-                    app(ListSubjectsForUser::class)($user->id)->items(),
-                ),
             ],
+            /*
+             * The taxpayers the switcher offers: every one this person can work in now.
+             *
+             * Sent once and kept by the browser across visits (an Inertia once prop): each name is
+             * decrypted under its own key, and the list changes far less often than the page does. Its
+             * key carries the user and a version read without decrypting anything, so another account
+             * signing in, or a taxpayer added, renamed, closed or given a picture on any device, makes
+             * the next page send it again.
+             */
+            'subjects' => $user === null ? [] : new LazilyKeyedOnceProp(
+                static fn (): array => array_map(
+                    static fn (SwitcherSubject $subject): array => $subject->toArray(),
+                    app(ActiveSubjectsForUser::class)($user->id),
+                ),
+                // Read when a page is drawn, not on every request: the version is a query.
+                static fn (): string => 'subjects:' . $user->id . ':' . app(ActiveSubjectsForUser::class)->version($user->id),
+            ),
+            /*
+             * The next Declarația unică and its day, for the sidebar every signed-in person has: the
+             * law's, the same for everyone. Sent once and kept by the browser, until Romania's next
+             * midnight, when its count of days moves on.
+             */
+            'filingDeadline' => $user === null ? null : Inertia::once(
+                static fn (): ?array => app(FilingDeadline::class)->next(),
+            )->until(app(FilingDeadline::class)->validUntil()),
             /*
              * The currencies this installation works in, for the same reason as the line below it.
              *
@@ -119,6 +134,9 @@ final class HandleInertiaRequests extends Middleware
              * settings screen's own endpoint.
              */
             'currencies' => static fn (): array => app(CurrencyCatalogue::class)->enabled(),
+            // The page sizes every list accepts and the one it opens at (`KERN_PAGE_SIZES`), so the pager
+            // offers what the server takes rather than a list of its own.
+            'paging' => static fn (): array => app(PageSizes::class)->toArray(),
             /*
              * Which services were down at the scheduler's last look, for the strip across the top —
              * only for those who may read the system status, exactly as the status screen is.

@@ -17,6 +17,8 @@ use Kern\Legislation\Events\PortalSearchChanged;
 use Kern\Legislation\Jobs\ReadPortalSearchPage;
 use Kern\Legislation\Legislatie\PortalQuery;
 use Kern\Legislation\Models\PortalSearchRun;
+use Kern\Legislation\Models\SourceDocument;
+use Kern\Legislation\Repositories\OfficialSourceRepository;
 use Kern\Platform\Identity\Models\User;
 
 /*
@@ -158,6 +160,27 @@ it('ends incomplete at a later page that will not answer, keeping the pages befo
         ->assertJsonPath('pages_read', 1)
         ->assertJsonPath('failure', 'portal_search_refused')
         ->assertJsonCount(10, 'acts');
+});
+
+it('sums a finished search up: how often the portal was asked again, and how much is already here', function (): void {
+    Sleep::fake();
+    $refusals = 2;
+    Http::fake(static function () use (&$refusals) {
+        return $refusals-- > 0
+            ? Http::response(['outcome' => 'refused', 'data' => [], 'timing_ms' => 1])
+            : Http::response(['outcome' => 'found', 'data' => ['acts' => ordersFrom(1, 3)], 'timing_ms' => 1]);
+    });
+    SourceDocument::factory()->create(['official_source_id' => app(OfficialSourceRepository::class)->idForCode('LEGISLATIE'), 'portal_document_id' => '2']);
+    $user = searcher();
+
+    $id = portalSearchId($this->actingAs($user)->postJson('/api/v1/legislation/portal-searches', ['title' => 'Programului Tezaur']));
+    readPortalSearchPages();
+
+    $this->actingAs($user)->getJson("/api/v1/legislation/portal-searches/{$id}")
+        ->assertJsonPath('status', 'done')
+        ->assertJsonPath('retries', 2)
+        ->assertJsonPath('in_library', 1)
+        ->assertJsonCount(3, 'acts');
 });
 
 it('retries a page through the queue, after the pauses the configuration gives', function (): void {

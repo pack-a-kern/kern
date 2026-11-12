@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\Documents\Consent;
 
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
 use Kern\Documents\Consent\Exceptions\AiConsentRequiredException;
@@ -73,34 +74,18 @@ final class DocumentAiConsentGate
     }
 
     /**
-     * Which of `$subjectIds` currently have active consent.
-     *
-     * Exists so a screen showing a switch per subject can ask once instead of calling
-     * {@see isConsented()} in a loop. Reads still go through this gate — the model's own docblock
-     * makes that a rule, so that ADR 0005's "recorded, not assumed" consent has exactly one place
-     * where its meaning (`consented_at` set, `revoked_at` not) is decided.
-     *
-     * @param  list<string>  $subjectIds
-     * @return list<string>
+     * The subjects with active consent — `consented_at` set, `revoked_at` not, the same rule as
+     * `DocumentAiConsent::isActive()` — as a query of their ids, for a caller to put inside its own:
+     * a list that says per row whether consent is given, or a count of them, in one query, with what
+     * "active" means still decided here alone.
      */
-    public function consentedAmong(array $subjectIds): array
+    public function consentedSubjectIds(): QueryBuilder
     {
-        if ($subjectIds === []) {
-            return [];
-        }
-
-        $consented = [];
-
-        foreach (DocumentAiConsent::query()->findMany($subjectIds) as $consent) {
-            // `getKey()` is `mixed` to static analysis; the model declares a string key.
-            $key = $consent->getKey();
-
-            if ($consent->isActive() && is_scalar($key)) {
-                $consented[] = (string) $key;
-            }
-        }
-
-        return $consented;
+        return DocumentAiConsent::query()
+            ->whereNotNull('consented_at')
+            ->whereNull('revoked_at')
+            ->select(Tenancy::column())
+            ->toBase();
     }
 
     /** @throws AiConsentRequiredException if the subject has not granted active consent. */

@@ -23,7 +23,16 @@ vi.mock('../../lib/sharedProps', () => ({ useSharedAuth: () => ({ user: { id: 'u
 const { usePortalSearch } = await import('../usePortalSearch');
 
 function search(status: PortalSearchState['status'], pagesRead = 0): PortalSearchState {
-    return { id: 's-1', status, pagesRead, failure: null, pollAfterMs: status === 'running' ? 5000 : null, acts: [] };
+    return {
+        id: 's-1',
+        status,
+        pagesRead,
+        retries: 0,
+        inLibrary: 0,
+        failure: null,
+        pollAfterMs: status === 'running' ? 5000 : null,
+        acts: [],
+    };
 }
 
 describe('usePortalSearch', () => {

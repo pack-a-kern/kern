@@ -60,7 +60,16 @@
         <env name="LEGISLATION_WATCHES_OVERLAP_DAYS" value="31" force="true"/>
         <env name="LEGISLATION_WATCHES_INTERVALS" value="24,168,720" force="true"/>
         <env name="LEGISLATION_WATCHES_MAX_NEW_ACTS" value="50" force="true"/>
+        <env name="LEGISLATION_IMPORT_MAX_ACTS" value="50" force="true"/>
         <env name="LEGISLATION_WATCHES_MAX_PER_PERSON" value="20" force="true"/>
+        <env name="LEGISLATION_WATCHES_QUEUE" value="legislation-watches" force="true"/>
+        <env name="LEGISLATION_SEARCH_WEIGHT_MEANING" value="0.5" force="true"/>
+        <env name="LEGISLATION_SEARCH_WEIGHT_WORDS" value="0.3" force="true"/>
+        <env name="LEGISLATION_SEARCH_WEIGHT_LABEL" value="0.2" force="true"/>
+        <env name="LEGISLATION_SEARCH_MIN_LABEL" value="0.3" force="true"/>
+        <env name="LEGISLATION_SEARCH_MIN_MEANING" value="0.3" force="true"/>
+        <env name="LEGISLATION_SEARCH_RESULTS" value="20" force="true"/>
+        <env name="LEGISLATION_SEARCH_MAX_RESULTS" value="50" force="true"/>
         <env name="TAX_MINIMUM_WAGE_WATCH_SEARCH" value="salariului de bază minim brut" force="true"/>
         <env name="TAX_MINIMUM_WAGE_WATCH_ACT_TYPE" value="HOTARARE" force="true"/>
         <env name="TAX_MINIMUM_WAGE_WATCH_TITLE_PATTERN" value="/stabilirea salariului de baz[aă] minim brut pe [tţț]ar[aă] garantat [iî]n plat[aă]/iu" force="true"/>
@@ -76,16 +85,26 @@
         <env name="INVESTMENTS_ORDERS_ACT_TYPE" value="ORDIN" force="true"/>
         <env name="INVESTMENTS_FIDELIS_SEARCH" value="Programul FIDELIS" force="true"/>
         <env name="INVESTMENTS_FIDELIS_FIRST_YEAR" value="2020" force="true"/>
-        <env name="INVESTMENTS_FIDELIS_TITLE_PATTERN" value="/Programul FIDELIS/u" force="true"/>
+        <env name="INVESTMENTS_FIDELIS_TITLE_PATTERN" value="/Programul FIDELIS/iu" force="true"/>
         <env name="INVESTMENTS_TEZAUR_SEARCH" value="Programului Tezaur" force="true"/>
         <env name="INVESTMENTS_TEZAUR_FIRST_YEAR" value="2018" force="true"/>
-        <env name="INVESTMENTS_TEZAUR_TITLE_PATTERN" value="/în cadrul Programului Tezaur/u" force="true"/>
+        <env name="INVESTMENTS_TEZAUR_TITLE_PATTERN" value="/în cadrul Programului Tezaur/iu" force="true"/>
         <env name="INVESTMENTS_SUBSCRIPTIONS_PAGE_URL" value="https://mfinante.gov.ro/ro/web/trezor/subscrieri-realizate-prin-tezaur-%C8%99i-fidelis" force="true"/>
         <env name="INVESTMENTS_SUBSCRIPTIONS_FIDELIS_FILE" value="/FIDELIS[\w-]*\.xlsx/i" force="true"/>
         <env name="INVESTMENTS_SUBSCRIPTIONS_TEZAUR_FILE" value="/TEZAUR[\w-]*\.xlsx/i" force="true"/>
         <env name="INVESTMENTS_WRITE_CHUNK" value="500" force="true"/>
         <env name="INVESTMENTS_QUEUE" value="default" force="true"/>
         <env name="INVESTMENTS_API_PAGE_SIZE" value="50" force="true"/>
+        <env name="KERN_PAGE_SIZES" value="10,25,50,100" force="true"/>
+        <env name="KERN_PAGE_SIZE_DEFAULT" value="25" force="true"/>
+        <env name="SUBJECTS_DEFAULT_COUNTRY" value="RO" force="true"/>
+        <env name="SUBJECTS_LIMIT_DEFAULT" value="1" force="true"/>
+        <env name="SUBJECTS_LIMIT_VIEWER" value="1" force="true"/>
+        <env name="SUBJECTS_LIMIT_ACCOUNTANT" value="50" force="true"/>
+        <env name="SUBJECTS_LIMIT_ADMIN" value="100" force="true"/>
+        <env name="SUBJECTS_LIMIT_SUPER_ADMIN" value="1000" force="true"/>
+        <env name="SUBJECTS_MAX_ACTIVE" value="50" force="true"/>
+        <env name="TAX_FIRST_FISCAL_YEAR" value="2018" force="true"/>
         <env name="INVESTMENTS_API_MAX_SPAN_DAYS" value="1830" force="true"/>
         <env name="INVESTMENTS_API_READS_MAX_ATTEMPTS" value="120" force="true"/>
         <env name="INVESTMENTS_API_READS_DECAY_SECONDS" value="60" force="true"/>
@@ -96,6 +115,10 @@
         <env name="WALLET_HOLDINGS_MAX_AMOUNT_MINOR" value="100000000000000" force="true"/>
         <env name="OPERATIONS_CRON_HOLDINGS_POST_PAYOUTS" value="30 0 * * *" force="true"/>
         <env name="EMBEDDING_MODEL_ID" value="intfloat/multilingual-e5-small" force="true"/>
+        <env name="EMBEDDING_DIMENSION" value="384" force="true"/>
+        <env name="RETRIEVAL_EMBEDDING_ENABLED" value="false" force="true"/>
+        <env name="RETRIEVAL_EMBEDDING_TIMEOUT_SECONDS" value="900" force="true"/>
+        <env name="RETRIEVAL_EMBEDDING_BATCH_SIZE" value="32" force="true"/>
         <env name="LEGISLATION_AI_MODEL" value="test-reader" force="true"/>
         <env name="STATEMENT_IMPORT_AI_MODEL" value="test-mapper" force="true"/>
         <env name="STATEMENT_IMPORT_CLASSIFICATION_MODEL" value="test-classifier" force="true"/>

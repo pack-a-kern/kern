@@ -47,4 +47,12 @@ return [
         ],
     ],
 
+    /*
+     * How many rows a page of any list may hold, for every endpoint and the pager on the screen alike:
+     * `Kern\Platform\Routing\PageSizes`. No default here — a value missing fails at first use.
+     */
+    'paging' => [
+        'sizes' => env('KERN_PAGE_SIZES'),
+        'default' => env('KERN_PAGE_SIZE_DEFAULT'),
+    ],
 ];

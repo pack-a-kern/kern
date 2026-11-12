@@ -54,14 +54,15 @@ final readonly class SoapPortalSearch implements PortalSearchMethod
             ? sprintf('<fws:SearchAn>%d</fws:SearchAn><fws:SearchNumar>%d</fws:SearchNumar>', $query->year, $query->number)
             : '<fws:SearchTitlu>' . htmlspecialchars((string) $query->words, ENT_XML1) . '</fws:SearchTitlu>';
 
+        $retries = 0;
         $document = $this->call('Search', sprintf(
             '<tem:Search><tem:SearchModel><fws:NumarPagina>%d</fws:NumarPagina><fws:RezultatePagina>%d</fws:RezultatePagina>%s</tem:SearchModel>'
             . '<tem:tokenKey>%s</tem:tokenKey></tem:Search>',
             $page,
             $pageSize,
             $criteria,
-            htmlspecialchars($this->token(), ENT_XML1),
-        ));
+            htmlspecialchars($this->token($retries), ENT_XML1),
+        ), $retries);
 
         $acts = [];
 
@@ -69,12 +70,13 @@ final readonly class SoapPortalSearch implements PortalSearchMethod
             $acts[] = $this->act($entry);
         }
 
-        return new PortalPage($acts, count($acts) >= $pageSize);
+        return new PortalPage($acts, count($acts) >= $pageSize, $retries);
     }
 
-    private function token(): string
+    /** @param  int  $retries  counted on: how many times a call was asked again */
+    private function token(int &$retries): string
     {
-        $document = $this->call('GetToken', '<tem:GetToken/>');
+        $document = $this->call('GetToken', '<tem:GetToken/>', $retries);
         $token = $document->getElementsByTagNameNS(self::SERVICE_NAMESPACE, 'GetTokenResult')->item(0)?->textContent;
 
         return is_string($token) && $token !== '' ? $token : throw PortalAnswerException::noToken();
@@ -107,10 +109,12 @@ final readonly class SoapPortalSearch implements PortalSearchMethod
      * call with HTTP 500 and with its result moments apart (2026-11-09: pages one to three of one search
      * refused and answered by turns), and asking again is what brings the result. Any other status, and
      * a 500 on the last try, is the caller's to see.
+     *
+     * @param  int  $retries  counted on: how many times a call was asked again
      */
-    private function post(string $envelope, string $action): FetchedDocument
+    private function post(string $envelope, string $action, int &$retries): FetchedDocument
     {
-        $retries = $this->config->integer('sources.entries.' . self::SOURCE . '.search_refused_retries');
+        $allowed = $this->config->integer('sources.entries.' . self::SOURCE . '.search_refused_retries');
         $pause = $this->config->integer('sources.entries.' . self::SOURCE . '.search_refused_pause_ms');
 
         for ($try = 0; ; $try++) {
@@ -120,23 +124,28 @@ final readonly class SoapPortalSearch implements PortalSearchMethod
                     'SOAPAction' => '"' . self::SERVICE_NAMESPACE . 'IFreeWebService/' . $action . '"',
                 ]);
             } catch (UnexpectedStatusException $refused) {
-                if ($refused->status < 500 || $try >= $retries) {
+                if ($refused->status < 500 || $try >= $allowed) {
                     throw $refused;
                 }
 
+                $retries++;
                 Sleep::for($pause)->milliseconds();
             }
         }
     }
 
-    /** One SOAP call, answered as a parsed document; a fault is refused with its own message. */
-    private function call(string $action, string $body): DOMDocument
+    /**
+     * One SOAP call, answered as a parsed document; a fault is refused with its own message.
+     *
+     * @param  int  $retries  counted on: how many times a call was asked again
+     */
+    private function call(string $action, string $body, int &$retries): DOMDocument
     {
         $envelope = '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" '
             . 'xmlns:tem="' . self::SERVICE_NAMESPACE . '" xmlns:fws="' . self::DATA_NAMESPACE . '">'
             . '<soap:Body>' . $body . '</soap:Body></soap:Envelope>';
 
-        $answer = $this->post($envelope, $action);
+        $answer = $this->post($envelope, $action, $retries);
 
         $document = new DOMDocument();
         $previous = libxml_use_internal_errors(true);

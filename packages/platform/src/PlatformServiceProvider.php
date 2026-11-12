@@ -7,6 +7,7 @@ namespace Kern\Platform;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
+use Kern\Audit\Contracts\PageSizes as AuditPageSizes;
 use Kern\Platform\Console\Commands\Database\GrantApplicationRoleCommand;
 use Kern\Platform\Console\Commands\Database\UpdateExtensionsCommand;
 use Kern\Platform\Console\Commands\Environment\BuildEnvironmentFileCommand;
@@ -18,6 +19,7 @@ use Kern\Platform\Identity\IdentityServiceProvider;
 use Kern\Platform\Identity\Models\User;
 use Kern\Platform\KeyManagement\KeyManagementServiceProvider;
 use Kern\Platform\Logging\Redactions;
+use Kern\Platform\Routing\PageSizes;
 use Kern\Platform\Settings\SettingsServiceProvider;
 use Kern\Platform\Tenancy\TenantContext;
 
@@ -51,6 +53,10 @@ final class PlatformServiceProvider extends ServiceProvider
         $this->app->register(IdentityServiceProvider::class);
 
         $this->app->singleton(BlindIndexHasher::class);
+
+        // One set of page sizes for every list, the audit trail's among them.
+        $this->app->singleton(PageSizes::class, fn ($app): PageSizes => PageSizes::fromConfig($app->make('config')));
+        $this->app->alias(PageSizes::class, AuditPageSizes::class);
 
         // What must never reach a log file. The platform's own shapes are in the processor; this is
         // where a package adds the identifiers only it can recognise.

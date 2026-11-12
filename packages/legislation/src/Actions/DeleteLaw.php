@@ -9,9 +9,13 @@ use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
 use Kern\Legislation\Dependents\DocumentDependents;
 use Kern\Legislation\Dependents\SectionDependents;
+use Kern\Legislation\Events\LawDeleting;
+use Kern\Legislation\Models\IgnoredAct;
 use Kern\Legislation\Models\SourceDocument;
 use Kern\Legislation\Models\SourceDocumentVersion;
 use Kern\Legislation\Models\SourceSection;
+use Kern\Legislation\Storage\RawSourceObjectStore;
+use Throwable;
 
 /**
  * Removes a law read in from the portal: every consolidation of it, every provision, and what was
@@ -36,9 +40,16 @@ use Kern\Legislation\Models\SourceSection;
  *
  * ## What goes with it
  *
- * The provisions, their chunks in the search index (cascade), the outline of each consolidation
- * (cascade), the consolidations, and the histories assembled from them (cascade). Provisions are
- * deleted deepest first: a paragraph's points are its children, and `parent_id` restricts.
+ * Whatever another package read from it and nobody holds — a bond's terms read from the order that issued
+ * it, with the bond — on `LawDeleting`, in this same transaction. Then the provisions, their chunks in
+ * the search index (cascade), the outline of each consolidation (cascade), the consolidations, and the
+ * histories assembled from them (cascade). Provisions are deleted deepest first: a paragraph's points are
+ * its children, and `parent_id` restricts.
+ *
+ * Last, once all that is committed, the pages it was read from in the object store — each only when no
+ * other version still names it, since a page is stored once for every version that read the same bytes.
+ * A page that will not go is reported and left: the law is already gone, and a stray file is not worth
+ * undoing that for.
  */
 final readonly class DeleteLaw
 {
@@ -46,6 +57,7 @@ final readonly class DeleteLaw
         private AuditChainService $audit,
         private SectionDependents $dependents,
         private DocumentDependents $readFrom,
+        private RawSourceObjectStore $pages,
     ) {
     }
 
@@ -66,8 +78,8 @@ final readonly class DeleteLaw
     }
 
     /**
-     * What else was read from this law as a whole — by the name its package declared it under — and
-     * holds it as `resting()`'s values hold it: a bond's terms read from the order that issued it.
+     * What else rests on this law as a whole — by the name its package declared it under — and holds it
+     * as `resting()`'s values hold it: a person's holding of a bond the law issued.
      *
      * @return array<string, int> none, empty
      */
@@ -76,16 +88,25 @@ final readonly class DeleteLaw
         return $this->readFrom->countFor($law->id);
     }
 
-    /** @return array{versions: int, sections: int} what was removed */
-    public function __invoke(SourceDocument $law, ?string $actorId = null): array
+    /**
+     * @param  bool  $ignore  pass the act over in every watch's searches from then on — only for one a watch
+     *                        read in, the only kind a watch would read in again
+     * @return array{versions: int, sections: int, pages: int, ignored: bool} what was removed, and whether it is ignored
+     */
+    public function __invoke(SourceDocument $law, ?string $actorId = null, bool $ignore = false): array
     {
         // Read before deleting: afterwards the audit entry is the only trace left.
         $identifier = $law->external_identifier;
         $title = $law->title;
         $versions = SourceDocumentVersion::query()->where('source_document_id', $law->id)->pluck('id')->all();
         $sections = SourceSection::query()->whereIn('document_version_id', $versions)->count();
+        /** @var list<string> $paths */
+        $paths = SourceDocumentVersion::query()->whereIn('id', $versions)->distinct()->pluck('raw_object_path')->all();
+        $ignored = $ignore && $law->found_by_watch_id !== null && $law->portal_document_id !== null;
 
-        DB::transaction(function () use ($law, $versions): void {
+        DB::transaction(function () use ($law, $versions, $ignored, $actorId): void {
+            LawDeleting::dispatch($law->id);
+
             // Deepest first: a point belongs to its paragraph, and `parent_id` restricts deletion.
             while (SourceSection::query()->whereIn('document_version_id', $versions)->exists()) {
                 $leaves = SourceSection::query()
@@ -110,7 +131,16 @@ final readonly class DeleteLaw
             SourceDocumentVersion::query()->whereIn('id', $versions)->update(['supersedes_version_id' => null]);
             SourceDocumentVersion::query()->whereIn('id', $versions)->delete();
             $law->delete();
+
+            if ($ignored) {
+                IgnoredAct::query()->firstOrCreate(
+                    ['portal_document_id' => $law->portal_document_id],
+                    ['title' => $law->title ?? (string) $law->external_identifier, 'ignored_by' => $actorId],
+                );
+            }
         });
+
+        $pages = $this->forgetPages($paths);
 
         $this->audit->record(AuditEventInput::occurringNow(
             subjectId: null,
@@ -123,9 +153,33 @@ final readonly class DeleteLaw
                 'title' => $title,
                 'versions' => count($versions),
                 'sections' => $sections,
+                'pages' => $pages,
+                'ignored' => $ignored,
             ]),
         ));
 
-        return ['versions' => count($versions), 'sections' => $sections];
+        return ['versions' => count($versions), 'sections' => $sections, 'pages' => $pages, 'ignored' => $ignored];
+    }
+
+    /**
+     * @param  list<string>  $paths  the pages the deleted versions were read from
+     * @return int how many were removed
+     */
+    private function forgetPages(array $paths): int
+    {
+        /** @var list<string> $named */
+        $named = SourceDocumentVersion::query()->whereIn('raw_object_path', $paths)->pluck('raw_object_path')->all();
+        $removed = 0;
+
+        foreach (array_diff($paths, $named) as $path) {
+            try {
+                $this->pages->forget($path);
+                $removed++;
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        }
+
+        return $removed;
     }
 }
