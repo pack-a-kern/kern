@@ -234,5 +234,38 @@ it('measures the ten largest parties against what was paid to every one of them'
         ->assertOk();
 
     expect($response->json('by_counterparty'))->toHaveCount(10)
-        ->and($response->json('counterparty_totals'))->toBe([['currency_code' => 'RON', 'total_minor' => 78_000]]);
+        ->and($response->json('counterparty_totals'))->toBe([['currency_code' => 'RON', 'total_minor' => 78_000]])
+        // Ranked by the server, each party's share of every party's whole and its bar against the largest.
+        ->and($response->json('breakdowns.0.merchant.total_minor'))->toBe(78_000)
+        ->and($response->json('breakdowns.0.merchant.rows.0.name'))->toBe('Example Shop 12')
+        ->and($response->json('breakdowns.0.merchant.rows.0.share'))->toBe(bcdiv('12000', '78000', 4))
+        ->and($response->json('breakdowns.0.merchant.rows.0.bar'))->toBe('1.0000')
+        ->and($response->json('breakdowns.0.merchant.rows.1.bar'))->toBe(bcdiv('11000', '12000', 4));
+});
+
+it('measures the period for the screen: the net, the change, what was kept and how much is sorted', function (): void {
+    [$user, $subjectId, $accountId] = reportingSubject();
+
+    // The year before: 400 in, 100 out. This year: 600 in, 150 out, in two months — the larger in March.
+    spend($this, $user, $subjectId, $accountId, 40_000, ['booked_at' => '2025-05-01', 'category_code' => 'OTHER_INCOME']);
+    spend($this, $user, $subjectId, $accountId, -10_000, ['booked_at' => '2025-05-02']);
+    spend($this, $user, $subjectId, $accountId, 60_000, ['booked_at' => '2026-03-01', 'category_code' => 'OTHER_INCOME']);
+    spend($this, $user, $subjectId, $accountId, -10_000, ['booked_at' => '2026-03-02']);
+    spend($this, $user, $subjectId, $accountId, -5_000, ['booked_at' => '2026-04-02']);
+
+    $response = $this->actingAs($user)
+        ->getJson("/api/v1/subjects/{$subjectId}/wallet/reports?from=2026-01-01&to=2026-12-31")
+        ->assertOk();
+
+    expect($response->json('totals.0'))->toMatchArray([
+        'net_minor' => 45_000,
+        'in_change' => '0.5000',
+        'out_change' => '0.5000',
+        'kept_share' => '0.7500',
+        'activity_share' => '1.0000',
+    ])
+        ->and(array_column((array) $response->json('cash_flow'), 'out_bar'))->toBe(['1.0000', '0.5000'])
+        ->and($response->json('attention.classified_count'))->toBe(3)
+        ->and($response->json('attention.total_count'))->toBe(3)
+        ->and($response->json('attention.classified_share'))->toBeString();
 });

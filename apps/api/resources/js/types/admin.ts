@@ -37,6 +37,10 @@ export interface RoleCount {
 export interface DirectoryStats {
     users: number;
     withMfa: number;
+    /** Their share of every account, as a decimal; null with no accounts. */
+    mfaShare: string | null;
+    /** Every account has a second factor. */
+    allCovered: boolean;
     /** Platform role → how many accounts hold it. */
     roles: Record<string, number>;
 }
@@ -113,6 +117,8 @@ export function parseAdminDirectory(payload: unknown): AdminDirectory {
         stats: {
             users: num(stats, 'users'),
             withMfa: num(stats, 'with_mfa'),
+            mfaShare: typeof stats.mfa_share === 'string' ? stats.mfa_share : null,
+            allCovered: stats.all_covered === true,
             roles: Object.fromEntries(Object.keys(heldRoles).map((role) => [role, num(heldRoles, role)])),
         },
         roles: body.roles.map((entry): RoleCount => {
@@ -138,6 +144,8 @@ export interface PermissionRow {
 export interface AccessCatalogue {
     roles: string[];
     groups: Array<{ group: string; permissions: PermissionRow[] }>;
+    /** How many permissions there are, across every group — counted by the server. */
+    permissionCount: number;
 }
 
 export function parseAccessCatalogue(payload: unknown): AccessCatalogue {
@@ -152,6 +160,7 @@ export function parseAccessCatalogue(payload: unknown): AccessCatalogue {
     }
 
     return {
+        permissionCount: num(body, 'permission_count'),
         roles: body.roles.filter((role): role is string => typeof role === 'string'),
         groups: body.groups.map((entry) => {
             const group = (typeof entry === 'object' && entry !== null ? entry : {}) as Record<string, unknown>;

@@ -26,6 +26,8 @@ export interface DepositFacts {
     startsAt: string;
     principalMinor: number;
     maturityAt: string;
+    /** The term it was bought for, in months — worked out by the server from its dates. */
+    termMonths: number;
     /** The rate of the period covering today; a deposit has a series, not one rate. */
     annualRate: string | null;
     rateType: string;
@@ -300,34 +302,13 @@ export interface NetWorth {
     complete: boolean;
 }
 
-/**
- * Two holdings as one.
- *
- * For a screen that shows a single figure over parts the payload keeps apart — General and the
- * accounts held elsewhere are one answer to "what have I got", and two answers to "where is it".
- *
- * Both sides were converted in the same request at the same rates, so the display figures add. A
- * currency missing a rate is missing from the sum as well, and the result says so rather than
- * quietly reporting a total that left something out.
- */
-export function addHoldings(first: Holding, second: Holding): Holding {
-    const amounts: Record<string, number> = { ...first.amounts };
-
-    for (const [currency, amount] of Object.entries(second.amounts)) {
-        amounts[currency] = (amounts[currency] ?? 0) + amount;
-    }
-
-    return {
-        amounts,
-        converted: {
-            ...first.converted,
-            amountMinor: first.converted.amountMinor + second.converted.amountMinor,
-            rates: { ...first.converted.rates, ...second.converted.rates },
-            missing: [...new Set([...first.converted.missing, ...second.converted.missing])],
-            complete: first.converted.complete && second.converted.complete,
-        },
-    };
+/** One part of where the money is, and its share of the whole as a decimal ("0.4235"). */
+export interface HoldingGroup extends Holding {
+    group: (typeof HOLDING_GROUPS)[number];
+    share: string;
 }
+
+const HOLDING_GROUPS = ['deposits', 'general', 'cash', 'other'] as const;
 
 /** Amounts per currency, and the same amounts in the display currency. */
 export interface Holding {
@@ -355,6 +336,11 @@ export interface WalletTotals {
         /** What can be spent today: General, cash and the accounts held elsewhere. */
         available: Holding;
     };
+    /**
+     * Where the money is, as the dashboard draws it — deposits, General with the accounts held elsewhere,
+     * cash, and other accounts once there is one — each with its share of them all, worked out by the server.
+     */
+    breakdown: HoldingGroup[];
     depositCount: number;
     /** What the running deposits will have earned by maturity — gross, a forecast. */
     interestAtMaturity: Holding;
@@ -382,6 +368,8 @@ export interface BankDeposits {
     interestAtMaturity: Record<string, number>;
     converted: NetWorth;
     nextMaturityAt: string;
+    /** Its principal's share of every running deposit's, as a decimal — worked out by the server. */
+    share: string;
 }
 
 export interface WalletOverview {
@@ -582,6 +570,7 @@ function parseDepositFacts(payload: unknown): DepositFacts | null {
         startsAt: str(row, 'starts_at'),
         principalMinor: num(row, 'principal_minor'),
         maturityAt: str(row, 'maturity_at'),
+        termMonths: num(row, 'term_months'),
         annualRate: nullableStr(row, 'annual_rate'),
         rateType: str(row, 'rate_type'),
         interestMethod: str(row, 'interest_method'),
@@ -814,6 +803,16 @@ export function parseWalletOverview(payload: unknown): WalletOverview {
                 other: parseHolding(holdings.other),
                 available: parseHolding(holdings.available),
             },
+            breakdown: (Array.isArray(totals.breakdown) ? totals.breakdown : []).map((entry): HoldingGroup => {
+                const row = obj(entry);
+                const group = HOLDING_GROUPS.find((known) => known === row.group);
+
+                if (group === undefined) {
+                    throw new TypeError(`Unknown holding group: ${String(row.group)}`);
+                }
+
+                return { ...parseHolding(row), group, share: str(row, 'share') };
+            }),
             depositCount: num(totals, 'deposit_count'),
             interestAtMaturity: parseHolding(totals.interest_at_maturity),
             interestReceived: parseHolding(totals.interest_received),
@@ -833,6 +832,7 @@ export function parseWalletOverview(payload: unknown): WalletOverview {
                 interestAtMaturity: money(row.interest_at_maturity),
                 converted: parseNetWorth(row.converted),
                 nextMaturityAt: str(row, 'next_maturity_at'),
+                share: str(row, 'share'),
             };
         }),
         maturing: (Array.isArray(body.maturing) ? body.maturing : []).map(parseDeposit),
@@ -911,5 +911,25 @@ export function parseDepositCsv(payload: unknown): DepositCsv {
                 currencyCode: csvCell(values.currency_code, asString),
             };
         }),
+    };
+}
+
+/**
+ * `GET .../wallet/deposits/term` — what a term makes of a start, worked out by the server: the maturity,
+ * whether a weekend moved it to the Monday after, and the days interest runs over.
+ */
+export interface DepositTermPreview {
+    maturityAt: string;
+    movedFromWeekend: boolean;
+    days: number;
+}
+
+export function parseDepositTermPreview(payload: unknown): DepositTermPreview {
+    const row = obj(payload);
+
+    return {
+        maturityAt: str(row, 'maturityAt'),
+        movedFromWeekend: row.movedFromWeekend === true,
+        days: num(row, 'days'),
     };
 }

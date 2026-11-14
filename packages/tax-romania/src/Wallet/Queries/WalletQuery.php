@@ -7,8 +7,10 @@ namespace Kern\TaxRomania\Wallet\Queries;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\Money\Shares;
 use Kern\Platform\Tenancy\TenantContext;
 use Kern\TaxRomania\Subjects\Models\TaxSubject;
+use Kern\TaxRomania\Wallet\DataTransferObjects\ConvertedTotal;
 use Kern\TaxRomania\Wallet\Enums\AccountKind;
 use Kern\TaxRomania\Wallet\Enums\MoneyDirection;
 use Kern\TaxRomania\Wallet\Enums\RecordSource;
@@ -19,6 +21,7 @@ use Kern\TaxRomania\Wallet\Models\FinancialTransaction;
 use Kern\TaxRomania\Wallet\Models\TransactionSplit;
 use Kern\TaxRomania\Wallet\Services\CounterpartyDirectory;
 use Kern\TaxRomania\Wallet\Services\DepositMovements;
+use Kern\TaxRomania\Wallet\Services\DepositTerm;
 use Kern\TaxRomania\Wallet\Services\Fx\DisplayCurrencyConverter;
 use Kern\TaxRomania\Wallet\Services\TagDirectory;
 use RuntimeException;
@@ -181,6 +184,7 @@ final readonly class WalletQuery
             startsAt: $opened->toDateString(),
             principalMinor: $terms->principal_minor,
             maturityAt: $maturity->toDateString(),
+            termMonths: DepositTerm::months($opened, $maturity),
             annualRate: $annualRate,
             rateType: $terms->rate_type->value,
             interestMethod: $terms->interest_method->value,
@@ -651,6 +655,7 @@ final readonly class WalletQuery
 
         return [
             'net_worth' => $this->converter->convert($everything, $display)->toArray(),
+            'breakdown' => $this->breakdown($held, $display),
             'holdings' => [
                 ...array_map(fn (array $amounts): array => $this->converted($amounts, $display), $held),
                 'available' => $this->converted($available, $display),
@@ -668,6 +673,49 @@ final readonly class WalletQuery
             // `DepositInterestFxAnnotator` at the BNR rate for the accrual date, with the source
             // document version recorded beside it — so this one may legitimately be a single number.
         ];
+    }
+
+    /**
+     * Where the money is, as the dashboard draws it: deposits, General with what was moved to the
+     * taxpayer's own accounts elsewhere — a transfer to one's own account at another bank is not a
+     * different kind of holding — cash, and other accounts once there is one; each with its share of
+     * them all, in the display currency. A currency with no rate is left out of a part and the whole
+     * alike, rather than drawn at a size nobody computed.
+     *
+     * @param  array<string, array<string, int>>  $held
+     * @return list<array{group: string, amounts: array<string, int>, converted: array<string, mixed>, share: string}>
+     */
+    private function breakdown(array $held, string $display): array
+    {
+        $general = $held[self::GENERAL];
+
+        foreach ($held[self::INTERNAL] as $currency => $amount) {
+            $general[$currency] = ($general[$currency] ?? 0) + $amount;
+        }
+
+        $groups = [self::DEPOSITS => $held[self::DEPOSITS], self::GENERAL => $general, self::CASH => $held[self::CASH]];
+
+        // Most taxpayers have no broker or exchange account: a permanent zero would answer nothing asked.
+        if ($held[self::OTHER] !== []) {
+            $groups[self::OTHER] = $held[self::OTHER];
+        }
+
+        /** @var array<string, array{amounts: array<string, int>, total: ConvertedTotal}> $parts */
+        $parts = [];
+
+        foreach ($groups as $group => $amounts) {
+            ksort($amounts);
+            $parts[$group] = ['amounts' => $amounts, 'total' => $this->converter->convert($amounts, $display)];
+        }
+
+        $shares = Shares::of(array_map(static fn (array $part): int => $part['total']->amountMinor, $parts));
+        $breakdown = [];
+
+        foreach ($parts as $group => $part) {
+            $breakdown[] = ['group' => $group, 'amounts' => $part['amounts'], 'converted' => $part['total']->toArray(), 'share' => $shares[$group]];
+        }
+
+        return $breakdown;
     }
 
     /**
@@ -707,6 +755,8 @@ final readonly class WalletQuery
         }
 
         $display = $this->displayCurrency();
+        $converted = array_map(fn (array $group): ConvertedTotal => $this->converter->convert($group['principal'], $display), $groups);
+        $shares = Shares::of(array_map(static fn (ConvertedTotal $total): int => $total->amountMinor, $converted));
         $result = [];
 
         foreach ($groups as $bankId => $group) {
@@ -722,8 +772,9 @@ final readonly class WalletQuery
                 depositCount: $group['count'],
                 principal: $group['principal'],
                 interestAtMaturity: $group['interest'],
-                converted: $this->converter->convert($group['principal'], $display),
+                converted: $converted[$bankId],
                 nextMaturityAt: $group['next'],
+                share: $shares[$bankId],
             );
         }
 

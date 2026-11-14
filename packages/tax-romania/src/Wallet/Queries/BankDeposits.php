@@ -29,6 +29,8 @@ final readonly class BankDeposits
         /** The principal in the display currency — what the groups are ordered by. */
         public ConvertedTotal $converted,
         public string $nextMaturityAt,
+        /** Its principal's share of every running deposit's, in the display currency, as a decimal. */
+        public string $share,
     ) {
     }
 
@@ -44,6 +46,7 @@ final readonly class BankDeposits
             'interest_at_maturity' => $this->interestAtMaturity,
             'converted' => $this->converted->toArray(),
             'next_maturity_at' => $this->nextMaturityAt,
+            'share' => $this->share,
         ];
     }
 }

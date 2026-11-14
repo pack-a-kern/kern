@@ -4,6 +4,7 @@ import {
     type Bank,
     type DepositCsv,
     type DepositCsvColumn,
+    type DepositTermPreview,
     type DuplicateGroup,
     type TaxCategory,
     type Tag,
@@ -12,6 +13,7 @@ import {
     parseAccounts,
     parseBanks,
     parseDepositCsv,
+    parseDepositTermPreview,
     parseDuplicateGroups,
     parseTags,
     parseTaxCategories,
@@ -166,11 +168,10 @@ export interface OpenAccountRequest {
      */
     principal_minor?: number;
     /**
-     * Derived from the chosen term rather than typed. Interest is
-     * `principal x rate x days / denominator` and the days are counted to this date, so one that is
-     * a day out moves a tax figure with nothing on screen looking wrong.
+     * The term, in months, as a deposit is bought. The server works the maturity out from it — interest
+     * is `principal x rate x days / denominator`, counted to that date, so it is decided in one place.
      */
-    maturity_at?: string;
+    term_months?: number;
     annual_rate?: string;
     rate_type?: string;
     interest_method?: string;
@@ -248,7 +249,7 @@ export type DepositRequest = Required<
         | 'currency_code'
         | 'starts_at'
         | 'principal_minor'
-        | 'maturity_at'
+        | 'term_months'
         | 'annual_rate'
         | 'rate_type'
         | 'interest_method'
@@ -439,4 +440,19 @@ export async function suggestCounterparties(subjectId: string, typed: string): P
     const names = typeof body === 'object' && body !== null ? (body as { names?: unknown }).names : null;
 
     return Array.isArray(names) ? names.filter((name): name is string => typeof name === 'string') : [];
+}
+
+/** `GET .../wallet/deposits/term` — the maturity and days a term makes of a start, for the form. */
+export async function previewDepositTerm(
+    subjectId: string,
+    startsAt: string,
+    termMonths: number,
+): Promise<DepositTermPreview> {
+    const query = new URLSearchParams({ starts_at: startsAt, term_months: String(termMonths) });
+
+    return parseDepositTermPreview(
+        JSON.parse(
+            await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/wallet/deposits/term?${query.toString()}`),
+        ),
+    );
 }

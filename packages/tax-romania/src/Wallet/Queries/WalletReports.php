@@ -6,6 +6,7 @@ namespace Kern\TaxRomania\Wallet\Queries;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Kern\Platform\Money\Shares;
 use Kern\Platform\Tenancy\TenantContext;
 use Kern\TaxRomania\Wallet\Enums\AccountKind;
 use Kern\TaxRomania\Wallet\Enums\TransactionClassificationStatus;
@@ -62,28 +63,161 @@ final readonly class WalletReports
      *     counterparty_totals: list<array{currency_code: string, total_minor: int}>,
      *     by_account: list<array{account_id: string, name: ?string, kind: string, currency_code: string, in_minor: int, out_minor: int}>,
      *     years: list<int>,
-     *     totals: list<array{currency_code: string, in_minor: int, out_minor: int, count: int}>,
-     *     previous: list<array{currency_code: string, in_minor: int, out_minor: int, count: int}>,
-     *     cash_flow: list<array{month: string, currency_code: string, in_minor: int, out_minor: int, count: int, top_category: ?string}>,
+     *     totals: list<array{currency_code: string, in_minor: int, out_minor: int, count: int, net_minor: int, in_change: ?string, out_change: ?string, kept_share: ?string, activity_share: ?string}>,
+     *     cash_flow: list<array{month: string, currency_code: string, in_minor: int, out_minor: int, count: int, top_category: ?string, net_minor: int, out_bar: string}>,
      *     largest: list<array{id: string, booked_at: string, counterparty: ?string, description: ?string, currency_code: string, amount_minor: int}>,
-     *     attention: array{unclassified_count: int, unclassified_minor: list<array{currency_code: string, total_minor: int}>, duplicate_groups: int, total_count: int}
+     *     attention: array{unclassified_count: int, unclassified_minor: list<array{currency_code: string, total_minor: int}>, duplicate_groups: int, total_count: int, classified_count: int, classified_share: string},
+     *     breakdowns: list<array{currency_code: string, category: array{total_minor: int, rows: list<array<string, mixed>>}, tag: array{total_minor: int, rows: list<array<string, mixed>>}, merchant: array{total_minor: int, rows: list<array<string, mixed>>}}>
      * }
      */
     public function between(string $from, string $to): array
     {
+        $totals = $this->totals($from, $to);
+        $previous = $this->totals(...$this->precedingPeriod($from, $to));
+        $byTag = $this->byTag($from, $to);
+        $byCategory = $this->byCategory($from, $to);
+        $byCounterparty = $this->byCounterparty($from, $to);
+        $counterpartyTotals = $this->counterpartyTotals($from, $to);
+        $attention = $this->attention($from, $to);
+        $largest = $this->largest($from, $to);
+        // What the two directions moved, by size whichever way the money went: the question the panel
+        // answers — what was large enough to move the totals — does not care which.
+        usort($largest, static fn (array $a, array $b): int => abs($b['amount_minor']) <=> abs($a['amount_minor']));
+
         return [
             'years' => $this->years(),
-            'totals' => $this->totals($from, $to),
-            'previous' => $this->totals(...$this->precedingPeriod($from, $to)),
-            'by_tag' => $this->byTag($from, $to),
+            'totals' => $this->measured($totals, $previous, $attention['total_count']),
+            'by_tag' => $byTag,
             'by_bank' => $this->byBank($from, $to),
-            'by_category' => $this->byCategory($from, $to),
-            'by_counterparty' => $this->byCounterparty($from, $to),
-            'counterparty_totals' => $this->counterpartyTotals($from, $to),
+            'by_category' => $byCategory,
+            'by_counterparty' => $byCounterparty,
+            'counterparty_totals' => $counterpartyTotals,
             'by_account' => $this->byAccount($from, $to),
-            'cash_flow' => $this->cashFlow($from, $to),
-            'largest' => $this->largest($from, $to),
-            'attention' => $this->attention($from, $to),
+            'cash_flow' => $this->barred($this->cashFlow($from, $to)),
+            'largest' => $largest,
+            'attention' => [
+                ...$attention,
+                // Rows somebody has said what they are, and their share of the period's — all of them, in a
+                // period with none: nothing in it is left to sort out.
+                'classified_count' => $attention['total_count'] - $attention['unclassified_count'],
+                'classified_share' => Shares::part($attention['total_count'] - $attention['unclassified_count'], $attention['total_count']) ?? '1.0000',
+            ],
+            'breakdowns' => $this->breakdowns($byCategory, $byTag, $byCounterparty, $counterpartyTotals),
+        ];
+    }
+
+    /**
+     * Each currency's totals with what the screen says of them, worked out here: the net, how far each
+     * direction moved from the same length of time before (null when there was nothing then), what share of
+     * the money in was kept, and what share of the period's movements were in this currency.
+     *
+     * @param  list<array{currency_code: string, in_minor: int, out_minor: int, count: int}>  $totals
+     * @param  list<array{currency_code: string, in_minor: int, out_minor: int, count: int}>  $previous
+     * @return list<array{currency_code: string, in_minor: int, out_minor: int, count: int, net_minor: int, in_change: ?string, out_change: ?string, kept_share: ?string, activity_share: ?string}>
+     */
+    private function measured(array $totals, array $previous, int $totalCount): array
+    {
+        $before = array_column($previous, null, 'currency_code');
+
+        return array_map(static function (array $row) use ($before, $totalCount): array {
+            $then = $before[$row['currency_code']] ?? ['in_minor' => 0, 'out_minor' => 0];
+            $net = $row['in_minor'] - $row['out_minor'];
+
+            return [
+                ...$row,
+                'net_minor' => $net,
+                'in_change' => Shares::change($row['in_minor'], $then['in_minor']),
+                'out_change' => Shares::change($row['out_minor'], $then['out_minor']),
+                'kept_share' => Shares::part($net, $row['in_minor']),
+                'activity_share' => Shares::part($row['count'], $totalCount),
+            ];
+        }, $totals);
+    }
+
+    /**
+     * Each month with its net, and its spending against the period's largest month in its currency — the
+     * length of its bar, all of a currency's bars on one scale.
+     *
+     * @param  list<array{month: string, currency_code: string, in_minor: int, out_minor: int, count: int, top_category: ?string}>  $months
+     * @return list<array{month: string, currency_code: string, in_minor: int, out_minor: int, count: int, top_category: ?string, net_minor: int, out_bar: string}>
+     */
+    private function barred(array $months): array
+    {
+        $bars = [];
+
+        foreach (array_unique(array_column($months, 'currency_code')) as $currency) {
+            $rows = array_filter($months, static fn (array $month): bool => $month['currency_code'] === $currency);
+            $bars += Shares::ofLargest(array_map(static fn (array $month): int => $month['out_minor'], $rows));
+        }
+
+        return array_map(
+            static fn (array $month, int $index): array => [...$month, 'net_minor' => $month['in_minor'] - $month['out_minor'], 'out_bar' => $bars[$index]],
+            $months,
+            array_keys($months),
+        );
+    }
+
+    /**
+     * What the spending was, three ways, per currency — by category, by tag and by party — each ranked
+     * largest first with its share of the whole and its bar against the largest. Categories and tags count
+     * money out only, by its size; parties are the ten largest, so their whole is every named party's.
+     *
+     * @param  list<array{category_code: string, currency_code: string, total_minor: int}>  $byCategory
+     * @param  list<array{tag_id: string, name: string, currency_code: string, total_minor: int, months: list<array{month: string, amount_minor: int}>}>  $byTag
+     * @param  list<array{name: ?string, currency_code: string, total_minor: int, count: int}>  $byCounterparty
+     * @param  list<array{currency_code: string, total_minor: int}>  $counterpartyTotals
+     * @return list<array{currency_code: string, category: array{total_minor: int, rows: list<array<string, mixed>>}, tag: array{total_minor: int, rows: list<array<string, mixed>>}, merchant: array{total_minor: int, rows: list<array<string, mixed>>}}>
+     */
+    private function breakdowns(array $byCategory, array $byTag, array $byCounterparty, array $counterpartyTotals): array
+    {
+        $currencies = array_values(array_unique([
+            ...array_column($byCategory, 'currency_code'),
+            ...array_column($byTag, 'currency_code'),
+            ...array_column($byCounterparty, 'currency_code'),
+        ]));
+        $partyWholes = array_column($counterpartyTotals, 'total_minor', 'currency_code');
+        $result = [];
+
+        foreach ($currencies as $currency) {
+            $spent = array_filter($byCategory, static fn (array $row): bool => $row['currency_code'] === $currency && $row['total_minor'] < 0);
+            $tagged = array_filter($byTag, static fn (array $row): bool => $row['currency_code'] === $currency);
+            $parties = array_values(array_filter($byCounterparty, static fn (array $row): bool => $row['currency_code'] === $currency));
+
+            $result[] = [
+                'currency_code' => $currency,
+                'category' => self::ranked(array_map(static fn (array $row): array => ['key' => $row['category_code'], 'total_minor' => abs($row['total_minor'])], $spent), null),
+                'tag' => self::ranked(array_map(static fn (array $row): array => ['key' => $row['tag_id'], 'name' => $row['name'], 'total_minor' => abs($row['total_minor'])], $tagged), null),
+                'merchant' => self::ranked(
+                    array_map(static fn (array $row, int $index): array => ['key' => $index . '-' . ($row['name'] ?? ''), 'name' => $row['name'], 'count' => $row['count'], 'total_minor' => $row['total_minor']], $parties, array_keys($parties)),
+                    $partyWholes[$currency] ?? 0,
+                ),
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Rows largest first, each with its share of the whole — theirs, or `$whole` where they are only the
+     * largest of more — and its bar against the largest.
+     *
+     * @param  array<array-key, array<string, mixed>&array{total_minor: int}>  $rows
+     * @return array{total_minor: int, rows: list<array<string, mixed>>}
+     */
+    private static function ranked(array $rows, ?int $whole): array
+    {
+        usort($rows, static fn (array $a, array $b): int => $b['total_minor'] <=> $a['total_minor']);
+        $totals = array_column($rows, 'total_minor');
+        $whole ??= array_sum($totals);
+        $bars = Shares::ofLargest($totals);
+
+        return [
+            'total_minor' => $whole,
+            'rows' => array_map(
+                static fn (array $row, int $index): array => [...$row, 'share' => Shares::part($row['total_minor'], $whole) ?? '0', 'bar' => $bars[$index]],
+                $rows,
+                array_keys($rows),
+            ),
         ];
     }
 

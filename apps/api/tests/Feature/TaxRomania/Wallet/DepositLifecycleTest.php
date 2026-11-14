@@ -19,6 +19,7 @@ use Kern\TaxRomania\Wallet\Actions\PostMaturedDepositInterest;
 use Kern\TaxRomania\Wallet\Enums\AccountKind;
 use Kern\TaxRomania\Wallet\Enums\RecordSource;
 use Kern\TaxRomania\Wallet\Models\FinancialAccount;
+use Kern\TaxRomania\Wallet\Services\DepositTerm;
 use Tests\TestCase;
 
 /*
@@ -100,7 +101,7 @@ function deposit(TestCase $case, User $user, string $subjectId, array $overrides
         'currency_code' => 'RON',
         'starts_at' => day()->toDateString(),
         'principal_minor' => 5000000,
-        'maturity_at' => day(6)->toDateString(),
+        'term_months' => 6,
         'annual_rate' => '6.0000',
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
@@ -113,21 +114,21 @@ function deposit(TestCase $case, User $user, string $subjectId, array $overrides
 
 it('replaces the interest schedule when the term changes, instead of adding a second one', function (): void {
     [$user, $subjectId] = taxpayer();
-    $depositId = deposit($this, $user, $subjectId, ['maturity_at' => day(12)->toDateString()]);
+    $depositId = deposit($this, $user, $subjectId, ['term_months' => 12]);
 
     $yearLong = (int) DB::table('deposit_interest_events')->where('account_id', $depositId)->sum('gross_interest_minor');
 
     // Shortened to six months. Periods are matched by their dates, so the new maturity produced a
     // period that matched nothing — and the old one stayed, summed alongside it.
     $this->actingAs($user)
-        ->patchJson("/api/v1/subjects/{$subjectId}/wallet/accounts/{$depositId}", ['maturity_at' => day(6)->toDateString()])
+        ->patchJson("/api/v1/subjects/{$subjectId}/wallet/accounts/{$depositId}", ['term_months' => 6])
         ->assertOk();
 
     $events = DB::table('deposit_interest_events')->where('account_id', $depositId)->get();
 
     expect($events)->toHaveCount(1)
         ->and((int) DB::table('deposit_interest_events')->where('account_id', $depositId)->sum('gross_interest_minor'))->toBeLessThan($yearLong)
-        ->and($events->first()?->accrual_to)->toBe(day(6)->toDateString());
+        ->and($events->first()?->accrual_to)->toBe(DepositTerm::maturity(day(), 6)->toDateString());
 });
 
 it('refuses a deposit whose maturity has already passed', function (): void {
@@ -140,14 +141,14 @@ it('refuses a deposit whose maturity has already passed', function (): void {
             'currency_code' => 'RON',
             'starts_at' => day(-12)->toDateString(),
             'principal_minor' => 5000000,
-            'maturity_at' => day(-1)->toDateString(),
+            'term_months' => 6,
             'annual_rate' => '6.0000',
             'rate_type' => 'FIXED',
             'interest_method' => 'SIMPLE',
             'payment_frequency' => 'AT_MATURITY',
         ])
         ->assertStatus(422)
-        ->assertJsonValidationErrors(['maturity_at']);
+        ->assertJsonValidationErrors(['term_months']);
 });
 
 it('keeps the funding transaction in step with the deposit, and removes it with the deposit', function (): void {
@@ -328,7 +329,7 @@ it('fixes what posted interest was computed from, and still lets the rate and th
     $this->actingAs($user)
         ->patchJson("/api/v1/subjects/{$subjectId}/wallet/accounts/{$depositId}", [
             'annual_rate' => '7.0000',
-            'maturity_at' => day(9)->toDateString(),
+            'term_months' => 9,
         ])
         ->assertOk();
 

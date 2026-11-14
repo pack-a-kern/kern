@@ -57,17 +57,16 @@ function depositMaturingIn(TestCase $case, User $owner, string $subjectId, int $
         'currency_code' => 'RON',
         'starts_at' => $today->subMonths(6)->toDateString(),
         'principal_minor' => 612345678,
-        'maturity_at' => $today->addDays(max($days, 1))->toDateString(),
+        'term_months' => 12,
         'annual_rate' => '5.7500',
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
         'payment_frequency' => 'AT_MATURITY',
     ])->assertCreated()->json('id');
 
-    if ($days === 0) {
-        // The API opens only future deposits; one maturing today is moved there by hand.
-        DepositTerms::query()->withoutGlobalScopes()->whereKey($id)->update(['maturity_at' => $today->toDateString()]);
-    }
+    // The API takes a term, which never lands on an exact distance from today, and opens only deposits
+    // maturing after it: the maturity under test is set by hand.
+    DepositTerms::query()->withoutGlobalScopes()->whereKey($id)->update(['maturity_at' => $today->addDays($days)->toDateString()]);
 
     return is_string($id) ? $id : '';
 }

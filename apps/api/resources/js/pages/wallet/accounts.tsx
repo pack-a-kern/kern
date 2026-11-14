@@ -24,7 +24,15 @@ import {
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
-import { deleteAccount, listAccounts, listBanks, openAccount, openDeposits, updateAccount } from '../../api/walletApi';
+import {
+    deleteAccount,
+    listAccounts,
+    listBanks,
+    openAccount,
+    openDeposits,
+    previewDepositTerm,
+    updateAccount,
+} from '../../api/walletApi';
 import BankMark from '../../components/wallet/BankMark';
 import BulkActions from '../../components/BulkActions';
 import Checkbox from '../../components/Checkbox';
@@ -61,7 +69,6 @@ import { useCurrencies } from '../../lib/sharedProps';
 import { useTranslation } from '../../i18n';
 import { useAccountNames } from '../../hooks/useAccountNames';
 import { describeApiFailure } from '../../lib/apiErrors';
-import { addMonths, daysBetween, maturityFor, termMonths as monthsOfTerm } from '../../lib/depositTerm';
 import { formatDate, formatMinor } from '../../lib/format';
 import { useActiveSubjectId } from '../../hooks/useActiveSubjectId';
 import { cn } from '../../lib/utils';
@@ -76,7 +83,11 @@ import {
     type Bank,
     type DepositFacts,
     type DepositFormOptions,
+    type DepositTermPreview,
 } from '../../types/wallet';
+
+/** How long the form waits after the start or the term last changed before asking the server for the maturity. */
+const TERM_PREVIEW_DELAY_MS = 300;
 
 /**
  * The taxpayer's deposits, cash and other accounts, in one table.
@@ -153,7 +164,7 @@ function formFor(account: AccountSummary): AccountForm {
                   funding_account_id: deposit.fundingAccountId ?? '',
                   bank_id: deposit.bankId ?? '',
                   principal: String(deposit.principalMinor / 100),
-                  term_months: String(monthsOfTerm(deposit.startsAt, deposit.maturityAt)),
+                  term_months: String(deposit.termMonths),
                   annual_rate: deposit.annualRate ?? '',
                   rate_type: deposit.rateType,
                   interest_method: deposit.interestMethod,
@@ -235,6 +246,37 @@ export default function WalletAccounts(): JSX.Element {
         read: false,
         chosen: false,
     });
+
+    // What the server makes of the form's start and term: asked once the typing stops, never worked out here.
+    const [termPreview, setTermPreview] = useState<{ key: string; value: DepositTermPreview } | null>(null);
+    const previewStart = form.kind === 'TERM_DEPOSIT' ? form.starts_at : '';
+    const previewTerm = form.kind === 'TERM_DEPOSIT' ? form.term_months : '';
+
+    useEffect(() => {
+        if (subjectId === null || previewStart === '' || previewTerm === '') {
+            return;
+        }
+
+        let active = true;
+        const key = `${previewStart}|${previewTerm}`;
+        const timer = window.setTimeout(() => {
+            previewDepositTerm(subjectId, previewStart, Number(previewTerm)).then(
+                (value) => {
+                    if (active) {
+                        setTermPreview({ key, value });
+                    }
+                },
+                () => {
+                    // Shown as not yet worked out; the save itself is refused by the server with its reason.
+                },
+            );
+        }, TERM_PREVIEW_DELAY_MS);
+
+        return () => {
+            active = false;
+            window.clearTimeout(timer);
+        };
+    }, [subjectId, previewStart, previewTerm]);
 
     useEffect(() => {
         if (subjectId === null) {
@@ -356,14 +398,10 @@ export default function WalletAccounts(): JSX.Element {
     const termsLocked = depositClosed || editing?.deposit?.interestPosted === true;
     const lockedHint = t((d) => d.pages.walletDeposits.form.lockedAfterInterest);
 
-    // Derived on every render rather than stored: a second copy of the maturity could drift out of
-    // step with the term that produced it, which is what asking for a term instead of a date fixes.
-    const termMonths = Number(form.term_months);
-    const hasTerm = form.starts_at !== '' && Number.isInteger(termMonths) && termMonths > 0;
-    // A term ending on a weekend matures on the Monday after — see `maturityFor`.
-    const maturityAt = hasTerm ? maturityFor(form.starts_at, termMonths) : '';
-    const movedToWorkingDay = hasTerm && maturityAt !== addMonths(form.starts_at, termMonths);
-    const termDays = maturityAt === '' ? null : daysBetween(form.starts_at, maturityAt);
+    const hasTerm = isDeposit && form.starts_at !== '' && form.term_months !== '';
+    // The server's answer for this start and term — never worked out here, so the dates shown are the
+    // ones a saved deposit gets. Only while it is the answer to what the form now holds.
+    const preview = hasTerm && termPreview?.key === `${form.starts_at}|${form.term_months}` ? termPreview.value : null;
 
     /** Labels a term the way it is sold — "6 luni", and the singular for one month. */
     const termLabel = (months: number): string =>
@@ -431,7 +469,7 @@ export default function WalletAccounts(): JSX.Element {
             ...(isDeposit
                 ? {
                       principal_minor: Math.round(Number(form.principal) * 100),
-                      maturity_at: maturityAt,
+                      term_months: Number(form.term_months),
                       // '' is a real answer — a deposit opened out of an account nobody tracked —
                       // and it has to reach the server as null rather than be omitted, or editing
                       // could never clear a funding account once set.
@@ -900,9 +938,7 @@ export default function WalletAccounts(): JSX.Element {
                                     (isDeposit ? form.bank_id === '' : form.display_name.trim() === '') ||
                                     (isCash && form.holding_amount.trim() === '') ||
                                     (isDeposit &&
-                                        (form.principal.trim() === '' ||
-                                            form.annual_rate.trim() === '' ||
-                                            maturityAt === ''))
+                                        (form.principal.trim() === '' || form.annual_rate.trim() === '' || !hasTerm))
                                 }
                                 onClick={() => {
                                     void submit();
@@ -1223,15 +1259,15 @@ export default function WalletAccounts(): JSX.Element {
                                             <Field
                                                 label={t((d) => d.pages.walletDeposits.form.maturityAt)}
                                                 htmlFor="account-maturity"
-                                                error={errors.get('maturity_at')}
+                                                error={errors.get('term_months')}
                                                 help={
-                                                    termDays === null
+                                                    preview === null
                                                         ? t((d) => d.pages.walletDeposits.form.maturityPending)
                                                         : [
                                                               t(
                                                                   (d) => d.pages.walletDeposits.form.maturityCalculated,
-                                                              ).replace('{days}', String(termDays)),
-                                                              ...(movedToWorkingDay
+                                                              ).replace('{days}', String(preview.days)),
+                                                              ...(preview.movedFromWeekend
                                                                   ? [
                                                                         t(
                                                                             (d) =>
@@ -1246,7 +1282,7 @@ export default function WalletAccounts(): JSX.Element {
                                                 <PanelInput
                                                     id="account-maturity"
                                                     type="date"
-                                                    value={maturityAt}
+                                                    value={preview?.maturityAt ?? ''}
                                                     disabled
                                                     readOnly
                                                     icon={<CalendarCheck className="size-3.5" aria-hidden="true" />}

@@ -126,12 +126,16 @@ it('reports the matrix from the database, not from the config file', function ()
 
     /** @var array<string, bool> $holders */
     $holders = $response->json('groups.0.permissions.1.roles');
+    /** @var list<array{permissions: list<mixed>}> $groups */
+    $groups = $response->json('groups');
 
     expect($response->json('groups.0.group'))->toBe('platform')
         ->and($response->json('groups.0.permissions.1.permission'))->toBe('system.settings.manage')
         ->and($response->json('groups.0.permissions.1.enforced'))->toBeTrue()
         ->and($holders['SUPER_ADMIN'])->toBeTrue()
-        ->and($holders['ADMIN'])->toBeFalse();
+        ->and($holders['ADMIN'])->toBeFalse()
+        // Counted by the server across every group, so the screen adds nothing.
+        ->and($response->json('permission_count'))->toBe(array_sum(array_map(static fn (array $group): int => count($group['permissions']), $groups)));
 });
 
 it('marks permissions that nothing checks yet as unenforced', function (): void {

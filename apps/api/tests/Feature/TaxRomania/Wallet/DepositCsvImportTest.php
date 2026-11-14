@@ -99,7 +99,7 @@ function deposit(string $bankId, array $overrides = []): array
         'currency_code' => 'RON',
         'starts_at' => now('UTC')->toDateString(),
         'principal_minor' => 1_000_000,
-        'maturity_at' => now('UTC')->addMonths(6)->toDateString(),
+        'term_months' => 6,
         'annual_rate' => '6.5',
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
@@ -235,8 +235,8 @@ it('opens nothing when one deposit breaks a rule the form enforces, and says whi
 
     expect(DB::table('financial_accounts')->where('tax_subject_id', $subjectId)->where('kind', 'TERM_DEPOSIT')->count())->toBe(0);
 })->with([
-    'already matured' => [['maturity_at' => '2020-01-01', 'starts_at' => '2019-01-01'], 'maturity_at'],
-    'maturing before it starts' => [['starts_at' => '2030-06-01', 'maturity_at' => '2030-01-01'], 'maturity_at'],
+    'already matured' => [['starts_at' => '2019-01-01', 'term_months' => 6], 'term_months'],
+    'a term longer than any offered' => [['term_months' => 85], 'term_months'],
     'a rate written with a comma' => [['annual_rate' => '6,5'], 'annual_rate'],
     'no principal' => [['principal_minor' => 0], 'principal_minor'],
     'a closed bank' => [['bank_id' => 'CLOSED_BANK'], 'bank_id'],

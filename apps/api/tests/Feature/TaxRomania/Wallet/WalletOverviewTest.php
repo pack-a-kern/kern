@@ -63,7 +63,7 @@ function openDeposit(TestCase $case, User $user, string $subjectId, string $gene
         'currency_code' => 'RON',
         'starts_at' => now('UTC')->toDateString(),
         'principal_minor' => $principal,
-        'maturity_at' => now('UTC')->addMonths(6)->toDateString(),
+        'term_months' => 6,
         'annual_rate' => '6.0000',
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
@@ -146,7 +146,10 @@ it('groups running deposits by the bank they are at, largest first', function ()
         ->assertJsonPath('banks.0.code', 'BTRL')
         ->assertJsonPath('banks.0.deposit_count', 2)
         ->assertJsonPath('banks.0.principal.RON', 12_000_000)
-        ->assertJsonPath('banks.1.name', 'CEC Bank');
+        // Each bank's share of every running deposit, divided by the server, as a decimal.
+        ->assertJsonPath('banks.0.share', '0.8000')
+        ->assertJsonPath('banks.1.name', 'CEC Bank')
+        ->assertJsonPath('banks.1.share', '0.2000');
 });
 
 it('gives each bank its logo’s address, where this installation has one', function (): void {
@@ -257,7 +260,13 @@ it('keeps money transferred to an account it does not hold', function (): void {
         ->assertJsonPath('totals.holdings.internal.amounts.RON', 20_000_000)
         // Reachable, unlike a deposit: it is in an account, just not one described here.
         ->assertJsonPath('totals.holdings.available.amounts.RON', 30_000_000)
-        ->assertJsonPath('totals.net_worth.amount_minor', 30_000_000);
+        ->assertJsonPath('totals.net_worth.amount_minor', 30_000_000)
+        // On the dashboard the money held elsewhere is General's: one part, all of the whole.
+        ->assertJsonPath('totals.breakdown.1.group', 'general')
+        ->assertJsonPath('totals.breakdown.1.amounts.RON', 30_000_000)
+        ->assertJsonPath('totals.breakdown.1.share', '1.0000')
+        ->assertJsonPath('totals.breakdown.0.group', 'deposits')
+        ->assertJsonPath('totals.breakdown.0.share', '0.0000');
 });
 
 it('does not count a deposit’s own funding as money held elsewhere', function (): void {

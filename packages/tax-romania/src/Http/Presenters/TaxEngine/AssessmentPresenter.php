@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Http\Presenters\TaxEngine;
 
+use Kern\Platform\Money\Shares;
 use Kern\TaxRomania\TaxEngine\Models\TaxAssessment;
 use Kern\TaxRomania\TaxEngine\Models\TaxAssessmentLine;
 use Kern\TaxRomania\TaxEngine\Models\TaxFact;
@@ -65,6 +66,7 @@ final class AssessmentPresenter
             // What the year comes to across every tax: the engine's totals added — every one in lei — here,
             // once, so the screen shows a figure and adds none.
             'total_owed_minor' => array_sum(array_column($totals, 'minor_units')),
+            'composition' => $this->composition($totals),
             /*
              * The year's income, read from the facts rather than added up from the lines.
              *
@@ -76,6 +78,26 @@ final class AssessmentPresenter
                 ->where('fiscal_year', $assessment->fiscal_year)
                 ->sum('ron_amount_minor'),
         ];
+    }
+
+    /**
+     * What the bill is made of: each tax that comes to anything, largest first, with its share of the bill —
+     * worked out here so the screen draws it and divides nothing.
+     *
+     * @param  array<string, array{minor_units: int, currency: string}>  $totals
+     * @return list<array{tax_code: string, minor_units: int, share: string}>
+     */
+    private function composition(array $totals): array
+    {
+        $owed = array_filter(array_map(static fn (array $total): int => $total['minor_units'], $totals), static fn (int $minor): bool => $minor > 0);
+        arsort($owed);
+        $shares = Shares::of($owed);
+
+        return array_map(
+            static fn (string $taxCode, int $minor): array => ['tax_code' => $taxCode, 'minor_units' => $minor, 'share' => $shares[$taxCode]],
+            array_keys($owed),
+            $owed,
+        );
     }
 
     /**

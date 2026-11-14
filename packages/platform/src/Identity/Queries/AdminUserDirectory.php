@@ -11,6 +11,7 @@ use Kern\Platform\Crypto\BlindIndex\BlindIndexHasher;
 use Kern\Platform\Crypto\BlindIndex\Normalizer;
 use Kern\Platform\Identity\DataTransferObjects\UserDirectoryFilter;
 use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Money\Shares;
 use Kern\Platform\Tenancy\Contracts\TenantMemberships;
 
 /**
@@ -79,18 +80,25 @@ final readonly class AdminUserDirectory
             ];
         })->values()->all();
 
+        $users = User::query()->count();
+        $withMfa = User::query()
+            ->where(fn (Builder $query) => $query
+                ->whereExists(fn (QueryBuilder $passkeys) => $passkeys->from('user_passkeys')->whereColumn('user_passkeys.user_id', 'users.id'))
+                ->orWhereExists(fn (QueryBuilder $totp) => $totp->from('user_mfa_methods')->whereColumn('user_mfa_methods.user_id', 'users.id')->whereNotNull('confirmed_at')))
+            ->count();
+
         return [
             'users' => $rows,
             'total' => $total,
             'page' => $page,
             'per_page' => $filter->perPage,
             'stats' => [
-                'users' => User::query()->count(),
-                'with_mfa' => User::query()
-                    ->where(fn (Builder $query) => $query
-                        ->whereExists(fn (QueryBuilder $passkeys) => $passkeys->from('user_passkeys')->whereColumn('user_passkeys.user_id', 'users.id'))
-                        ->orWhereExists(fn (QueryBuilder $totp) => $totp->from('user_mfa_methods')->whereColumn('user_mfa_methods.user_id', 'users.id')->whereNotNull('confirmed_at')))
-                    ->count(),
+                'users' => $users,
+                'with_mfa' => $withMfa,
+                // Their share of every account, null with none; and whether that is all of them — good news
+                // only then, a green 40% would congratulate most accounts on being unprotected.
+                'mfa_share' => Shares::part($withMfa, $users),
+                'all_covered' => $users > 0 && $withMfa === $users,
                 'roles' => $this->intMap($this->platformRoles()->groupBy('r.name')->selectRaw('r.name, count(*) as total')->pluck('total', 'name')->all()),
             ],
         ];

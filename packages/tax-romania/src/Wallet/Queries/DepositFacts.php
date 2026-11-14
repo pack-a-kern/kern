@@ -27,6 +27,8 @@ final readonly class DepositFacts
         public string $startsAt,
         public int $principalMinor,
         public string $maturityAt,
+        /** The term it was bought for, in months — what the edit form asks for. */
+        public int $termMonths,
         public ?string $annualRate,
         public string $rateType,
         public string $interestMethod,
@@ -65,6 +67,7 @@ final readonly class DepositFacts
             'starts_at' => $this->startsAt,
             'principal_minor' => $this->principalMinor,
             'maturity_at' => $this->maturityAt,
+            'term_months' => $this->termMonths,
             'annual_rate' => $this->annualRate,
             'rate_type' => $this->rateType,
             'interest_method' => $this->interestMethod,

@@ -1,65 +1,36 @@
 import type { Dictionary } from '../i18n/dictionary';
-import type { ParameterType, ParameterVersion } from '../types/fiscalParameters';
-import { formatAmount, formatDate, formatDayMonth, formatPercent } from './format';
+import type { FiscalValueDisplay, ParameterVersion } from '../types/fiscalParameters';
+import { formatDate, formatDayMonth, formatMinor, formatPercent } from './format';
 
 type Translate = <T>(pick: (d: Dictionary) => T) => T;
 
 /**
- * A fiscal value as a person reads it, from how it is stored: the minimum wage an amount, a rate a
- * percent, a threshold so many minimum wages, an exemption a yes or a no. One place, so the table
- * and the detail agree.
+ * A fiscal value in the reader's language, from what the server says it is — an amount, a percent, a day of a
+ * month, a yes or a no, so many days, so many minimum wages or a range of them. Only formatted here; which of
+ * those a stored value is, the server decides. One place, so the table and the detail agree.
  */
-export function describeFiscalValue(
-    type: ParameterType,
-    value: Record<string, unknown>,
-    t: Translate,
-    locale: string,
-): string {
-    if (type === 'MONEY') {
-        const minor = typeof value.amount_minor === 'number' ? value.amount_minor : 0;
+export function describeFiscalValue(display: FiscalValueDisplay, t: Translate, locale: string): string {
+    const count = (one: number | null): string => (one === null ? '—' : String(one));
 
-        // The currency is stored with the amount; one missing shows the bare number rather than a guess.
-        return typeof value.currency === 'string'
-            ? formatAmount(minor / 100, value.currency, locale)
-            : String(minor / 100);
+    switch (display.kind) {
+        case 'money':
+            // The currency is stored with the amount; one missing shows the bare amount rather than a guess.
+            return formatMinor(display.amountMinor, display.currency ?? '', locale);
+        case 'percent':
+            return formatPercent(Number(display.ratio), locale);
+        case 'day_month':
+            return formatDayMonth(display.day, display.month, locale);
+        case 'flag':
+            return display.holds ? t((d) => d.pages.taxRules.yes) : t((d) => d.pages.taxRules.no);
+        case 'days':
+            return t((d) => d.pages.taxRules.days).replace('{count}', String(display.days));
+        case 'wages_range':
+            return t((d) => d.pages.taxRules.wagesRange)
+                .replace('{floor}', count(display.floor))
+                .replace('{cap}', count(display.cap));
+        case 'wages':
+            return t((d) => d.pages.taxRules.wages).replace('{count}', display.wages.map(count).join(' / '));
     }
-
-    if (type === 'DECIMAL') {
-        return formatPercent(Number(typeof value.value === 'string' ? value.value : 0), locale);
-    }
-
-    // A deadline the law repeats every year: the day and the month, the year being the one after.
-    if (typeof value.day === 'number' && typeof value.month === 'number') {
-        return formatDayMonth(value.day, value.month, locale);
-    }
-
-    // What the law says holds or does not — an exemption — and a period counted in days.
-    if (typeof value.value === 'boolean') {
-        return value.value ? t((d) => d.pages.taxRules.yes) : t((d) => d.pages.taxRules.no);
-    }
-
-    if (typeof value.days === 'number') {
-        return t((d) => d.pages.taxRules.days).replace('{count}', String(value.days));
-    }
-
-    // A base with two ends — not less than six wages, not more than seventy-two — reads as a range.
-    // Both ends the same is a base that cannot move, which the law set as one level: it reads as one.
-    if (typeof value.floor === 'number' || typeof value.cap === 'number') {
-        const end = (one: unknown): string => (typeof one === 'number' ? String(one) : '—');
-
-        return value.floor === value.cap
-            ? t((d) => d.pages.taxRules.wages).replace('{count}', end(value.floor))
-            : t((d) => d.pages.taxRules.wagesRange)
-                  .replace('{floor}', end(value.floor))
-                  .replace('{cap}', end(value.cap));
-    }
-
-    const wages = type === 'JSON' ? (Array.isArray(value.wages) ? value.wages : []) : [value.value];
-
-    return t((d) => d.pages.taxRules.wages).replace(
-        '{count}',
-        wages.filter((entry): entry is number => typeof entry === 'number').join(' / '),
-    );
 }
 
 /** "From 1 Jan 2025 to 30 Jun 2026", or "From 1 Jul 2026" for the one still in force. */
@@ -91,11 +62,4 @@ export function describeCheck(
     }
 
     return text;
-}
-
-/** What needs a second look is a warning; what only informs is not. */
-export function checkTone(check: { kind: string }): 'warn' | 'idle' {
-    return check.kind === 'several_paragraphs' || check.kind === 'dated_by_note' || check.kind === 'in_force_later'
-        ? 'idle'
-        : 'warn';
 }

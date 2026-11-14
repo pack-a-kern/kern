@@ -67,6 +67,7 @@ import NewUserDialog from './NewUserDialog';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
+import { formatPercent } from '../../lib/format';
 import { useSharedAuth } from '../../lib/sharedProps';
 import { ApiError } from '../../lib/http';
 import { SUPER_ADMIN_ROLE, type AccessCatalogue, type AdminDirectory, type AdminUser } from '../../types/admin';
@@ -111,7 +112,7 @@ function roleIcon(role: string): JSX.Element {
 }
 
 export default function AdminUsers(): JSX.Element {
-    const { t } = useTranslation();
+    const { t, locale } = useTranslation();
 
     const [tab, setTab] = useRememberedState<Tab>('admin.users.tab', 'users', {
         isValid: (value) => TABS.includes(value),
@@ -376,12 +377,12 @@ export default function AdminUsers(): JSX.Element {
                                 icon={<Fingerprint className="size-4" />}
                                 /* Good news only when everybody is covered: a green 40% would congratulate
                                    the installation on most of its accounts being unprotected. */
-                                tone={directory !== null && total > 0 && withMfa === total ? 'success' : 'neutral'}
+                                tone={directory?.stats.allCovered === true ? 'success' : 'neutral'}
                                 label={t((d) => d.pages.adminUsers.stats.mfa)}
                                 value={
-                                    directory === null || total === 0
+                                    directory === null || directory.stats.mfaShare === null
                                         ? '—'
-                                        : `${String(Math.round((withMfa / total) * 100))}%`
+                                        : formatPercent(Number(directory.stats.mfaShare), locale, 0)
                                 }
                                 sub={
                                     directory === null
@@ -395,11 +396,7 @@ export default function AdminUsers(): JSX.Element {
                                 icon={<KeyRound className="size-4" />}
                                 tone="neutral"
                                 label={t((d) => d.pages.adminUsers.stats.permissions)}
-                                value={
-                                    access === null
-                                        ? '—'
-                                        : access.groups.reduce((count, group) => count + group.permissions.length, 0)
-                                }
+                                value={access === null ? '—' : access.permissionCount}
                                 sub={t((d) => d.pages.adminUsers.stats.permissionsSub)}
                             />
                         </StatGrid>

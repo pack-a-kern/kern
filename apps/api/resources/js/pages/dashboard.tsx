@@ -17,7 +17,7 @@ import {
     Zap,
 } from 'lucide-react';
 import { useEffect, useMemo, useState, type JSX, type ReactNode } from 'react';
-import type { ChartConfiguration, Plugin } from 'chart.js';
+import type { ChartConfiguration } from 'chart.js';
 
 import { getWalletOverview } from '../api/walletApi';
 import { apiRequest } from '../lib/http';
@@ -41,12 +41,13 @@ import { formatDate, formatMinor, formatPercent } from '../lib/format';
 import { Money } from '../components/Money';
 import { useActiveSubjectId } from '../hooks/useActiveSubjectId';
 import { useCurrencies } from '../lib/sharedProps';
+import { hoverLine } from '../lib/chartHoverLine';
 import { themeColor } from '../lib/themeColor';
 import { cn } from '../lib/utils';
 import {
-    addHoldings,
     BASE_CURRENCY,
     type Holding,
+    type HoldingGroup,
     type NetWorth,
     type WalletOverview as Overview,
 } from '../types/wallet';
@@ -68,12 +69,12 @@ type Translate = ReturnType<typeof useTranslation>['t'];
  * stylesheet build finds them; the colours are the palette's own, so a changed palette recolours
  * the bar with it.
  */
-const GROUPS = [
-    { key: 'deposits', swatch: 'bg-[var(--brand-600)]' },
-    { key: 'general', swatch: 'bg-[var(--brand-300)]' },
-    { key: 'cash', swatch: 'bg-success' },
-    { key: 'other', swatch: 'bg-amber-500' },
-] as const;
+const SWATCHES: Record<HoldingGroup['group'], string> = {
+    deposits: 'bg-[var(--brand-600)]',
+    general: 'bg-[var(--brand-300)]',
+    cash: 'bg-success',
+    other: 'bg-amber-500',
+};
 
 /**
  * The dashboard: what the taxpayer has, where it is, and what their deposits earn.
@@ -179,33 +180,9 @@ export default function Dashboard(): JSX.Element {
         return currencies.length === 1 && currencies[0] === shown.currencyCode ? null : perCurrency(amounts);
     };
 
-    // The shares are of the converted figures, so a currency with no rate is left out of both the
-    // part and the whole rather than drawn at a size nobody computed.
-    /*
-     * General and what sits in accounts held elsewhere, as one figure.
-     *
-     * The payload keeps them apart because they answer different questions — how much, and where —
-     * but a transfer to the taxpayer's own account at another bank is not a different kind of
-     * holding, and a row of its own would invite the question "is that mine?" about money that is.
-     */
-    const held =
-        totals === null
-            ? null
-            : { ...totals.holdings, general: addHoldings(totals.holdings.general, totals.holdings.internal) };
-
-    const groups =
-        held === null
-            ? []
-            : GROUPS.map((group) => ({ ...group, holding: held[group.key] })).filter(
-                  // Only once there is one: most taxpayers have no broker or exchange account, and a
-                  // permanent zero would be a legend entry answering a question nobody asked.
-                  (group) => group.key !== 'other' || Object.keys(group.holding.amounts).length > 0,
-              );
-    const whole = groups.reduce((sum, group) => sum + Math.max(0, group.holding.converted.amountMinor), 0);
-    const shareOf = (holding: Holding): number => (whole > 0 ? Math.max(0, holding.converted.amountMinor) / whole : 0);
-
+    // Where the money is, each part with its share of the whole — grouped and divided by the server.
+    const groups = totals?.breakdown ?? [];
     const owedToMe = totals?.owedToMe;
-    const depositsWhole = totals?.holdings.deposits.converted.amountMinor ?? 0;
 
     return (
         <>
@@ -288,11 +265,11 @@ export default function Dashboard(): JSX.Element {
                                 aria-hidden="true"
                             >
                                 {groups.map((group) =>
-                                    shareOf(group.holding) === 0 ? null : (
+                                    Number(group.share) === 0 ? null : (
                                         <div
-                                            key={group.key}
-                                            className={cn('h-full', group.swatch)}
-                                            style={{ width: `${String(shareOf(group.holding) * 100)}%` }}
+                                            key={group.group}
+                                            className={cn('h-full', SWATCHES[group.group])}
+                                            style={{ width: `calc(${group.share} * 100%)` }}
                                         />
                                     ),
                                 )}
@@ -304,20 +281,20 @@ export default function Dashboard(): JSX.Element {
                                        are the holding read out, and they belong under the name rather than
                                        in the line that identifies it. */
                                     const detail = [
-                                        group.key === 'deposits' && totals !== null
+                                        group.group === 'deposits' && totals !== null
                                             ? t((d) => d.pages.walletOverview.depositCount).replace(
                                                   '{count}',
                                                   String(totals.depositCount),
                                               )
                                             : '',
-                                        perCurrency(group.holding.amounts),
+                                        perCurrency(group.amounts),
                                     ]
                                         .filter((part) => part !== '')
                                         .join(' · ');
 
                                     return (
                                         <div
-                                            key={group.key}
+                                            key={group.group}
                                             className="flex items-baseline justify-between gap-x-4 py-2.5 first:pt-0 last:pb-0"
                                         >
                                             {/* Two lines at every width. The first says which holding and how
@@ -329,16 +306,19 @@ export default function Dashboard(): JSX.Element {
                                             <dt className="flex min-w-0 flex-col gap-y-1 text-xs font-medium">
                                                 <span className="flex min-w-0 items-center gap-2">
                                                     <span
-                                                        className={cn('size-2 shrink-0 rounded-full', group.swatch)}
+                                                        className={cn(
+                                                            'size-2 shrink-0 rounded-full',
+                                                            SWATCHES[group.group],
+                                                        )}
                                                     />
                                                     <span className="truncate">
-                                                        {t((d) => d.pages.walletOverview[group.key])}
+                                                        {t((d) => d.pages.walletOverview[group.group])}
                                                     </span>
                                                     {/* The share as a mark, not as the first of three
                                                         full stops' worth of text: it is the one number here
                                                         that is about the whole rather than this holding. */}
                                                     <Pill tone="neutral" className="shrink-0 tabular-nums">
-                                                        {percent(shareOf(group.holding))}
+                                                        {percent(Number(group.share))}
                                                     </Pill>
                                                 </span>
                                                 {detail === '' ? null : (
@@ -350,7 +330,7 @@ export default function Dashboard(): JSX.Element {
                                                 )}
                                             </dt>
                                             <dd className="shrink-0 text-sm font-semibold tabular-nums">
-                                                {holdingValue(group.holding)}
+                                                {holdingValue(group)}
                                             </dd>
                                         </div>
                                     );
@@ -378,7 +358,9 @@ export default function Dashboard(): JSX.Element {
                                 : [
                                       {
                                           label: t((d) => d.pages.walletOverview.general),
-                                          holding: held?.general ?? totals.holdings.general,
+                                          holding:
+                                              groups.find((group) => group.group === 'general') ??
+                                              totals.holdings.general,
                                       },
                                       { label: t((d) => d.pages.walletOverview.cash), holding: totals.holdings.cash },
                                   ]
@@ -466,9 +448,6 @@ export default function Dashboard(): JSX.Element {
                         ) : (
                             <ul className="@container divide-border divide-y">
                                 {overview.banks.map((bank) => {
-                                    const share =
-                                        depositsWhole > 0 ? Math.max(0, bank.converted.amountMinor) / depositsWhole : 0;
-
                                     return (
                                         <li key={bank.bankId ?? 'none'} className="py-3 first:pt-0 last:pb-0">
                                             {/*
@@ -548,11 +527,11 @@ export default function Dashboard(): JSX.Element {
                                                     <div className="bg-muted h-1.5 flex-1 overflow-hidden rounded-full">
                                                         <div
                                                             className="h-full rounded-full bg-[var(--brand-600)]"
-                                                            style={{ width: `${String(share * 100)}%` }}
+                                                            style={{ width: `calc(${bank.share} * 100%)` }}
                                                         />
                                                     </div>
                                                     <span className="note w-9 text-right tabular-nums">
-                                                        {percent(share)}
+                                                        {percent(Number(bank.share))}
                                                     </span>
                                                 </div>
                                             </div>
@@ -784,36 +763,6 @@ function netWorthNote(netWorth: NetWorth, t: Translate): string {
         ? t((d) => d.pages.walletOverview.netWorthDirect)
         : t((d) => d.pages.walletOverview.netWorthRate).replace('{date}', newest);
 }
-
-/**
- * A vertical line at the day under the cursor.
- *
- * Chart.js draws none, and without it the tooltip is a box floating over a line with nothing saying
- * which of sixty points it belongs to. Registered on this chart only — a plugin in the configuration
- * applies to its own instance, unlike `ChartJS.register`, which would put the line on every chart in
- * the app.
- */
-const hoverLine: Plugin<'line'> = {
-    id: 'hoverLine',
-    afterDatasetsDraw(chart) {
-        const hovered = chart.getActiveElements().at(0);
-
-        if (hovered === undefined) {
-            return;
-        }
-
-        const { ctx, chartArea } = chart;
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(hovered.element.x, chartArea.top);
-        ctx.lineTo(hovered.element.x, chartArea.bottom);
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = themeColor('--muted-foreground', 0.5);
-        ctx.stroke();
-        ctx.restore();
-    },
-};
 
 /**
  * What a currency has been worth, as a line.

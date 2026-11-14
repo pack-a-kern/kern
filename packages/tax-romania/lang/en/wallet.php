@@ -9,6 +9,7 @@ return [
     'holding_account' => ':place · :currency',
     'held_at' => ['TREASURY' => 'Treasury', 'BANK' => 'Bank', 'BROKER' => 'Broker'],
     'source_missing' => 'The selected source does not exist.',
+    'deposit_already_matured' => 'A deposit with this start and term has already matured.',
     'deposit_csv' => [
         'not_utf8' => 'The file is not UTF-8. Save it from the spreadsheet as "CSV UTF-8".',
         'empty' => 'The file has no deposits under its header line.',

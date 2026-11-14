@@ -2,12 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import type { Dictionary } from '../../i18n/dictionary';
 import { en } from '../../i18n/en';
-import { maturityFor } from '../depositTerm';
 import type { DepositCsvRow } from '../../types/wallet';
 import { line, type DepositCsvShared } from '../depositCsv';
 
 /*
- * A line of a deposit CSV becomes exactly the deposit the one-deposit form would send — its maturity
+ * A line of a deposit CSV becomes exactly the deposit the one-deposit form would send — its term
  * derived from the term the same way — or says why it cannot yet. Whether the deposit is acceptable is
  * the server's to answer; this only covers what reading can tell.
  */
@@ -46,7 +45,7 @@ describe('a deposit CSV line', () => {
                 currency_code: 'RON',
                 starts_at: '2026-11-30',
                 principal_minor: 1_000_050,
-                maturity_at: maturityFor('2026-11-30', 6),
+                term_months: 6,
                 annual_rate: '6.25',
                 rate_type: 'FIXED',
                 interest_method: 'SIMPLE',

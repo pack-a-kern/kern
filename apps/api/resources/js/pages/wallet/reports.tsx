@@ -55,15 +55,8 @@ import { useTranslation } from '../../i18n';
 import { useAccountNames } from '../../hooks/useAccountNames';
 import { useActiveSubjectId } from '../../hooks/useActiveSubjectId';
 import { useRememberedState } from '../../hooks/useRememberedState';
-import { formatCompact, formatDate, formatMinor } from '../../lib/format';
+import { formatCompact, formatDate, formatMinor, formatPercent } from '../../lib/format';
 import { num, obj, str } from '../../lib/json';
-
-interface TagRow {
-    tagId: string;
-    name: string;
-    currencyCode: string;
-    totalMinor: number;
-}
 
 interface BankRow {
     bankId: string | null;
@@ -73,18 +66,28 @@ interface BankRow {
     outMinor: number;
 }
 
-interface CategoryRow {
-    categoryCode: string;
-    currencyCode: string;
-    totalMinor: number;
-}
-
-/** One line of the breakdown panel — a tag, a counterparty or a category, with its total. */
+/** One line of the breakdown panel — a tag, a party or a category — as the server ranked and measured it. */
 interface BreakdownRow {
     key: string;
     label: string;
     totalMinor: number;
     note?: string;
+    /** Its share of the whole, and its bar against the largest — decimals the server worked out. */
+    share: string;
+    bar: string;
+}
+
+/** One way of breaking the spending down, in one currency: the whole and its ranked rows. */
+interface BreakdownSet {
+    totalMinor: number;
+    rows: Array<{
+        key: string;
+        name: string | null;
+        count: number | null;
+        totalMinor: number;
+        share: string;
+        bar: string;
+    }>;
 }
 
 interface MonthRow {
@@ -94,6 +97,9 @@ interface MonthRow {
     outMinor: number;
     count: number;
     topCategory: string | null;
+    netMinor: number;
+    /** This month's spending against the period's largest month, as the server scaled it. */
+    outBar: string;
 }
 
 interface LargestRow {
@@ -110,6 +116,9 @@ interface Attention {
     unclassifiedMinor: Array<{ currencyCode: string; totalMinor: number }>;
     duplicateGroups: number;
     totalCount: number;
+    classifiedCount: number;
+    /** The share of the period's movements somebody has said what they are — all of them in an empty period. */
+    classifiedShare: string;
 }
 
 interface Totals {
@@ -117,13 +126,14 @@ interface Totals {
     inMinor: number;
     outMinor: number;
     count: number;
-}
-
-interface MerchantRow {
-    name: string | null;
-    currencyCode: string;
-    totalMinor: number;
-    count: number;
+    netMinor: number;
+    /** How far each direction moved from the same length of time before, as a decimal; null with nothing then. */
+    inChange: string | null;
+    outChange: string | null;
+    /** The share of the money in that was kept; null with none in. */
+    keptShare: string | null;
+    /** The share of the period's movements in this currency. */
+    activityShare: string | null;
 }
 
 interface AccountRow {
@@ -139,14 +149,10 @@ interface AccountRow {
 interface Reports {
     years: number[];
     totals: Totals[];
-    previous: Totals[];
-    byTag: TagRow[];
     byBank: BankRow[];
-    byCategory: CategoryRow[];
-    byCounterparty: MerchantRow[];
-    /** What was paid to every named party, per currency — not only the ten `byCounterparty` lists. */
-    counterpartyTotals: Array<{ currencyCode: string; totalMinor: number }>;
     byAccount: AccountRow[];
+    /** The spending by category, by tag and by party, per currency — ranked and measured by the server. */
+    breakdowns: Array<{ currencyCode: string; category: BreakdownSet; tag: BreakdownSet; merchant: BreakdownSet }>;
     cashFlow: MonthRow[];
     largest: LargestRow[];
     attention: Attention;
@@ -163,24 +169,46 @@ function parseTotals(value: unknown): Totals[] {
             inMinor: num(row, 'in_minor'),
             outMinor: num(row, 'out_minor'),
             count: num(row, 'count'),
+            netMinor: num(row, 'net_minor'),
+            inChange: nullableText(row, 'in_change'),
+            outChange: nullableText(row, 'out_change'),
+            keptShare: nullableText(row, 'kept_share'),
+            activityShare: nullableText(row, 'activity_share'),
         };
     });
+}
+
+/** A text field that may be null. */
+function nullableText(row: Record<string, unknown>, key: string): string | null {
+    const value = row[key];
+
+    return typeof value === 'string' ? value : null;
+}
+
+function parseBreakdownSet(value: unknown): BreakdownSet {
+    const set = obj(value);
+
+    return {
+        totalMinor: num(set, 'total_minor'),
+        rows: (Array.isArray(set.rows) ? set.rows : []).map((entry) => {
+            const row = obj(entry);
+
+            return {
+                key: str(row, 'key'),
+                name: nullableText(row, 'name'),
+                count: typeof row.count === 'number' ? row.count : null,
+                totalMinor: num(row, 'total_minor'),
+                share: str(row, 'share'),
+                bar: str(row, 'bar'),
+            };
+        }),
+    };
 }
 
 function parseReports(payload: unknown): Reports {
     const body = obj(payload);
 
     return {
-        byTag: (Array.isArray(body.by_tag) ? body.by_tag : []).map((entry): TagRow => {
-            const row = obj(entry);
-
-            return {
-                tagId: str(row, 'tag_id'),
-                name: str(row, 'name'),
-                currencyCode: str(row, 'currency_code'),
-                totalMinor: num(row, 'total_minor'),
-            };
-        }),
         byBank: (Array.isArray(body.by_bank) ? body.by_bank : []).map((entry): BankRow => {
             const row = obj(entry);
 
@@ -190,15 +218,6 @@ function parseReports(payload: unknown): Reports {
                 currencyCode: str(row, 'currency_code'),
                 inMinor: num(row, 'in_minor'),
                 outMinor: num(row, 'out_minor'),
-            };
-        }),
-        byCategory: (Array.isArray(body.by_category) ? body.by_category : []).map((entry): CategoryRow => {
-            const row = obj(entry);
-
-            return {
-                categoryCode: str(row, 'category_code'),
-                currencyCode: str(row, 'currency_code'),
-                totalMinor: num(row, 'total_minor'),
             };
         }),
         cashFlow: (Array.isArray(body.cash_flow) ? body.cash_flow : []).map((entry): MonthRow => {
@@ -211,25 +230,21 @@ function parseReports(payload: unknown): Reports {
                 outMinor: num(row, 'out_minor'),
                 count: num(row, 'count'),
                 topCategory: typeof row.top_category === 'string' ? row.top_category : null,
+                netMinor: num(row, 'net_minor'),
+                outBar: str(row, 'out_bar'),
             };
         }),
         years: (Array.isArray(body.years) ? body.years : []).filter((year): year is number => typeof year === 'number'),
         totals: parseTotals(body.totals),
-        previous: parseTotals(body.previous),
-        byCounterparty: (Array.isArray(body.by_counterparty) ? body.by_counterparty : []).map((entry): MerchantRow => {
+        breakdowns: (Array.isArray(body.breakdowns) ? body.breakdowns : []).map((entry) => {
             const row = obj(entry);
 
             return {
-                name: typeof row.name === 'string' ? row.name : null,
                 currencyCode: str(row, 'currency_code'),
-                totalMinor: num(row, 'total_minor'),
-                count: num(row, 'count'),
+                category: parseBreakdownSet(row.category),
+                tag: parseBreakdownSet(row.tag),
+                merchant: parseBreakdownSet(row.merchant),
             };
-        }),
-        counterpartyTotals: (Array.isArray(body.counterparty_totals) ? body.counterparty_totals : []).map((entry) => {
-            const row = obj(entry);
-
-            return { currencyCode: str(row, 'currency_code'), totalMinor: num(row, 'total_minor') };
         }),
         byAccount: (Array.isArray(body.by_account) ? body.by_account : []).map((entry): AccountRow => {
             const row = obj(entry);
@@ -273,6 +288,8 @@ function parseReports(payload: unknown): Reports {
                 ),
                 duplicateGroups: num(row, 'duplicate_groups'),
                 totalCount: num(row, 'total_count'),
+                classifiedCount: num(row, 'classified_count'),
+                classifiedShare: str(row, 'classified_share'),
             };
         })(),
         from: str(body, 'from'),
@@ -380,7 +397,6 @@ export default function WalletReports(): JSX.Element {
     const currency = currencies.includes(selected) ? selected : (currencies[0] ?? '');
 
     const totals = reports?.totals.find((row) => row.currencyCode === currency) ?? null;
-    const previous = reports?.previous.find((row) => row.currencyCode === currency) ?? null;
     /*
      * Memoised, like the three lists below it, and for a reason that is not performance.
      *
@@ -400,10 +416,6 @@ export default function WalletReports(): JSX.Element {
         new Date(`${month}-01T00:00:00Z`).toLocaleDateString(locale, { month: 'short', timeZone: 'UTC' });
 
     const categoryLabel = (code: string): string => t((d) => d.pages.walletTransactions.categories[code] ?? code);
-
-    /** The change against the same length of time before it, or null when there is nothing to compare. */
-    const change = (now: number, before: number): number | null =>
-        before === 0 ? null : ((now - before) / before) * 100;
 
     const money = (minor: number): string => formatMinor(minor, currency, locale);
 
@@ -454,69 +466,37 @@ export default function WalletReports(): JSX.Element {
         }
     };
 
-    /** The widest total in a set, so bars share one scale rather than each filling its row. */
-    const widest = (values: number[]): number => Math.max(1, ...values.map((value) => Math.abs(value)));
-
     const moneyIn = totals?.inMinor ?? 0;
     const moneyOut = totals?.outMinor ?? 0;
-    const clean = (reports?.attention.totalCount ?? 0) - (reports?.attention.unclassifiedCount ?? 0);
-    const completeness =
-        reports === null || reports.attention.totalCount === 0
-            ? 100
-            : Math.round((clean / reports.attention.totalCount) * 100);
+    const moneyNet = totals?.netMinor ?? 0;
+    const clean = reports?.attention.classifiedCount ?? 0;
+    const completeness = reports === null ? '' : formatPercent(Number(reports.attention.classifiedShare), locale, 0);
 
-    /** The ranked list behind the breakdown donut, in whichever terms the tab asks for. */
-    const breakdown = useMemo<BreakdownRow[]>(() => {
-        /* Ranked inside the memo, not after it: a sort on the way out would hand the donut a new
-           array on every render, which is the whole thing this memo exists to stop. */
-        const rows = ((): BreakdownRow[] => {
-            if (reports === null) {
-                return [];
-            }
-
-            if (breakdownView === 'tag') {
-                return reports.byTag
-                    .filter((row) => row.currencyCode === currency)
-                    .map((row) => ({
-                        key: row.tagId,
-                        label: row.name === '' ? t((d) => d.pages.walletReports.untagged) : row.name,
-                        totalMinor: Math.abs(row.totalMinor),
-                    }));
-            }
-
-            if (breakdownView === 'merchant') {
-                return reports.byCounterparty
-                    .filter((row) => row.currencyCode === currency)
-                    .map((row, index) => ({
-                        key: `${String(index)}-${row.name ?? ''}`,
-                        label: row.name ?? t((d) => d.pages.walletReports.noCounterparty),
-                        totalMinor: row.totalMinor,
-                        note: String(row.count),
-                    }));
-            }
-
-            return reports.byCategory
-                .filter((row) => row.currencyCode === currency && row.totalMinor < 0)
-                .map((row) => ({
-                    key: row.categoryCode,
-                    // The dictionary read here rather than through `categoryLabel`, which is rebuilt on
-                    // every render and would be a dependency that changes every time.
-                    label: t((d) => d.pages.walletTransactions.categories[row.categoryCode] ?? row.categoryCode),
-                    totalMinor: Math.abs(row.totalMinor),
-                }));
-        })();
-
-        return rows.sort((a, b) => b.totalMinor - a.totalMinor);
-    }, [reports, breakdownView, currency, t]);
-
-    /*
-     * The whole each row is a share of. The merchants are the ten largest only, so theirs is the
-     * server's sum over every named party; tags and categories arrive whole and add up to it.
-     */
-    const breakdownTotal =
-        breakdownView === 'merchant'
-            ? (reports?.counterpartyTotals.find((row) => row.currencyCode === currency)?.totalMinor ?? 0)
-            : breakdown.reduce((sum, row) => sum + row.totalMinor, 0);
+    /** The ranked list behind the breakdown donut, in whichever terms the tab asks for — as the server ranked it. */
+    const breakdownSet = useMemo(
+        () => reports?.breakdowns.find((row) => row.currencyCode === currency)?.[breakdownView] ?? null,
+        [reports, currency, breakdownView],
+    );
+    const breakdown = useMemo<BreakdownRow[]>(
+        () =>
+            (breakdownSet?.rows ?? []).map((row) => ({
+                key: row.key,
+                label:
+                    breakdownView === 'category'
+                        ? t((d) => d.pages.walletTransactions.categories[row.key] ?? row.key)
+                        : breakdownView === 'tag'
+                          ? row.name === null || row.name === ''
+                              ? t((d) => d.pages.walletReports.untagged)
+                              : row.name
+                          : (row.name ?? t((d) => d.pages.walletReports.noCounterparty)),
+                totalMinor: row.totalMinor,
+                ...(row.count === null ? {} : { note: String(row.count) }),
+                share: row.share,
+                bar: row.bar,
+            })),
+        [breakdownSet, breakdownView, t],
+    );
+    const breakdownTotal = breakdownSet?.totalMinor ?? 0;
 
     /** The movement table, in whichever terms its tab asks for. */
     const movement = useMemo<
@@ -573,10 +553,7 @@ export default function WalletReports(): JSX.Element {
      * large enough to move the totals — does not care which way the money went. The sign says that,
      * and it says it in the one place a reader is already looking.
      */
-    const largest = useMemo(
-        () => [...(reports?.largest ?? [])].sort((a, b) => Math.abs(b.amountMinor) - Math.abs(a.amountMinor)),
-        [reports],
-    );
+    const largest = reports?.largest ?? [];
 
     /**
      * The year's shape. Two modes, because they answer different questions: the pair of bars says
@@ -610,7 +587,7 @@ export default function WalletReports(): JSX.Element {
                         ? [
                               {
                                   label: t((d) => d.pages.walletReports.net),
-                                  data: months.map((row) => (row.inMinor - row.outMinor) / 100),
+                                  data: months.map((row) => row.netMinor / 100),
                                   borderColor: themeColor('--info'),
                                   backgroundColor: themeColor('--info', 0.12),
                                   // Filled only in this mode: one line over a baseline reads as an
@@ -704,7 +681,7 @@ export default function WalletReports(): JSX.Element {
     const breakdownConfig = useMemo<ChartConfiguration>(
         () =>
             donut(
-                breakdown.slice(0, 6).map((row) => row.totalMinor / 100),
+                breakdown.slice(0, 6).map((row) => Number(row.share)),
                 [
                     themeColor('--info', 0.9),
                     themeColor('--info', 0.7),
@@ -872,7 +849,7 @@ export default function WalletReports(): JSX.Element {
                                 icon={<ArrowDownLeft className="size-3.5" aria-hidden="true" />}
                                 sub={
                                     <Change
-                                        percent={change(moneyIn, previous?.inMinor ?? 0)}
+                                        change={totals?.inChange ?? null}
                                         note={t((d) => d.pages.walletReports.versusPrevious)}
                                     />
                                 }
@@ -884,7 +861,7 @@ export default function WalletReports(): JSX.Element {
                                 icon={<ArrowUpRight className="size-3.5" aria-hidden="true" />}
                                 sub={
                                     <Change
-                                        percent={change(moneyOut, previous?.outMinor ?? 0)}
+                                        change={totals?.outChange ?? null}
                                         note={t((d) => d.pages.walletReports.versusPrevious)}
                                         /* Spending more than before is not good news, so the colour
                                            of the arrow is inverted here. */
@@ -894,15 +871,15 @@ export default function WalletReports(): JSX.Element {
                             />
                             <Stat
                                 label={t((d) => d.pages.walletReports.net)}
-                                value={figure(moneyIn - moneyOut)}
+                                value={figure(moneyNet)}
                                 tone="accent"
                                 icon={<Activity className="size-3.5" aria-hidden="true" />}
                                 sub={
-                                    moneyIn === 0
+                                    totals === null || totals.keptShare === null
                                         ? undefined
                                         : t((d) => d.pages.walletReports.retained).replace(
                                               '{percent}',
-                                              String(Math.round(((moneyIn - moneyOut) / moneyIn) * 100)),
+                                              formatPercent(Number(totals.keptShare), locale, 0),
                                           )
                                 }
                             />
@@ -970,9 +947,9 @@ export default function WalletReports(): JSX.Element {
                                         label={t((d) => d.pages.walletReports.topCategory)}
                                         value={breakdown[0]?.label ?? '—'}
                                         note={
-                                            breakdown[0] === undefined || breakdownTotal === 0
+                                            breakdown[0] === undefined
                                                 ? ''
-                                                : `${short(breakdown[0].totalMinor)} · ${String(Math.round((breakdown[0].totalMinor / breakdownTotal) * 100))}%`
+                                                : `${short(breakdown[0].totalMinor)} · ${formatPercent(Number(breakdown[0].share), locale, 0)}`
                                         }
                                     />
                                     <DonutTile
@@ -982,14 +959,14 @@ export default function WalletReports(): JSX.Element {
                                         label={t((d) => d.pages.walletReports.mainCurrency)}
                                         value={currency}
                                         note={
-                                            reports.attention.totalCount === 0
+                                            totals === null || totals.activityShare === null
                                                 ? ''
-                                                : `${String(Math.round(((totals?.count ?? 0) / reports.attention.totalCount) * 100))}% ${t((d) => d.pages.walletReports.ofActivity)}`
+                                                : `${formatPercent(Number(totals.activityShare), locale, 0)} ${t((d) => d.pages.walletReports.ofActivity)}`
                                         }
                                     />
                                     <DonutTile
                                         config={qualityConfig}
-                                        centre={`${String(completeness)}%`}
+                                        centre={completeness}
                                         centreNote={t((d) => d.pages.walletReports.clean)}
                                         label={t((d) => d.pages.walletReports.dataQuality)}
                                         value={t((d) => d.pages.walletReports.cleanCount).replace(
@@ -1074,7 +1051,7 @@ export default function WalletReports(): JSX.Element {
                                         }
                                     >
                                         {months.map((row) => {
-                                            const net = row.inMinor - row.outMinor;
+                                            const net = row.netMinor;
 
                                             return (
                                                 <tr key={row.month}>
@@ -1146,7 +1123,7 @@ export default function WalletReports(): JSX.Element {
                                                             <div
                                                                 className="bg-destructive/60 h-full rounded-full"
                                                                 style={{
-                                                                    width: `${String((row.outMinor / widest(months.map((entry) => entry.outMinor))) * 100)}%`,
+                                                                    width: `calc(${row.outBar} * 100%)`,
                                                                 }}
                                                             />
                                                         </div>
@@ -1282,7 +1259,7 @@ export default function WalletReports(): JSX.Element {
                                                         <span className="note">
                                                             {breakdownTotal === 0
                                                                 ? ''
-                                                                : `${String(Math.round((row.totalMinor / breakdownTotal) * 100))}%`}
+                                                                : formatPercent(Number(row.share), locale, 0)}
                                                         </span>
                                                         <span
                                                             className="text-sm font-semibold tabular-nums"
@@ -1296,7 +1273,7 @@ export default function WalletReports(): JSX.Element {
                                                     <div
                                                         className="bg-info/70 h-full rounded-full"
                                                         style={{
-                                                            width: `${String((row.totalMinor / widest(breakdown.map((entry) => entry.totalMinor))) * 100)}%`,
+                                                            width: `calc(${row.bar} * 100%)`,
                                                         }}
                                                     />
                                                 </div>
@@ -1369,9 +1346,9 @@ export default function WalletReports(): JSX.Element {
                                                 <p className="note">{t((d) => d.pages.walletReports.net)}</p>
                                                 <p
                                                     className="mt-1 text-sm font-semibold tabular-nums"
-                                                    title={money(moneyIn - moneyOut)}
+                                                    title={money(moneyNet)}
                                                 >
-                                                    {short(moneyIn - moneyOut)}
+                                                    {short(moneyNet)}
                                                 </p>
                                             </div>
                                         </div>
@@ -1477,12 +1454,12 @@ export default function WalletReports(): JSX.Element {
                                         <span className="note font-semibold">
                                             {t((d) => d.pages.walletReports.completeness)}
                                         </span>
-                                        <span className="text-xs font-semibold">{completeness}%</span>
+                                        <span className="text-xs font-semibold">{completeness}</span>
                                     </div>
                                     <div className="bg-muted h-1.5 overflow-hidden rounded-full">
                                         <div
                                             className="bg-info h-full rounded-full"
-                                            style={{ width: `${String(completeness)}%` }}
+                                            style={{ width: `calc(${reports.attention.classifiedShare} * 100%)` }}
                                         />
                                     </div>
                                 </div>
@@ -1502,19 +1479,22 @@ export default function WalletReports(): JSX.Element {
  * last year is a rise and bad news, income rising is the same rise and good news, and a tile that
  * coloured both green would be reporting the arithmetic rather than the meaning.
  */
-function Change(props: { percent: number | null; note: string; invert?: boolean }): JSX.Element {
-    if (props.percent === null) {
+/** How far a figure moved from the same length of time before, as the server measured it (a decimal). */
+function Change(props: { change: string | null; note: string; invert?: boolean }): JSX.Element {
+    const { locale } = useTranslation();
+
+    if (props.change === null) {
         return <>{props.note}</>;
     }
 
-    const rose = props.percent > 0;
+    const rose = Number(props.change) > 0;
     const good = props.invert === true ? !rose : rose;
 
     return (
         <>
             <span className={good ? 'text-success font-semibold' : 'text-destructive font-semibold'}>
                 {rose ? '+' : ''}
-                {props.percent.toFixed(1)}%
+                {formatPercent(Number(props.change), locale, 1)}
             </span>{' '}
             {props.note}
         </>

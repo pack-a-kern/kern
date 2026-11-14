@@ -82,11 +82,24 @@ it('carries the figures a screen needs, in the shape the computing endpoint retu
         ->json('assessment');
 
     expect(array_keys($read))->toEqualCanonicalizing([
-        'id', 'fiscal_year', 'status', 'computed_at', 'lines', 'totals', 'total_owed_minor', 'income_assessed_minor',
+        'id', 'fiscal_year', 'status', 'computed_at', 'lines', 'totals', 'total_owed_minor', 'composition', 'income_assessed_minor',
     ])->and($read['computed_at'])->toBeString()
         // The year's whole, added by the server from the engine's totals, so the screen adds nothing.
         ->and($read['total_owed_minor'])->toBe(array_sum(array_column((array) $read['totals'], 'minor_units')));
+
+    // What the bill is made of, largest first, each tax's share divided by the server: together, the bill.
+    /** @var list<array{tax_code: string, minor_units: int, share: string}> $composition */
+    $composition = $read['composition'];
+    $minors = array_column($composition, 'minor_units');
+    $largestFirst = $minors;
+    rsort($largestFirst);
+
+    // The sample year may owe nothing, and then nothing is drawn: the composition is the bill, whatever it is.
+    expect($minors)->toBe($largestFirst)
+        ->and(array_sum($minors))->toBe($read['total_owed_minor'])
+        ->and(array_column($composition, 'share'))->each->toBeString();
 });
+
 
 it('refuses a year outside the fiscal dataset', function (): void {
     $subject = assessableSubject();

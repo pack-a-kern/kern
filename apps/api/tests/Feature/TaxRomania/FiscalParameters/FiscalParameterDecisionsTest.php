@@ -76,6 +76,25 @@ it('shows the rates of bonds and shares as a tax of their own, read from income 
         ->and($parameters)->not->toHaveKey('RO.INVESTMENTS.INTEREST_RATE');
 });
 
+it('says how each value is shown, which checks want a second look, and what the screen leads with', function (): void {
+    $version = proposed();
+    $version->update(['evidence' => [...($version->evidence ?? []), 'checks' => [['kind' => 'in_force_later'], ['kind' => 'two_values']]]]);
+
+    $board = $this->actingAs(person('ACCOUNTANT'))->getJson('/api/v1/fiscal-parameters')->assertOk();
+    /** @var list<array{code: string, tax: string, versions: list<array<string, mixed>>}> $rows */
+    $rows = $board->json('parameters');
+    /** @var array{tax: string, versions: list<array{display: array<string, mixed>, checks: list<array{tone: string}>}>} $rate */
+    $rate = collect($rows)->firstWhere('code', 'RO.CASS.RATE');
+
+    expect($rate['versions'][0]['display'])->toBe(['kind' => 'percent', 'ratio' => '0.10'])
+        ->and(array_column($rate['versions'][0]['checks'], 'tone'))->toBe(['idle', 'warn'])
+        ->and($board->json('summary.wage'))->toBe('RO.MIN_WAGE')
+        ->and($board->json('summary.waiting'))->toBe(1)
+        // By the tax's code, which has dots in it: read as a key, not a path.
+        ->and(((array) $board->json('summary.years_by_tax'))[$rate['tax']] ?? null)->toBe([2024])
+        ->and($board->json('summary.rules'))->toBe(count($rows) - 1);
+});
+
 it('approves a value on a paragraph found to say it, in the name of the person, and audits it', function (): void {
     $version = proposed();
     $admin = person('SUPER_ADMIN');

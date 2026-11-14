@@ -1,6 +1,5 @@
 import type { DepositRequest } from '../api/walletApi';
 import type { useTranslation } from '../i18n';
-import { maturityFor } from './depositTerm';
 import type { DepositCsvRow } from '../types/wallet';
 
 /** What every deposit in the file shares — the add-deposit form's own fields, answered once. */
@@ -61,8 +60,8 @@ export function line(
             currency_code: currency,
             starts_at: startsAt,
             principal_minor: principal,
-            // From the term, exactly as the one-deposit form derives it.
-            maturity_at: maturityFor(startsAt, months),
+            // The term as the file gives it; the server works the maturity out, as for the form.
+            term_months: months,
             annual_rate: rate,
             rate_type: shared.rateType,
             interest_method: shared.interestMethod,

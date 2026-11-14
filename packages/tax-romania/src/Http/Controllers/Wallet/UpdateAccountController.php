@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Http\Controllers\Wallet;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Kern\TaxRomania\Banks\Queries\BankDirectory;
 use Kern\TaxRomania\Wallet\Actions\UpdateFinancialAccount;
 use Kern\TaxRomania\Wallet\DataTransferObjects\DepositRatePeriodInput;
@@ -21,6 +23,7 @@ use Kern\TaxRomania\Wallet\Exceptions\AccountOpenedByHoldingsException;
 use Kern\TaxRomania\Wallet\Exceptions\DepositClosedException;
 use Kern\TaxRomania\Wallet\Exceptions\DepositTermsLockedException;
 use Kern\TaxRomania\Wallet\Models\FinancialAccount;
+use Kern\TaxRomania\Wallet\Services\DepositTerm;
 
 /**
  * `PATCH /api/v1/subjects/{subject}/wallet/accounts/{account}` — edit an account.
@@ -81,9 +84,9 @@ final class UpdateAccountController
             // than a partial edit: the rate periods must cover the term without a gap, and that is
             // provable for a replacement and not for a patch.
             'principal_minor' => [$isDeposit ? 'sometimes' : 'prohibited', ...$deposit['principal_minor']],
-            // Not the shared rule's `after:starts_at`: an edit may leave the start out, and the action
-            // checks the pair against the stored start instead.
-            'maturity_at' => [$isDeposit ? 'sometimes' : 'prohibited', 'date', 'after:today'],
+            // An edit may leave the start out: the term then runs from the one the deposit already has, and
+            // the maturity both make is checked once worked out, below.
+            'term_months' => [$isDeposit ? 'sometimes' : 'prohibited', 'integer', 'min:1', 'max:' . DepositFields::longestTerm()],
             'annual_rate' => [$isDeposit ? 'sometimes' : 'prohibited', ...$deposit['annual_rate']],
             'rate_type' => [$isDeposit ? 'sometimes' : 'prohibited', ...$deposit['rate_type']],
             'interest_method' => [$isDeposit ? 'sometimes' : 'prohibited', ...$deposit['interest_method']],
@@ -135,7 +138,7 @@ final class UpdateAccountController
         // `starts_at` and `currency_code` included: they travel with the terms, and leaving them out
         // meant a request changing only the start date was treated as changing nothing.
         $depositKeys = [
-            'principal_minor', 'starts_at', 'currency_code', 'maturity_at', 'annual_rate', 'rate_type',
+            'principal_minor', 'starts_at', 'currency_code', 'term_months', 'annual_rate', 'rate_type',
             'interest_method', 'payment_frequency', 'day_count_convention', 'funding_account_id', 'bank_id',
         ];
 
@@ -145,9 +148,6 @@ final class UpdateAccountController
             return null;
         }
 
-        $maturityAt = array_key_exists('maturity_at', $validated)
-            ? self::str($validated, 'maturity_at')
-            : $terms->maturity_at->toDateString();
 
 
         // The current rate, unless the request supplied a new one. Read from the periods rather
@@ -164,6 +164,24 @@ final class UpdateAccountController
             ? self::str($validated, 'starts_at')
             : $terms->starts_at->toDateString();
 
+        // A new start or a new term moves the maturity, worked out as on opening; the term not sent is
+        // the one the stored dates were made from. Neither sent, the stored maturity stands.
+        $maturityAt = $terms->maturity_at->toImmutable();
+
+        if (array_key_exists('starts_at', $validated) || array_key_exists('term_months', $validated)) {
+            $maturityAt = DepositTerm::maturity(
+                CarbonImmutable::parse($startsAt, 'UTC'),
+                array_key_exists('term_months', $validated)
+                    ? (int) self::str($validated, 'term_months')
+                    : DepositTerm::months($terms->starts_at->toImmutable(), $maturityAt),
+            );
+
+            // Maturity closes a deposit: one moved into the past would be settled the night it was saved.
+            if (! $maturityAt->isAfter(CarbonImmutable::today('UTC'))) {
+                throw ValidationException::withMessages(['term_months' => [__('tax-romania::wallet.deposit_already_matured')]]);
+            }
+        }
+
         return new DepositTermsInput(
             principalMinor: array_key_exists('principal_minor', $validated)
                 ? (int) self::str($validated, 'principal_minor')
@@ -172,7 +190,7 @@ final class UpdateAccountController
             currencyCode: array_key_exists('currency_code', $validated)
                 ? strtoupper(self::str($validated, 'currency_code'))
                 : $terms->currency_code,
-            maturityAt: $maturityAt,
+            maturityAt: $maturityAt->toDateString(),
             rateType: array_key_exists('rate_type', $validated)
                 ? RateType::from(self::str($validated, 'rate_type'))
                 : $terms->rate_type,
@@ -187,7 +205,7 @@ final class UpdateAccountController
                 : $terms->day_count_convention,
             ratePeriods: [new DepositRatePeriodInput(
                 validFrom: $startsAt,
-                validTo: $maturityAt,
+                validTo: $maturityAt->toDateString(),
                 annualRateDecimal: $annualRate,
             )],
             fundingAccountId: array_key_exists('funding_account_id', $validated)

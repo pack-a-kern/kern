@@ -82,6 +82,8 @@ interface Assessment {
     totals: Record<string, number>;
     /** What the year comes to across every tax, added by the server from those totals. */
     totalOwedMinor: number;
+    /** What the bill is made of: each tax owed, largest first, with its share of the bill as a decimal. */
+    composition: { taxCode: string; minor: number; share: string }[];
     /** The year's income, from the facts — where each income exists exactly once. */
     incomeAssessedMinor: number;
 }
@@ -159,6 +161,11 @@ function parse(payload: unknown): Assessment {
         computedAt: typeof body.computed_at === 'string' ? body.computed_at : null,
         totals,
         totalOwedMinor: int(body, 'total_owed_minor'),
+        composition: (Array.isArray(body.composition) ? body.composition : []).map((entry) => {
+            const row = obj(entry);
+
+            return { taxCode: str(row, 'tax_code'), minor: int(row, 'minor_units'), share: str(row, 'share') };
+        }),
         incomeAssessedMinor: int(body, 'income_assessed_minor'),
         lines: (Array.isArray(body.lines) ? body.lines : []).map((entry): Line => {
             const row = obj(entry);
@@ -237,13 +244,6 @@ const TAX_TINTS: Record<string, [string, number]> = {
     CAS: ['--success', 0.8],
 };
 
-/** A tax's share of the bill, for the bar's width and the percentage beside its name. */
-function shareOf(minor: number, assessment: Assessment): number {
-    const total = assessment.totalOwedMinor;
-
-    return total === 0 ? 0 : minor / total;
-}
-
 /** A tax's colour for its mark's glyph. The ground comes from the stylesheet, as every other mark's does. */
 function taxMarkStyle(taxCode: string): { color: string } {
     const [token] = TAX_TINTS[taxCode] ?? ['--muted-foreground', 0.35];
@@ -263,23 +263,6 @@ function sliceTint(taxCode: string): string {
     const [token, alpha] = TAX_TINTS[taxCode] ?? ['--muted-foreground', 0.35];
 
     return themeColor(token, alpha);
-}
-
-/**
- * What the bill is made of: one slice per tax, largest first.
- *
- * The taxes rather than the income categories, because this sits beside "total owed" and answers the question
- * that figure provokes — which of the three is most of it. The income breakdown is already on the rows.
- */
-function compositionOf(assessment: Assessment | null): { taxCode: string; minor: number }[] {
-    if (assessment === null) {
-        return [];
-    }
-
-    return Object.entries(assessment.totals)
-        .map(([taxCode, minor]) => ({ taxCode, minor }))
-        .filter((slice) => slice.minor > 0)
-        .sort((left, right) => right.minor - left.minor);
 }
 
 export default function TaxesOverview(): JSX.Element {
@@ -307,7 +290,7 @@ export default function TaxesOverview(): JSX.Element {
     const assessment = loaded !== null && loaded.year === year ? loaded.assessment : null;
     const loading = subjectId !== null && (loaded === null || loaded.year !== year);
 
-    const composition = compositionOf(assessment);
+    const composition = useMemo(() => assessment?.composition ?? [], [assessment]);
 
     /*
      * The assessment already on file for this year.
@@ -370,7 +353,8 @@ export default function TaxesOverview(): JSX.Element {
                               borderWidth: 0,
                           }
                         : {
-                              data: composition.map((slice) => slice.minor / 100),
+                              // Each tax's share of the bill, as the server divided it.
+                              data: composition.map((slice) => Number(slice.share)),
                               backgroundColor: composition.map((slice) => sliceTint(slice.taxCode)),
                               // A ring of the surface between slices, so two shares read as two rather than as
                               // one wide one where their edges meet.
@@ -386,7 +370,7 @@ export default function TaxesOverview(): JSX.Element {
                 plugins: { legend: { display: false }, tooltip: { enabled: false } },
             },
         }),
-        [assessment],
+        [composition],
     );
 
     /**
@@ -922,10 +906,7 @@ export default function TaxesOverview(): JSX.Element {
                                                                 {taxName(slice.taxCode, t)}
                                                             </span>
                                                             <span className="text-muted-foreground ml-auto tabular-nums">
-                                                                {formatPercent(
-                                                                    shareOf(slice.minor, assessment),
-                                                                    locale,
-                                                                )}
+                                                                {formatPercent(Number(slice.share), locale)}
                                                             </span>
                                                         </dt>
                                                         <Tooltip>

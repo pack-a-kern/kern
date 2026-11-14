@@ -163,6 +163,9 @@ it('pages the accounts and counts over all of them, whatever the page holds', fu
         ->and($filtered->json('total'))->toBe(0)
         ->and($filtered->json('stats.users'))->toBe(12)
         ->and($filtered->json('stats.with_mfa'))->toBe(0)
+        // The share the screen shows, divided by the server; good news only when it is everyone.
+        ->and($filtered->json('stats.mfa_share'))->toBe('0.0000')
+        ->and($filtered->json('stats.all_covered'))->toBeFalse()
         ->and($filtered->json('stats.roles'))->toBe(['SUPER_ADMIN' => 1]);
 });
 

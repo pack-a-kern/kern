@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Http\Controllers\Wallet;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Validation\Rule;
 use Kern\Platform\Money\CurrencyCode;
 use Kern\TaxRomania\Banks\Queries\BankDirectory;
+use Kern\TaxRomania\Rules\MaturesAfterToday;
 use Kern\TaxRomania\Rules\StreamSource;
 use Kern\TaxRomania\Wallet\DataTransferObjects\DepositRatePeriodInput;
 use Kern\TaxRomania\Wallet\DataTransferObjects\DepositTermsInput;
@@ -15,6 +17,8 @@ use Kern\TaxRomania\Wallet\Enums\DayCountConvention;
 use Kern\TaxRomania\Wallet\Enums\InterestMethod;
 use Kern\TaxRomania\Wallet\Enums\PaymentFrequency;
 use Kern\TaxRomania\Wallet\Enums\RateType;
+use Kern\TaxRomania\Wallet\Services\DepositTerm;
+use RuntimeException;
 
 /**
  * What a term deposit entered on the screen must be, and what it becomes for the action.
@@ -50,11 +54,10 @@ final readonly class DepositFields
             // the span its rate periods must cover.
             'starts_at' => ['date'],
             'principal_minor' => ['integer', 'min:1'],
-            // After today as well as after the start: maturity closes a deposit, so one entered
-            // already matured would be settled the night it was typed in. Here, on what a person
-            // enters, and not in `OpenFinancialAccount`: a deposit that matured in the past is a
-            // perfectly valid fact for recording a previous year's interest by other means.
-            'maturity_at' => ['date', 'after:starts_at', 'after:today'],
+            // The term, in months, as a deposit is bought — never the maturity: that is worked out here
+            // ({@see DepositTerm}), so a date no term produces cannot be sent. No longer than the longest
+            // term the form offers, and maturing after today.
+            'term_months' => ['integer', 'min:1', 'max:' . self::longestTerm(), new MaturesAfterToday()],
             // A decimal string, never a float: binary floating point cannot represent 5.40, and
             // this figure multiplies into a tax return. Percent per annum.
             'annual_rate' => ['string', 'regex:/^\d{1,3}(\.\d{1,6})?$/'],
@@ -103,8 +106,8 @@ final readonly class DepositFields
         // is `array<string, mixed>`, and a bare cast on `mixed` is a static-analysis error and, on
         // an array, a runtime one. The validator has already guaranteed these are present and
         // well-shaped; this only makes that guarantee visible to the type system.
-        $maturityAt = self::str($validated, 'maturity_at');
         $startsAt = self::str($validated, 'starts_at');
+        $maturityAt = DepositTerm::maturity(CarbonImmutable::parse($startsAt, 'UTC'), self::int($validated, 'term_months'))->toDateString();
 
         return new DepositTermsInput(
             principalMinor: self::int($validated, 'principal_minor'),
@@ -124,6 +127,15 @@ final readonly class DepositFields
             fundingAccountId: self::nullableString($validated, 'funding_account_id'),
             bankId: self::nullableString($validated, 'bank_id'),
         );
+    }
+
+    /** The longest term the form offers (`WALLET_DEPOSIT_TERMS_MONTHS`), the most a deposit may run. */
+    public static function longestTerm(): int
+    {
+        $terms = config('wallet.deposit.terms_months');
+        $terms = is_array($terms) ? array_filter($terms, 'is_int') : [];
+
+        return $terms === [] ? throw new RuntimeException('config/wallet.php must list the deposit terms (WALLET_DEPOSIT_TERMS_MONTHS).') : max($terms);
     }
 
     /** @param array<string, mixed> $validated */

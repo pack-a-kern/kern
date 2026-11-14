@@ -34,8 +34,8 @@ import { Skeleton } from '../../components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
-import { checkTone, describeFiscalValue, describePeriod } from '../../lib/fiscalValue';
-import { formatDateTime } from '../../lib/format';
+import { describeFiscalValue, describePeriod } from '../../lib/fiscalValue';
+import { formatDateTime, formatNumber } from '../../lib/format';
 import { ApiError } from '../../lib/http';
 import { useSharedAuth } from '../../lib/sharedProps';
 import { cn } from '../../lib/utils';
@@ -171,7 +171,7 @@ export default function AdminParameters(): JSX.Element {
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {yearsOf(rules).map((year) => (
+                                                    {(board.summary.yearsByTax[tax] ?? []).map((year) => (
                                                         <tr key={year}>
                                                             <th
                                                                 scope="row"
@@ -207,7 +207,7 @@ export default function AdminParameters(): JSX.Element {
                                                     />
                                                 </h3>
                                                 <ul>
-                                                    {yearsOf(rules).map((year) => {
+                                                    {(board.summary.yearsByTax[tax] ?? []).map((year) => {
                                                         const waiting = rule.versions.some(
                                                             (version) =>
                                                                 version.status === 'CANDIDATE' &&
@@ -341,15 +341,12 @@ function Overview({
 }): JSX.Element | null {
     const { t, locale } = useTranslation();
     const wage = wageOf(board);
-    const periods = [...(wage?.versions ?? [])].sort((a, b) => a.validFrom.localeCompare(b.validFrom));
-    const inForce = periods.at(-1);
-    const rules = board.parameters.filter((parameter) => parameter.code !== wage?.code);
-    const waiting = rules.reduce(
-        (count, parameter) => count + parameter.versions.filter((version) => version.status === 'CANDIDATE').length,
-        0,
-    );
+    // In date order, with the one in force named and each bar measured — all by the server.
+    const periods = wage?.versions ?? [];
+    const inForce = periods.find((version) => version.id === board.summary.wageInForce);
+    const waiting = board.summary.waiting;
     // Every year something was read for, newest first — the same years the table has rows for.
-    const years = yearsOf(rules);
+    const years = board.summary.years;
     const yearsRange = years.length === 0 ? '—' : `${String(years.at(-1))}–${String(years[0])}`;
 
     return (
@@ -386,9 +383,7 @@ function Overview({
                 <div className="min-w-0">
                     <p className="eyebrow">{t((d) => d.pages.taxRules.wageInForce)}</p>
                     <p className="mt-1 text-2xl font-semibold tabular-nums">
-                        {inForce === undefined
-                            ? '—'
-                            : describeFiscalValue(wage?.type ?? 'MONEY', inForce.value, t, locale)}
+                        {inForce === undefined ? '—' : describeFiscalValue(inForce.display, t, locale)}
                     </p>
                     {inForce === undefined ? null : <p className="note mt-0.5">{describePeriod(inForce, t, locale)}</p>}
                 </div>
@@ -397,7 +392,7 @@ function Overview({
                     <Fact
                         icon={<ListChecks className="size-4" aria-hidden="true" />}
                         label={t((d) => d.pages.taxRules.rulesRead)}
-                        value={String(rules.length)}
+                        value={String(board.summary.rules)}
                     />
                     <Fact className="hidden sm:block" label={t((d) => d.pages.taxRules.yearsRead)} value={yearsRange} />
                     <Fact
@@ -424,6 +419,7 @@ function Overview({
             {periods.length === 0 || wage === undefined ? null : (
                 <WageHistory
                     periods={periods}
+                    bars={board.summary.wageHistory}
                     onOpen={(version) => {
                         onOpen(wage, version);
                     }}
@@ -586,13 +582,13 @@ function ApproveRuleDialog({
                                     )}
                                 </td>
                                 <td className="text-foreground text-right font-semibold tabular-nums">
-                                    {describeFiscalValue(parameter.type, version.value, t, locale)}
+                                    {describeFiscalValue(version.display, t, locale)}
                                 </td>
                                 <td className="text-right">
                                     <Decided
                                         done={done.includes(version.id)}
                                         said={failedAt?.id === version.id ? failedAt.said : null}
-                                        warn={version.checks.some((check) => checkTone(check) === 'warn')}
+                                        warn={version.checks.some((check) => check.tone === 'warn')}
                                     />
                                 </td>
                             </tr>
@@ -711,14 +707,15 @@ function Fact({
  */
 function WageHistory({
     periods,
+    bars,
     onOpen,
 }: {
     periods: ParameterVersion[];
+    /** Each period's bar against the largest, as the server measured it. */
+    bars: { id: string; bar: string }[];
     onOpen: (version: ParameterVersion) => void;
 }): JSX.Element {
     const { t, locale } = useTranslation();
-    const amounts = periods.map((period) => Number(period.value.amount_minor ?? 0));
-    const tallest = Math.max(...amounts, 1);
 
     return (
         <div className="border-border mt-5 border-t pt-4">
@@ -733,12 +730,16 @@ function WageHistory({
                             onOpen(period);
                         }}
                     >
-                        <span className="note text-center tabular-nums">{Math.round((amounts[index] ?? 0) / 100)}</span>
+                        <span className="note text-center tabular-nums">
+                            {period.display.kind === 'money'
+                                ? formatNumber(period.display.amountMinor / 100, locale)
+                                : ''}
+                        </span>
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <span
                                     style={{
-                                        height: `${String(Math.round(((amounts[index] ?? 0) * 100) / tallest))}%`,
+                                        height: `calc(${bars.find((entry) => entry.id === period.id)?.bar ?? '0'} * 100%)`,
                                     }}
                                     className={cn(
                                         'group-hover:bg-info/60 group-focus-visible:bg-info/60 w-full rounded-t-sm',
@@ -747,8 +748,7 @@ function WageHistory({
                                 />
                             </TooltipTrigger>
                             <TooltipContent side="top">
-                                {describeFiscalValue('MONEY', period.value, t, locale)} ·{' '}
-                                {describePeriod(period, t, locale)}
+                                {describeFiscalValue(period.display, t, locale)} · {describePeriod(period, t, locale)}
                             </TooltipContent>
                         </Tooltip>
                     </button>
@@ -768,8 +768,9 @@ function WageHistory({
 }
 
 /** The minimum wage among the values: its own thing, since every threshold is counted in it. */
+/** The minimum wage, as the server named it. */
 function wageOf(board: FiscalParameterBoard): FiscalParameter | undefined {
-    return board.parameters.find((parameter) => parameter.code === parameter.tax);
+    return board.parameters.find((parameter) => parameter.code === board.summary.wage);
 }
 
 /**
@@ -810,12 +811,12 @@ function Cell({
                             }}
                         >
                             <span className="font-medium tabular-nums">
-                                {describeFiscalValue(parameter.type, version.value, t, locale)}
+                                {describeFiscalValue(version.display, t, locale)}
                             </span>
                             {version.status === 'CANDIDATE' ? (
                                 <span className="bg-info size-1.5 shrink-0 rounded-full" />
                             ) : null}
-                            {version.checks.some((check) => checkTone(check) === 'warn') ? (
+                            {version.checks.some((check) => check.tone === 'warn') ? (
                                 <TriangleAlert className="text-warning size-3 shrink-0" />
                             ) : null}
                             {versions.length > 1 ? (
@@ -884,23 +885,6 @@ function taxesOf(board: FiscalParameterBoard): [string, FiscalParameter[]][] {
     }
 
     return [...taxes.entries()];
-}
-
-/** Every year these rules hold something, newest first — the table's rows. */
-function yearsOf(rules: FiscalParameter[]): number[] {
-    const found = new Set<number>();
-
-    for (const rule of rules) {
-        for (const version of rule.versions) {
-            found.add(Number(version.validFrom.slice(0, 4)));
-        }
-
-        for (const read of rule.reads) {
-            found.add(read.year);
-        }
-    }
-
-    return [...found].sort((a, b) => b - a);
 }
 
 /** Reads one year's law: pick the year, and every value its law states comes to review. */

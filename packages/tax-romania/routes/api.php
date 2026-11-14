@@ -79,6 +79,7 @@ use Kern\TaxRomania\Http\Controllers\Wallet\ShowAccountsController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowBanksController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowCounterpartiesController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowCounterpartySuggestionsController;
+use Kern\TaxRomania\Http\Controllers\Wallet\ShowDepositTermController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowDuplicateTransactionsController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowHoldingsController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowTagsController;
@@ -166,6 +167,8 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
     // are then opened by the same action and the same rules as the form — all of them, or none.
     Route::post('wallet/deposits/csv', ReadDepositCsvController::class);
     Route::post('wallet/deposits', OpenDepositsController::class);
+    // What a term makes of a start — the maturity and its days — for the form while it is filled in.
+    Route::get('wallet/deposits/term', ShowDepositTermController::class);
     // Editing is a PATCH of only what changed; deleting is refused while anything still explains a
     // figure through the account, which is what `closed_at` is for instead. Every mutation writes an
     // audit event — an edit nobody recorded is indistinguishable from one that never happened.

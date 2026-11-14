@@ -13,6 +13,7 @@ use Kern\TaxRomania\Wallet\Enums\AccountKind;
 use Kern\TaxRomania\Wallet\Enums\DayCountConvention;
 use Kern\TaxRomania\Wallet\Models\DepositTerms;
 use Kern\TaxRomania\Wallet\Models\FinancialAccount;
+use Kern\TaxRomania\Wallet\Services\DepositTerm;
 
 /**
  * A user with an active membership on a fresh subject, and that subject's id.
@@ -175,7 +176,7 @@ it('does not count a row another subject wrote against this account', function (
         ->assertJsonPath('totals.holdings.other.amounts.RON', 1_000_00);
 });
 
-it('rejects a deposit whose maturity precedes its opening', function (): void {
+it('refuses a term shorter than a month or longer than the longest offered', function (int $months): void {
     [$user, $subjectId] = walletSubject();
 
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
@@ -183,23 +184,22 @@ it('rejects a deposit whose maturity precedes its opening', function (): void {
         'kind' => 'TERM_DEPOSIT',
         'principal_minor' => 50_000_00,
         'currency_code' => 'RON',
-        // Both in the future, so the only thing wrong is their order — a maturity in the past is
-        // refused by a different rule, and would let this test pass without testing this one.
+        // In the future, so the only thing wrong is the term — a maturity in the past is refused by a
+        // different rule, and would let this test pass without testing this one.
         'starts_at' => CarbonImmutable::now('UTC')->addMonths(2)->toDateString(),
-        'maturity_at' => CarbonImmutable::now('UTC')->addMonth()->toDateString(),
+        'term_months' => $months,
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
         'payment_frequency' => 'AT_MATURITY',
         'day_count_convention' => 'ACTUAL_365',
         'annual_rate' => '5.40',
     ])->assertStatus(422)
-        ->assertJsonValidationErrors(['maturity_at']);
-});
+        ->assertJsonValidationErrors(['term_months']);
+})->with([0, 85]);
 
 it('opens a deposit and reports its current rate and days to maturity', function (): void {
     [$user, $subjectId] = walletSubject();
     $opened = CarbonImmutable::now('UTC')->subMonth()->toDateString();
-    $maturity = CarbonImmutable::now('UTC')->addMonths(5)->toDateString();
 
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
         'bank_id' => BankFactory::new()->createOne()->id,
@@ -207,7 +207,7 @@ it('opens a deposit and reports its current rate and days to maturity', function
         'principal_minor' => 70_000_00,
         'currency_code' => 'RON',
         'starts_at' => $opened,
-        'maturity_at' => $maturity,
+        'term_months' => 6,
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
         'payment_frequency' => 'AT_MATURITY',
@@ -217,9 +217,10 @@ it('opens a deposit and reports its current rate and days to maturity', function
 
     $response = $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/accounts")->assertOk();
 
-    // Computed from the two dates rather than written as a literal: the span of "a month ago to
-    // five months from now" depends on which months those are.
-    $expectedDays = (int) CarbonImmutable::parse($opened)->diffInDays(CarbonImmutable::parse($maturity));
+    // Computed from the term rather than written as a literal: six months from a month ago depends on
+    // which months those are, and on whether the last of them falls on a weekend.
+    $start = CarbonImmutable::parse($opened, 'UTC');
+    $expectedDays = DepositTerm::days($start, DepositTerm::maturity($start, 6));
 
     $response->assertJsonPath('accounts.0.deposit.principal_minor', 70_000_00)
         ->assertJsonPath('accounts.0.deposit.total_days', $expectedDays);
@@ -308,7 +309,7 @@ it('computes the whole interest schedule when the deposit is opened', function (
         'currency_code' => 'RON',
         // A year from today rather than a calendar year: a deposit must mature after today.
         'starts_at' => CarbonImmutable::now('UTC')->toDateString(),
-        'maturity_at' => CarbonImmutable::now('UTC')->addYear()->toDateString(),
+        'term_months' => 12,
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
         'payment_frequency' => 'AT_MATURITY',
@@ -340,7 +341,6 @@ it('reports the full term interest, not only the part already elapsed', function
     // Opened today, running for a year — so almost the entire schedule lies in the future, which is
     // exactly the case a "how much has it earned so far" figure would get wrong.
     $opened = CarbonImmutable::now('UTC')->toDateString();
-    $maturity = CarbonImmutable::now('UTC')->addYear()->toDateString();
 
     $this->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/accounts", [
         'bank_id' => BankFactory::new()->createOne()->id,
@@ -348,7 +348,7 @@ it('reports the full term interest, not only the part already elapsed', function
         'principal_minor' => 200_000_00,
         'currency_code' => 'RON',
         'starts_at' => $opened,
-        'maturity_at' => $maturity,
+        'term_months' => 12,
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
         'payment_frequency' => 'AT_MATURITY',
@@ -404,7 +404,7 @@ it('applies the configured day-count convention to a deposit opened without one'
         // Relative to today: a deposit must mature after today, and a fixed date would turn this
         // test into one about the calendar on the day the suite runs.
         'starts_at' => CarbonImmutable::now('UTC')->toDateString(),
-        'maturity_at' => CarbonImmutable::now('UTC')->addMonths(6)->toDateString(),
+        'term_months' => 6,
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
         'payment_frequency' => 'AT_MATURITY',
@@ -427,7 +427,7 @@ it('still accepts an explicit convention, for a contract that states a different
         // Relative to today: a deposit must mature after today, and a fixed date would turn this
         // test into one about the calendar on the day the suite runs.
         'starts_at' => CarbonImmutable::now('UTC')->toDateString(),
-        'maturity_at' => CarbonImmutable::now('UTC')->addMonths(6)->toDateString(),
+        'term_months' => 6,
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
         'payment_frequency' => 'AT_MATURITY',
@@ -451,7 +451,7 @@ it('rejects a day-count convention that is not a real one', function (): void {
         // Relative to today: a deposit must mature after today, and a fixed date would turn this
         // test into one about the calendar on the day the suite runs.
         'starts_at' => CarbonImmutable::now('UTC')->toDateString(),
-        'maturity_at' => CarbonImmutable::now('UTC')->addMonths(6)->toDateString(),
+        'term_months' => 6,
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
         'payment_frequency' => 'AT_MATURITY',
@@ -475,7 +475,7 @@ it('opens a foreign-currency deposit whose schedule runs past the last published
         'principal_minor' => 10_000_00,
         'currency_code' => 'EUR',
         'starts_at' => '2026-01-01',
-        'maturity_at' => CarbonImmutable::now('UTC')->addYear()->toDateString(),
+        'term_months' => 12,
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
         'payment_frequency' => 'AT_MATURITY',

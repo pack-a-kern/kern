@@ -2,7 +2,6 @@ import React, { type ReactNode, useEffect, useMemo, useRef, useState } from 'rea
 import { createPortal } from 'react-dom';
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
-import { addMonths } from '../lib/depositTerm';
 import { formatDate } from '../lib/format';
 
 export type DatePickerMode = 'single' | 'range';
@@ -1177,6 +1176,12 @@ function addDays(value: string, amount: number) {
     const date = new Date(year, month - 1, day);
     date.setDate(date.getDate() + amount);
     return toISODate(date);
+}
+
+/** The first of the month `amount` months from `value` — moving the calendar, which shows whole months. */
+function addMonths(value: string, amount: number) {
+    const { year, month } = parseISO(value);
+    return toISODate(new Date(year, month - 1 + amount, 1));
 }
 
 function startOfMonth(value: string) {

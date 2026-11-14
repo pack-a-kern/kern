@@ -25,18 +25,29 @@ export type ParameterReading =
     | { kind: 'law'; model: string; citation: string; quote: string }
     | { kind: 'decision'; lawId: string; act: string; citation: string; quote: string };
 
-/** Something found out while reading, for the person approving — `kind` and what it is about. */
+/** Something found out while reading, for the person approving — `kind`, what it is about, and whether it wants a second look. */
 export interface ParameterCheck {
     kind: string;
     detail: Record<string, string | number>;
+    tone: 'warn' | 'idle';
 }
+
+/** A value as the server says it is shown — its kind and the fields that kind is formatted from. */
+export type FiscalValueDisplay =
+    | { kind: 'money'; amountMinor: number; currency: string | null }
+    | { kind: 'percent'; ratio: string }
+    | { kind: 'day_month'; day: number; month: number }
+    | { kind: 'flag'; holds: boolean }
+    | { kind: 'days'; days: number }
+    | { kind: 'wages'; wages: (number | null)[] }
+    | { kind: 'wages_range'; floor: number | null; cap: number | null };
 
 export interface ParameterVersion {
     id: string;
     status: ParameterStatus;
     validFrom: string;
     validUntil: string | null;
-    value: Record<string, unknown>;
+    display: FiscalValueDisplay;
     source: LawParagraph | null;
     matches: LawParagraph[];
     readings: ParameterReading[];
@@ -67,6 +78,19 @@ export interface FiscalParameter {
 
 export interface FiscalParameterBoard {
     parameters: FiscalParameter[];
+    /**
+     * What the screen leads with, worked out by the server: the minimum wage's code and its history in order
+     * — each period's bar against the largest — how many values wait for review, and the years read, newest first.
+     */
+    summary: {
+        wage: string | null;
+        wageInForce: string | null;
+        wageHistory: { id: string; bar: string }[];
+        rules: number;
+        waiting: number;
+        years: number[];
+        yearsByTax: Record<string, number[]>;
+    };
     /** The years the law can be read for. */
     years: number[];
 }
@@ -139,10 +163,55 @@ function subject(value: unknown): ParameterSubject {
     return value === 'COMPANY' || value === 'BOTH' ? value : 'PERSON';
 }
 
+/** A number, or null for a field the value does not state. */
+function maybeNumber(value: unknown): number | null {
+    return typeof value === 'number' ? value : null;
+}
+
+function display(row: Record<string, unknown>): FiscalValueDisplay {
+    switch (row.kind) {
+        case 'money':
+            return { kind: 'money', amountMinor: num(row, 'amount_minor'), currency: nullableStr(row, 'currency') };
+        case 'percent':
+            return { kind: 'percent', ratio: str(row, 'ratio') };
+        case 'day_month':
+            return { kind: 'day_month', day: num(row, 'day'), month: num(row, 'month') };
+        case 'flag':
+            return { kind: 'flag', holds: row.holds === true };
+        case 'days':
+            return { kind: 'days', days: num(row, 'days') };
+        case 'wages_range':
+            return { kind: 'wages_range', floor: maybeNumber(row.floor), cap: maybeNumber(row.cap) };
+        case 'wages':
+            return { kind: 'wages', wages: list(row.wages).map(maybeNumber) };
+        default:
+            throw new TypeError(`Unknown fiscal value kind: ${String(row.kind)}`);
+    }
+}
+
 export function parseFiscalParameterBoard(payload: unknown): FiscalParameterBoard {
     const body = obj(payload);
 
+    const summary = obj(body.summary);
+
     return {
+        summary: {
+            wage: nullableStr(summary, 'wage'),
+            wageInForce: nullableStr(summary, 'wage_in_force'),
+            wageHistory: list(summary.wage_history).map((entry) => ({
+                id: str(obj(entry), 'id'),
+                bar: str(obj(entry), 'bar'),
+            })),
+            rules: num(summary, 'rules'),
+            waiting: num(summary, 'waiting'),
+            years: list(summary.years).filter((year): year is number => typeof year === 'number'),
+            yearsByTax: Object.fromEntries(
+                Object.entries(obj(summary.years_by_tax)).map(([tax, years]) => [
+                    tax,
+                    list(years).filter((year): year is number => typeof year === 'number'),
+                ]),
+            ),
+        },
         years: list(body.years).filter((year): year is number => typeof year === 'number'),
         parameters: list(body.parameters).map((entry): FiscalParameter => {
             const row = obj(entry);
@@ -160,7 +229,7 @@ export function parseFiscalParameterBoard(payload: unknown): FiscalParameterBoar
                         status: status(version.status),
                         validFrom: str(version, 'valid_from'),
                         validUntil: nullableStr(version, 'valid_until'),
-                        value: obj(version.value),
+                        display: display(obj(version.display)),
                         source: paragraph(version.source),
                         matches: list(version.matches).flatMap((match) => {
                             const found = paragraph(match);
@@ -175,6 +244,7 @@ export function parseFiscalParameterBoard(payload: unknown): FiscalParameterBoar
                         checks: list(version.checks).map((check) => ({
                             kind: str(obj(check), 'kind'),
                             detail: detail(obj(check)),
+                            tone: obj(check).tone === 'idle' ? 'idle' : 'warn',
                         })),
                         approvedAt: nullableStr(version, 'approved_at'),
                     };

@@ -6,7 +6,7 @@ import { approveFiscalParameter, rejectFiscalParameter } from '../../api/fiscalP
 import { PanelButton, PanelDialog, Pill, Status } from '../../components/panel';
 import { useTranslation } from '../../i18n';
 import { describeApiFailure } from '../../lib/apiErrors';
-import { checkTone, describeCheck, describeFiscalValue, describePeriod } from '../../lib/fiscalValue';
+import { describeCheck, describeFiscalValue, describePeriod } from '../../lib/fiscalValue';
 import type { FiscalParameter, LawParagraph, ParameterVersion } from '../../types/fiscalParameters';
 
 /**
@@ -61,7 +61,7 @@ export default function FiscalParameterDialog({
                 }
             }}
             size="lg"
-            title={`${name} — ${describeFiscalValue(parameter.type, version.value, t, locale)}`}
+            title={`${name} — ${describeFiscalValue(version.display, t, locale)}`}
             description={describePeriod(version, t, locale)}
             actions={
                 <>
@@ -93,7 +93,7 @@ export default function FiscalParameterDialog({
                     <section className="space-y-1">
                         {version.checks.map((check, index) => (
                             <p key={index}>
-                                <Status tone={checkTone(check)}>{describeCheck(check, t, locale)}</Status>
+                                <Status tone={check.tone}>{describeCheck(check, t, locale)}</Status>
                             </p>
                         ))}
                     </section>

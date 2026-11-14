@@ -166,7 +166,7 @@ export default function DepositCsvImport(props: {
 
     /** The server's own refusal of a line, once it has refused one — the first field it named. */
     const refusal = (index: number): string | undefined =>
-        ['bank_id', 'currency_code', 'starts_at', 'principal_minor', 'maturity_at', 'annual_rate', 'funding_account_id']
+        ['bank_id', 'currency_code', 'starts_at', 'principal_minor', 'term_months', 'annual_rate', 'funding_account_id']
             .map((field) => errors.get(`deposits.${String(index)}.${field}`))
             .find((message) => message !== undefined);
 
@@ -302,7 +302,7 @@ export default function DepositCsvImport(props: {
                                 <th>{t((d) => d.pages.walletDeposits.form.principal)}</th>
                                 <th>{t((d) => d.pages.walletDeposits.form.annualRate)}</th>
                                 <th>{t((d) => d.pages.walletAccounts.form.startsAt)}</th>
-                                <th>{t((d) => d.pages.walletDeposits.columns.maturity)}</th>
+                                <th>{t((d) => d.pages.walletDeposits.csv.termMonths)}</th>
                                 <th>{t((d) => d.pages.walletDeposits.columns.status)}</th>
                             </>
                         }
@@ -322,7 +322,14 @@ export default function DepositCsvImport(props: {
                                     </td>
                                     <td>{deposit === null ? '—' : `${deposit.annual_rate}%`}</td>
                                     <td>{deposit === null ? '—' : formatDate(deposit.starts_at, locale)}</td>
-                                    <td>{deposit === null ? '—' : formatDate(deposit.maturity_at, locale)}</td>
+                                    <td>
+                                        {deposit === null
+                                            ? '—'
+                                            : t((d) => d.pages.walletDeposits.form.termMonths).replace(
+                                                  '{months}',
+                                                  String(deposit.term_months),
+                                              )}
+                                    </td>
                                     <td>
                                         {problem === undefined ? (
                                             <Status tone="ok">{t((d) => d.pages.walletDeposits.csv.ready)}</Status>

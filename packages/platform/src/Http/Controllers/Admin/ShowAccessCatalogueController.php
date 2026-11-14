@@ -55,6 +55,8 @@ final class ShowAccessCatalogueController
         return response()->json([
             'roles' => array_keys($granted),
             'groups' => $groups,
+            // How many permissions there are, across every group.
+            'permission_count' => array_sum(array_map(static fn (array $group): int => count($group['permissions']), $groups)),
         ]);
     }
 }

@@ -244,7 +244,7 @@ it('recomputes a deposit schedule when its terms change, leaving settled periods
         // A year from today: a deposit must mature after today, and a fixed date would make this
         // test pass only until that day arrives.
         'starts_at' => now('UTC')->toDateString(),
-        'maturity_at' => now('UTC')->addYear()->toDateString(),
+        'term_months' => 12,
         'principal_minor' => 100_000_00,
         'annual_rate' => '6.00',
         'rate_type' => 'FIXED',
@@ -355,7 +355,7 @@ it('refuses a transaction recorded against a term deposit', function (): void {
         // A year from today: a deposit must mature after today, and a fixed date would make this
         // test pass only until that day arrives.
         'starts_at' => now('UTC')->toDateString(),
-        'maturity_at' => now('UTC')->addYear()->toDateString(),
+        'term_months' => 12,
         'principal_minor' => 100_000_00,
         'annual_rate' => '6.00',
         'rate_type' => 'FIXED',
@@ -389,7 +389,7 @@ it('takes a deposit’s principal out of the account that funded it', function (
         'currency_code' => 'RON',
         'starts_at' => $startsAt,
         'principal_minor' => 5000000,
-        'maturity_at' => now('UTC')->addYear()->toDateString(),
+        'term_months' => 12,
         'annual_rate' => '6.5000',
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',
@@ -421,7 +421,7 @@ it('records no movement for a deposit funded from an account nobody tracks', fun
         'currency_code' => 'RON',
         'starts_at' => $startsAt,
         'principal_minor' => 5000000,
-        'maturity_at' => now('UTC')->addYear()->toDateString(),
+        'term_months' => 12,
         'annual_rate' => '6.5000',
         'rate_type' => 'FIXED',
         'interest_method' => 'SIMPLE',

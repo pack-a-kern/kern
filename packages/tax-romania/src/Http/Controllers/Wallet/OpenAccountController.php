@@ -66,7 +66,7 @@ final class OpenAccountController
             ],
             'starts_at' => [...$depositOnly, ...$deposit['starts_at']],
             'principal_minor' => [...$depositOnly, ...$deposit['principal_minor']],
-            'maturity_at' => [...$depositOnly, ...$deposit['maturity_at']],
+            'term_months' => [...$depositOnly, ...$deposit['term_months']],
             'annual_rate' => [...$depositOnly, ...$deposit['annual_rate']],
             'rate_type' => [...$depositRequired, ...$deposit['rate_type']],
             'interest_method' => [...$depositRequired, ...$deposit['interest_method']],
