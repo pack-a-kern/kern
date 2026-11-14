@@ -15,12 +15,12 @@ declare(strict_types=1);
 | `report-only` sends the policy as `Content-Security-Policy-Report-Only`: nothing is blocked, and every
 | violation is posted to /csp-report and logged as `csp_violation`. That is the first step, because a
 | wrong policy breaks pages silently — run it until the log is clean, then set `enforce`. `off` sends
-| nothing.
+| nothing. There is no default: an installation that names none fails on its first page.
 */
 
 return [
 
-    'mode' => env('CSP_MODE', 'report-only'),
+    'mode' => env('CSP_MODE'),
 
     /*
      * The policy. Literal sources as the browser reads them; a source in braces is filled in per request

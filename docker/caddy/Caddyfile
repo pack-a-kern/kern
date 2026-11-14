@@ -151,6 +151,13 @@
 		max_size 25MB
 	}
 
+	# A Content-Security-Policy report is a browser's few hundred bytes about one blocked source. The
+	# address takes them unauthenticated, so anything larger is refused here rather than decoded.
+	@cspReport path /csp-report
+	request_body @cspReport {
+		max_size 16KB
+	}
+
 	# Never serve dotfiles (.env, .git, …) even if one ends up under public/.
 	@dotfiles path */.*
 	handle @dotfiles {

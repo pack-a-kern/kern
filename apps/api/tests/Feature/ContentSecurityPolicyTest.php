@@ -18,12 +18,12 @@ beforeEach(function (): void {
     $this->withoutVite();
 });
 
-it('sends the policy as report-only by default, allowing this request\'s nonce and no other inline script', function (): void {
+it('enforces the policy, allowing this request\'s nonce and no other inline script', function (): void {
     $response = $this->get(route('home'))->assertOk();
 
-    $policy = (string) $response->headers->get('Content-Security-Policy-Report-Only');
+    $policy = (string) $response->headers->get('Content-Security-Policy');
 
-    expect($response->headers->has('Content-Security-Policy'))->toBeFalse()
+    expect($response->headers->has('Content-Security-Policy-Report-Only'))->toBeFalse()
         ->and($policy)->toContain("script-src 'self' 'nonce-" . Vite::cspNonce() . "'")
         ->and($policy)->not->toContain("'unsafe-inline'")
         ->and($policy)->not->toContain("'unsafe-eval'")
@@ -33,25 +33,25 @@ it('sends the policy as report-only by default, allowing this request\'s nonce a
 });
 
 it('uses a fresh nonce on every page', function (): void {
-    $first = (string) $this->get(route('home'))->headers->get('Content-Security-Policy-Report-Only');
-    $second = (string) $this->get(route('home'))->headers->get('Content-Security-Policy-Report-Only');
+    $first = (string) $this->get(route('home'))->headers->get('Content-Security-Policy');
+    $second = (string) $this->get(route('home'))->headers->get('Content-Security-Policy');
 
     expect($first)->not->toBe($second);
 });
 
 it('names the socket\'s origin, which \'self\' does not cover in every browser', function (): void {
-    $policy = (string) $this->get('https://kern.example/')->headers->get('Content-Security-Policy-Report-Only');
+    $policy = (string) $this->get('https://kern.example/')->headers->get('Content-Security-Policy');
 
     expect($policy)->toContain("connect-src 'self' wss://kern.example");
 });
 
-it('enforces the policy once told to', function (): void {
-    Config::set('csp.mode', 'enforce');
+it('only reports, blocking nothing, once told to', function (): void {
+    Config::set('csp.mode', 'report-only');
 
     $response = $this->get(route('home'))->assertOk();
 
-    expect($response->headers->has('Content-Security-Policy'))->toBeTrue()
-        ->and($response->headers->has('Content-Security-Policy-Report-Only'))->toBeFalse();
+    expect($response->headers->has('Content-Security-Policy-Report-Only'))->toBeTrue()
+        ->and($response->headers->has('Content-Security-Policy'))->toBeFalse();
 });
 
 it('sends nothing when off', function (): void {
@@ -72,7 +72,8 @@ it('refuses a mode it does not know, rather than guessing one', function (): voi
 it('puts no policy on a JSON response, which is never rendered', function (): void {
     $response = $this->getJson('/api/v1/settings/ai/providers');
 
-    expect($response->headers->has('Content-Security-Policy-Report-Only'))->toBeFalse();
+    expect($response->headers->has('Content-Security-Policy'))->toBeFalse()
+        ->and($response->headers->has('Content-Security-Policy-Report-Only'))->toBeFalse();
 });
 
 it('logs a reported violation without a CSRF token, reduced to the rule and the source', function (): void {
@@ -117,14 +118,32 @@ it('accepts a body that is not a report without logging anything', function (): 
 it('writes the same nonce into the page, for the scripts that insert style elements of their own', function (): void {
     $response = $this->get(route('home'))->assertOk();
 
-    $policy = (string) $response->headers->get('Content-Security-Policy-Report-Only');
+    $policy = (string) $response->headers->get('Content-Security-Policy');
 
     expect($response->getContent())->toContain('<meta property="csp-nonce" nonce="' . Vite::cspNonce() . '">')
         ->and($policy)->toContain("style-src-elem 'self' 'nonce-" . Vite::cspNonce() . "'");
 });
 
 it('fills in every placeholder in the configured rules, and leaves none behind', function (): void {
-    $policy = (string) $this->get(route('home'))->headers->get('Content-Security-Policy-Report-Only');
+    $policy = (string) $this->get(route('home'))->headers->get('Content-Security-Policy');
 
     expect($policy)->not->toMatch('/\{[a-z-]+\}/');
+});
+
+it('gives the error pages\' own styles the nonce, so an enforced policy still lets them render', function (): void {
+    Illuminate\Support\Facades\Route::middleware('web')->get('/__forbidden', fn () => abort(403));
+
+    $response = $this->get('/__forbidden')->assertForbidden();
+    $nonce = Vite::cspNonce();
+
+    expect((string) $response->headers->get('Content-Security-Policy'))->toContain("'nonce-{$nonce}'")
+        ->and(substr_count((string) $response->getContent(), '<style nonce="' . $nonce . '">'))->toBe(2)
+        ->and($response->getContent())->not->toContain('<style>');
+});
+
+it('puts the policy on the page for an address no route matches', function (): void {
+    $response = $this->get('/__no-such-page')->assertNotFound();
+
+    expect((string) $response->headers->get('Content-Security-Policy'))->toContain("'nonce-" . Vite::cspNonce() . "'")
+        ->and(substr_count((string) $response->getContent(), '<style nonce="' . Vite::cspNonce() . '">'))->toBe(2);
 });

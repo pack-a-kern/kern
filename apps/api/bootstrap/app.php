@@ -72,10 +72,12 @@ return Application::configure(basePath: dirname(__DIR__))
             // did not, and answered an unverified account. It passes guests through and allows the
             // verification screen by name — see its allowed set.
             RequireVerifiedEmail::class,
-            // Before Inertia renders the page: the nonce it allows has to exist when @vite writes its tags.
-            ContentSecurityPolicy::class,
             HandleInertiaRequests::class,
         ]);
+        // On every request, not the web group: an address no route matches is answered before any
+        // group runs, and its error page is HTML like any other. Global middleware also runs before
+        // the group's, so the nonce exists when Inertia's @vite writes its tags.
+        $middleware->append(ContentSecurityPolicy::class);
         /*
          * The order the framework sorts these into, wherever each is declared: signed in, then a
          * confirmed address, then the taxpayer, then the throttle, then the URL's models.
