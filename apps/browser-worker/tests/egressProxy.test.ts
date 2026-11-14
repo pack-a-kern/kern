@@ -90,7 +90,13 @@ describe("the egress proxy", () => {
   // The proxy is the browser's only way out whichever browser it is: each engine takes the proxy setting
   // its own way, and loopback is the address one of them would reach around it.
   for (const engine of ENGINES) {
-    it(`holds ${engine} to the allow-list, a redirect and loopback included`, async () => {
+    // Firefox refuses to launch as root — its sandbox needs an unprivileged user namespace — and the
+    // CI runners run as root; Chromium and WebKit launch there and cover the same allow-list behaviour.
+    const skip =
+      engine === "firefox" && Boolean(process.env.CI)
+        ? "Firefox will not launch as root (CI runs as root); Chromium and WebKit cover this"
+        : false;
+    it(`holds ${engine} to the allow-list, a redirect and loopback included`, { skip }, async () => {
       await withSite(async (base, hits) => {
         const handle = await createPlaywrightBrowserContext(["127.0.0.1"], { engine });
 
