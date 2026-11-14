@@ -26,7 +26,7 @@ FROM php:8.5.12-fpm-trixie@sha256:baf3ea13a8207fa18e1011bad1016e8b5e59fc974c6966
 # docs/DEPENDENCY-POLICY.md §1.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        libpq-dev=17.11-0+deb13u1 \
+        libpq-dev=17.12-0+deb13u1 \
         libicu-dev=76.1-4 \
         libjpeg62-turbo-dev=1:2.1.5-4 \
         libpng-dev=1.6.48-1+deb13u6 \
@@ -120,7 +120,7 @@ COPY --from=ext-builder /usr/local/etc/php/conf.d /usr/local/etc/php/conf.d
 RUN apt-get purge -y --auto-remove $PHPIZE_DEPS libc6-dev \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        libpq5=17.11-0+deb13u1 \
+        libpq5=17.12-0+deb13u1 \
         libicu76=76.1-4 \
         libjpeg62-turbo=1:2.1.5-4 \
         libpng16-16t64=1.6.48-1+deb13u6 \

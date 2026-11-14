@@ -47,6 +47,12 @@ Checked: **2026-09-07**
 > published 2026-11-04 (among them CVE-2026-118514, CVE-2026-118515, CVE-2026-118516). Pulled in by
 > Laravel, `webauthn-lib`, `aws-sdk-php` and Deptrac; nothing else in the lock moved.
 
+> **Security bump 2026-11-14:** `laravel/framework` 13.30.1 → **13.42.0** (latest 13.x) for
+> GHSA-63hm-g96r-2m2q / CVE-2026-128083 (low: task output injection in the Concurrency process
+> driver; fixed in 13.40.0). Updated with its direct dependencies only (`--with-dependencies`):
+> Carbon, Guzzle, Monolog, `league/uri`, `symfony/translation`, `symfony/clock` and their peers;
+> `composer audit` clean afterwards.
+
 > **Host gotcha:** this machine's CLI PHP is 8.3, but Pest 5 needs ^8.4. Pin the target runtime in
 > `composer.json` so resolution matches the container, not the host:
 > `"config": { "platform": { "php": "8.5.10" } }`
@@ -82,6 +88,11 @@ written there. Before that, `xcaddy build --with` pinned these two and re-resolv
 | `github.com/caddy-dns/cloudflare` | `v0.2.4` (released 2026-03-23; resolved from the Go module proxy 2026-10-15, latest of five tags). Apache-2.0. Compiled in from `docker/caddy/build/go.mod`, and confirmed present as `dns.providers.cloudflare` in `caddy list-modules` on the built image. It is what lets an installation behind Cloudflare's proxy prove its name through DNS, which is the only ACME challenge that reaches a server the proxy answers for. |
 | `github.com/WeidiDeng/caddy-cloudflare-ip` | `v0.0.0-20231130002422-f53b62aa13cb` — no tagged release; its latest commit (2023-11-30), resolved from the Go module proxy 2026-10-20. Apache-2.0. Compiled in from `docker/caddy/build/go.mod` and confirmed present as `http.ip_sources.cloudflare` in `caddy list-modules` on the built image. Supplies Cloudflare's published address ranges as trusted proxies, refreshed at runtime, for an installation behind Cloudflare's proxy (`KERN_EDGE_TRUSTED_PROXIES`). Untagged and quiet since 2023: worth replacing with a maintained source if one appears. |
 
+> **Security bump 2026-11-14:** `go.opentelemetry.io/otel/sdk/log` (indirect, under Caddy)
+> v0.22.0 → **v1.47.0** with the `otel` modules it moves together, for GHSA-q7gw-24fr-5p69 /
+> CVE-2026-128085 (medium: `AttributeValueLengthLimit` bypassed by values of U+FFFD runes). The
+> `go.mod`/`go.sum` are Dependabot's, unchanged; the edge image builds from them.
+
 ## Container images (tag and digest)
 
 Every image is pinned by exact tag **and** digest, in compose and in every Dockerfile — a tag is rebuilt
@@ -104,6 +115,11 @@ like a version bump (§2 of DEPENDENCY-POLICY.md). All rows checked 2026-10-20.
 | minio | `minio/minio` (last release 2025-09-07 — see STATUS known issues) | **not in any compose file**: this deployment points at a MinIO it does not run |
 
 The full digests are the ones in the files; the short forms here are for reading.
+
+> **Security bump 2026-11-14:** Debian's `libpq5` / `libpq-dev` pinned in `docker/php/Dockerfile`
+> 17.11-0+deb13u1 → **17.12-0+deb13u1** (trixie-security), for the 34 HIGH CVEs the image scan
+> reported against 17.11 (among them CVE-2026-116304, CVE-2026-120149, CVE-2026-6467). Confirmed
+> installed in the rebuilt app image with `dpkg-query -W libpq5`.
 
 ## Postgres extensions required
 
