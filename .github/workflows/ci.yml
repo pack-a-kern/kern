@@ -299,15 +299,18 @@ jobs:
       - name: composer install
         run: composer install --no-interaction --prefer-dist
 
-      # Laravel's dotenv loader warns (Pest turns the warning into a test
-      # WARN, not a clean PASS) when no .env file is present at all, even
-      # though every value it would contain is supplied via real env vars
-      # above. No .env is committed (BLUEPRINT.md §4.10) or shipped in the
-      # runtime image, so create an empty one for this job only — verified
-      # locally (docs/handoff/008-ci-pipeline.md) that this is the only
-      # difference between a WARN and a clean PASS here.
-      - name: Touch empty .env (see comment)
-        run: touch .env
+      # No .env is committed (BLUEPRINT.md §4.10). The infrastructure values
+      # (APP_KEY, DB_*, REDIS_*) come from the job `env:` above and keep
+      # winning — Laravel's dotenv loader is immutable and never overrides a
+      # variable already set. But each package documents its own settings in
+      # its own .env.example (ADR 0017), the embedding switch among them, and
+      # those must be present for the suite, not only the handful passed as
+      # real env vars. So assemble .env from the app's and every package's
+      # .env.example, exactly as scripts/install.sh does for a real install.
+      # This also silences the loader's "no .env" warning that Pest turns into
+      # a test WARN (docs/handoff/008-ci-pipeline.md).
+      - name: Assemble .env from the app and every package .env.example
+        run: cat .env.example ../../packages/*/.env.example > .env
 
       - name: Run migrations
         run: php artisan migrate --force
