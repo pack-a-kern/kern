@@ -91,8 +91,9 @@ final class LegislatieJustRoHtmlParser
      * 1.4.0 — the table of contents: titles, chapters and sections, with the articles under each.
      * 1.5.0 — the portal's notes ("Notă") are kept beside the provision they stand in, out of its text.
      * 1.6.0 — the preamble and the signature are kept, each a section of its own.
+     * 1.7.0 — a table cell keeps each paragraph it stacks on a line of its own.
      */
-    public const string VERSION = '1.6.0';
+    public const string VERSION = '1.7.0';
 
     /** @var array<string, SectionType> */
     private const array CONTAINER_CLASSES = [
@@ -795,7 +796,7 @@ final class LegislatieJustRoHtmlParser
                         $merged[] = ['row' => count($rows), 'cell' => count($cells), 'colspan' => $colspan, 'rowspan' => $rowspan];
                     }
 
-                    $cells[] = $this->normalizeWhitespace($cell->textContent);
+                    $cells[] = $this->normalizeLines($this->blockText($cell));
                 }
             }
 
@@ -814,6 +815,30 @@ final class LegislatieJustRoHtmlParser
         $value = trim($cell->getAttribute($attribute));
 
         return ctype_digit($value) && (int) $value > 1 ? (int) $value : 1;
+    }
+
+    /**
+     * A node's text with a line break around each paragraph it holds — a cell that stacks paragraphs, "19
+     * august 2026 18 august 2027" above "19 august 2027 18 august 2028", keeps them apart instead of running
+     * one year into the next day. A `<br>` inside a paragraph only wraps it, as "Nr.<br>crt." does a
+     * heading: a space, as before.
+     */
+    private function blockText(DOMNode $node): string
+    {
+        $text = '';
+
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement && strtolower($child->nodeName) === 'br') {
+                $text .= ' ';
+            } elseif ($child instanceof DOMElement) {
+                $edge = $this->isBlock($child) ? "\n" : '';
+                $text .= $edge . $this->blockText($child) . $edge;
+            } elseif ($child instanceof DOMText) {
+                $text .= $child->data;
+            }
+        }
+
+        return $text;
     }
 
     private function closestTable(DOMElement $element): ?DOMElement

@@ -187,6 +187,16 @@ it('keeps a table as rows and cells, in its place in the text', function (): voi
         ->and($alineat->fullText())->toContain('până la 66.750, inclusiv | 1%');
 });
 
+it('keeps each paragraph a table cell stacks on a line of its own, not run into the next', function (): void {
+    $alineat = parsedAlineat(
+        '<table><tr><td>Perioada de dobândă</td><td>De la, inclusiv până la, inclusiv</td></tr>'
+        . '<tr><td/><td><span class="S_PAR">19 august 2026 18 august 2027<!----></span>'
+        . '<span class="S_PAR">19 august 2027 18 august 2028<!----></span></td></tr></table>',
+    );
+
+    expect($alineat->tables[0][1])->toBe(['', "19 august 2026 18 august 2027\n19 august 2027 18 august 2028"]);
+});
+
 it('makes a dash item a provision of its own, cited by its position', function (): void {
     $alineat = parsedAlineat(
         '<span class="S_PAR">Procedura cuprinde:</span>'

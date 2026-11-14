@@ -75,7 +75,8 @@ it('reads a table drawn in box characters as the table the new markup has', func
     $marked = sectionsOf('2026-08-08')['Art. 105 alin. (2)']->tables[0] ?? [];
 
     expect(array_slice($drawn, 0, 2))->toBe([['Nr. crt.', 'Produse vegetale', 'Suprafaţă'], ['1.', 'Cereale', 'până la 2 ha']])
-        ->and(array_slice($marked, 0, 2))->toBe([['Nr. crt.', 'Produse vegetale', 'Suprafață'], ['1.', 'Cereale', 'până la 2 ha']]);
+        // The new markup stacks "Nr." and "crt." as two paragraphs of the cell: each kept on its line.
+        ->and(array_slice($marked, 0, 2))->toBe([["Nr.\ncrt.", 'Produse vegetale', 'Suprafață'], ['1.', 'Cereale', 'până la 2 ha']]);
 });
 
 it('reads the definitions the way the new markup nests them: points holding points, letters and paragraphs', function (string $consolidation): void {

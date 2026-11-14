@@ -50,7 +50,8 @@ final class SectionText
     }
 
     /**
-     * The text with every table written out, one row per line, cells separated.
+     * The text with every table written out, one row per line, cells separated — the lines a cell stacks
+     * a space apart, so a row stays one line.
      *
      * @param  list<list<list<string>>>  $tables
      */
@@ -66,7 +67,7 @@ final class SectionText
                 $rows = $tables[(int) $match[1] - 1] ?? [];
 
                 return implode("\n", array_map(
-                    static fn (array $row): string => implode(self::CELL_SEPARATOR, $row),
+                    static fn (array $row): string => implode(self::CELL_SEPARATOR, array_map(static fn (string $cell): string => str_replace("\n", ' ', $cell), $row)),
                     $rows,
                 ));
             },
