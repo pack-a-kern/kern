@@ -12,6 +12,8 @@ return [
         'bonds_url' => 'https://www.bvb.ro/bonds',
         'dividends_url' => 'https://www.bvb.ro/dividends',
         'instrument_url' => 'https://www.bvb.ro/instrument?s={symbol}',
+        'page_refresh_days' => '7',
+        'spacing_seconds' => '10',
         'timezone' => 'Europe/Bucharest',
     ],
     'orders' => [

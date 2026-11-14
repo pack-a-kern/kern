@@ -59,6 +59,8 @@ final readonly class InvestmentsConfig
                 bondsUrl: $url('bonds_url', 'INVESTMENTS_BVB_BONDS_URL'),
                 dividendsUrl: $url('dividends_url', 'INVESTMENTS_BVB_DIVIDENDS_URL'),
                 instrumentUrl: $instrumentUrl,
+                pageRefreshDays: max(1, min(365, self::whole($config->get('investments.bvb.page_refresh_days'), 1, 365, 'INVESTMENTS_BVB_PAGE_REFRESH_DAYS'))),
+                spacingSeconds: max(1, min(3600, self::whole($config->get('investments.bvb.spacing_seconds'), 1, 3600, 'INVESTMENTS_BVB_SPACING_SECONDS'))),
                 timezone: self::timezone($config->get('investments.bvb.timezone'), 'INVESTMENTS_BVB_TIMEZONE'),
             ),
             processingTimeoutSeconds: self::whole($config->get('investments.processing_timeout_seconds'), 1, 600, 'INVESTMENTS_PROCESSING_TIMEOUT_SECONDS'),

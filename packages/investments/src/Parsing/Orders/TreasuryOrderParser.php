@@ -19,8 +19,12 @@ use Kern\Legislation\Provisions\StoredProvision;
  * them (2026 layout):
  *
  * - **Fidelis** — "Termenii finali": one annex per issue, its date, ISIN and symbol first, the rest a table
- *   of label and value — the currency, the face value, the rate, the record and payment dates of each
- *   coupon, the maturity. Read by label wherever the annex prints it: those first three a line each in the
+ *   of label and value — the currency, the face value, the rate, the period, record and payment dates of
+ *   each coupon, the maturity. The periods under "Perioada de dobândă", each from and to: a line of both
+ *   dates per coupon — under the heading in its own cell, in a row each, or stacked in one cell — or the
+ *   froms in one cell and the tos in the next. An order that lists fewer periods than coupons — the Official
+ *   Gazette leaving one out — gives each listed one to its coupon, in order, where each ends before its
+ *   coupon pays and after the one before paid; the coupon it left out has none, never one made up. Read by label wherever the annex prints it: those first three a line each in the
  *   text, a block of labels and then their values, or a table of their own; the terms in one table or
  *   several, one of them under a list item; a label in either case, with or without its colon.
  * - **Tezaur** — the prospectus: in its annex, a table of the issues (code, dates, rate), one schedule
@@ -39,6 +43,12 @@ final class TreasuryOrderParser
 
     /** How a Tezaur prospectus' table of issues opens: "Codul emisiunii", "Cod emisiune", "Codulemisiunii". */
     private const string TEZAUR_ISSUES = '/\Acod(?:ul)?\s?emisiun(?:e|ii)\z/u';
+
+    /** A day as an order writes it: "19 august 2026". */
+    private const string DAY = '\d{1,2}\s+\p{L}+\s+\d{4}';
+
+    /** The label the coupon periods stand under, as {@see self::label()} writes it. */
+    private const string PERIODS = 'perioada de dobândă';
 
     /** The labels a Fidelis annex opens with, before its table of terms — as {@see self::label()} writes them. */
     private const array OPENING = ['perioada ofertei', 'preț de emisiune', 'data emisiunii', 'isin', 'cod cfi', 'simbol'];
@@ -64,9 +74,13 @@ final class TreasuryOrderParser
             $maturity = Values::romanianDate(self::cell($rows, $where, 'Rambursare la scadență (data scadenței)'), $where);
             [$face, $currency] = self::amount(self::cell($rows, $where, 'Valoarea nominală a unui titlu de stat'), $where);
 
+            $periods = self::periods(self::tablesIn($annex), $where);
+
             if (count($records) !== count($payments)) {
                 throw ParseFailure::at($where, 'a record date for each coupon, and not as many');
             }
+
+            $periods = self::matched($periods, $payments);
 
             $issues[] = new OrderIssue(
                 programme: Programme::FIDELIS,
@@ -79,7 +93,12 @@ final class TreasuryOrderParser
                 issueDate: Values::romanianDate(self::cell($rows, $where, 'Data emisiunii'), $where),
                 maturityDate: $maturity,
                 payouts: [
-                    ...array_map(static fn (DateTimeImmutable $paid, DateTimeImmutable $record): OrderPayout => new OrderPayout(PayoutKind::COUPON, $paid, recordDate: $record), $payments, $records),
+                    ...array_map(
+                        static fn (DateTimeImmutable $paid, DateTimeImmutable $record, ?array $period): OrderPayout => new OrderPayout(PayoutKind::COUPON, $paid, $period[0] ?? null, $period[1] ?? null, $record),
+                        $payments,
+                        $records,
+                        $periods,
+                    ),
                     new OrderPayout(PayoutKind::PRINCIPAL, $maturity),
                 ],
             );
@@ -290,6 +309,101 @@ final class TreasuryOrderParser
     private static function label(string $text): string
     {
         return (string) preg_replace('/\s+/u', ' ', trim(rtrim(trim(mb_strtolower($text)), ':')));
+    }
+
+    /**
+     * The coupon periods a Fidelis annex lists under "Perioada de dobândă", in order: none where it has no
+     * such row — an older layout — and a failure where it has one that does not read.
+     *
+     * @param list<list<list<string>>> $tables
+     *
+     * @return list<array{DateTimeImmutable, DateTimeImmutable}>
+     */
+    private static function periods(array $tables, string $where): array
+    {
+        $periods = [];
+        $under = false;
+        $day = static fn (string $text): DateTimeImmutable => Values::romanianDate($text, "{$where}, " . self::PERIODS);
+
+        foreach (array_merge([], ...$tables) as $row) {
+            if (! $under) {
+                $under = self::label($row[0] ?? '') === self::PERIODS;
+                // Some print the periods under the heading, in the heading's own cell (order 1.178/2026).
+                $below = array_slice(explode("\n", trim($row[1] ?? '')), 1);
+
+                foreach ($under && $below !== [] ? self::periodPairs([implode("\n", $below)]) ?? [] : [] as [$from, $to]) {
+                    $periods[] = [$day($from), $day($to)];
+                }
+
+                continue;
+            }
+
+            $read = self::periodPairs(array_values(array_filter(array_map(trim(...), $row), static fn (string $cell): bool => $cell !== '')));
+
+            // The first row that is not periods is the next term.
+            if ($read === null) {
+                break;
+            }
+
+            foreach ($read as [$from, $to]) {
+                $periods[] = [$day($from), $day($to)];
+            }
+        }
+
+        if ($under && $periods === []) {
+            throw ParseFailure::at($where, 'a "Perioada de dobândă" with no period that reads');
+        }
+
+        return $periods;
+    }
+
+    /**
+     * Each coupon's period, in order: those the order lists, one per coupon from the first, while each ends
+     * before its coupon pays and after the one before it paid; none for a coupon past the last listed
+     * (order 1.005/2026, annex 5, lists three for four). Periods that do not line up so, or more of them than
+     * coupons, are no coupon's.
+     *
+     * @param list<array{DateTimeImmutable, DateTimeImmutable}> $periods
+     * @param list<DateTimeImmutable> $payments
+     *
+     * @return list<array{DateTimeImmutable, DateTimeImmutable}|null> one per payment
+     */
+    private static function matched(array $periods, array $payments): array
+    {
+        $none = array_fill(0, count($payments), null);
+
+        if (count($periods) > count($payments)) {
+            return $none;
+        }
+
+        foreach ($periods as $at => [, $to]) {
+            if ($to >= $payments[$at] || ($at > 0 && $to < $payments[$at - 1])) {
+                return $none;
+            }
+        }
+
+        return array_replace($none, $periods);
+    }
+
+    /**
+     * A row of periods as from/to pairs: one cell, a line of both days per period, or two, the froms a line
+     * each and the tos beside them; null for a row of anything else.
+     *
+     * @param list<string> $cells
+     *
+     * @return non-empty-list<array{string, string}>|null
+     */
+    private static function periodPairs(array $cells): ?array
+    {
+        $lines = array_map(static fn (string $cell): array => array_map(trim(...), explode("\n", $cell)), $cells);
+        $day = static fn (string $text): bool => preg_match('/\A' . self::DAY . '\z/u', $text) === 1;
+        $pairs = match (true) {
+            count($lines) === 1 => array_map(static fn (string $line): ?array => preg_match('/\A(' . self::DAY . ')\s+(' . self::DAY . ')\z/u', $line, $both) === 1 ? [$both[1], $both[2]] : null, $lines[0]),
+            count($lines) === 2 && count($lines[0]) === count($lines[1]) => array_map(static fn (string $from, string $to): ?array => $day($from) && $day($to) ? [$from, $to] : null, $lines[0], $lines[1]),
+            default => [null],
+        };
+
+        return in_array(null, $pairs, true) ? null : $pairs;
     }
 
     /**

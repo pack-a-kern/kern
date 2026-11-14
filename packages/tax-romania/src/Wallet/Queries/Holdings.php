@@ -16,7 +16,8 @@ use Kern\TaxRomania\Wallet\Models\InvestmentLot;
 use Kern\TaxRomania\Wallet\Services\Holdings\LotAmounts;
 
 /**
- * The active taxpayer's lots, each with its instrument's terms and what follows from them.
+ * Lots, each with its instrument's terms and what follows from them — for `HoldingPositions`, which picks
+ * the active taxpayer's and adds them up.
  *
  * **The value is recomputed each time it is read**, from the instrument's latest price — so after each
  * BVB run it is the new one, with nothing stored to go stale (ADR 0025 §9). A share is worth units ×
@@ -25,7 +26,7 @@ use Kern\TaxRomania\Wallet\Services\Holdings\LotAmounts;
  * value. A corporate or municipal bond not yet priced, and a bond past its maturity — repaid, its money
  * already in the account — have none.
  *
- * Tenant-scoped through `InvestmentLot`; the market is asked once for every instrument on the page.
+ * The market is asked once for every instrument among them.
  */
 final readonly class Holdings
 {
@@ -33,12 +34,15 @@ final readonly class Holdings
     {
     }
 
-    /** @return list<HoldingLine> oldest purchase first */
-    public function all(?CarbonImmutable $today = null): array
+    /**
+     * These lots as the screen shows them, in the order given.
+     *
+     * @param list<InvestmentLot> $lots
+     * @return list<HoldingLine>
+     */
+    public function lines(array $lots, ?CarbonImmutable $today = null): array
     {
         $today = ($today ?? CarbonImmutable::now('UTC'))->startOfDay()->toDateTimeImmutable();
-        /** @var list<InvestmentLot> $lots */
-        $lots = InvestmentLot::query()->orderBy('bought_on')->orderBy('id')->get()->all();
         $ids = array_values(array_unique(array_map(static fn (InvestmentLot $lot): string => $lot->instrument_id, $lots)));
         $instruments = $this->market->instruments($ids);
         $prices = $this->market->latestPrices($ids);

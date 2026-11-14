@@ -698,7 +698,7 @@ function LawCard(props: {
             className="panel panel-pad law-card hover:border-info/40 grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] gap-x-3 gap-y-2.5 transition-colors"
             onClick={open}
         >
-            <div className={cn('act grid size-9 place-items-center self-start rounded-xl', kind.tone)}>
+            <div className={cn('tone grid size-9 place-items-center self-start rounded-xl', kind.tone)}>
                 <kind.icon className="size-4" aria-hidden="true" />
             </div>
             <LawTitle name={name} />
@@ -759,7 +759,7 @@ function LawCard(props: {
             </div>
 
             <div className="law-badges col-span-full">
-                {law.typeLabel === null ? null : <Pill className={cn('act', kind.tone)}>{law.typeLabel}</Pill>}
+                {law.typeLabel === null ? null : <Pill className={cn('tone', kind.tone)}>{law.typeLabel}</Pill>}
                 {law.officialJournalNumber === null ? null : (
                     <Pill tone="locked">{words.journal.replace('{number}', law.officialJournalNumber)}</Pill>
                 )}

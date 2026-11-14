@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\Investments\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Kern\Investments\Casts\Decimal;
@@ -36,6 +37,7 @@ use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
  * @property Carbon|null $subscriptions_read_at
  * @property string|null $terms_document_id
  * @property Carbon|null $listing_read_at
+ * @property Carbon|null $history_read_at when its past prices were read from BVB's chart; null, never
  */
 final class FinancialInstrument extends Model
 {
@@ -48,6 +50,7 @@ final class FinancialInstrument extends Model
         'kind', 'programme', 'isin', 'symbol', 'issue_code', 'name', 'issuer_name', 'currency', 'face_value',
         'rate', 'issue_date', 'maturity_date', 'market', 'status', 'subscribed_value_minor',
         'subscriptions_count', 'subscriptions_read_at', 'terms_document_id', 'listing_read_at',
+        'history_read_at',
     ];
 
     /** @var array<string, string> */
@@ -64,5 +67,18 @@ final class FinancialInstrument extends Model
         'subscriptions_count' => 'integer',
         'subscriptions_read_at' => 'datetime',
         'listing_read_at' => 'datetime',
+        'history_read_at' => 'datetime',
     ];
+
+    /**
+     * The instrument BVB lists under this symbol.
+     *
+     * @param Builder<self> $query
+     *
+     * @return Builder<self>
+     */
+    public function scopeListedOnBvb(Builder $query, string $symbol): Builder
+    {
+        return $query->where('market', Market::BVB)->where('symbol', $symbol);
+    }
 }

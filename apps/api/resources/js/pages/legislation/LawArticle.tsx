@@ -285,7 +285,8 @@ export function SectionBody({ text, tables }: { text: string; tables: LawTable[]
 }
 
 /**
- * A table of the law, cell for cell, its merged cells merged as the portal draws them. The first row
+ * A table of the law, cell for cell — each paragraph of a cell on its line — its merged cells merged as
+ * the portal draws them. The first row
  * is its heading — unless a cell of it reaches into the rows below, which a heading cannot.
  */
 function LawTableView({ table }: { table: LawTable }): JSX.Element {
@@ -306,7 +307,7 @@ function LawTableView({ table }: { table: LawTable }): JSX.Element {
                     <thead>
                         <tr>
                             {head.map((cell, index) => (
-                                <th key={index} {...span(0, index)}>
+                                <th key={index} className="whitespace-pre-line" {...span(0, index)}>
                                     {cell}
                                 </th>
                             ))}
@@ -317,7 +318,11 @@ function LawTableView({ table }: { table: LawTable }): JSX.Element {
                     {body.map((row, rowIndex) => (
                         <tr key={rowIndex}>
                             {row.map((cell, index) => (
-                                <td key={index} className="tabular-nums" {...span(rowIndex + first, index)}>
+                                <td
+                                    key={index}
+                                    className="whitespace-pre-line tabular-nums"
+                                    {...span(rowIndex + first, index)}
+                                >
                                     {cell}
                                 </td>
                             ))}

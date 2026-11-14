@@ -687,15 +687,25 @@ export interface Dictionary {
             statuses: Record<'ON_OFFER' | 'ACTIVE' | 'MATURED' | 'DELISTED', string>;
             columns: { name: string; kind: string; rate: string; maturity: string; price: string };
             none: string;
-            more: string;
             failed: string;
             /** `{price}` in percent of the face value. */
             ofFace: string;
+            /** The list's card, under the page's own title. */
+            listTitle: string;
+            /** The kinds' tabs: every kind, then each by its plural. */
+            all: string;
+            kindsPlural: Record<'GOVERNMENT_BOND' | 'MUNICIPAL_BOND' | 'CORPORATE_BOND' | 'SHARE', string>;
+            /** The Fidelis/Tezaur filter, offered for government bonds. */
+            programme: string;
+            allProgrammes: string;
+            clearFilters: string;
+            /** What the pager counts. */
+            unit: string;
+            /** Under a price: the day it was traded at. */
+            priceOn: string;
         };
         instrument: {
             back: string;
-            terms: string;
-            issuer: string;
             isin: string;
             symbol: string;
             code: string;
@@ -710,11 +720,81 @@ export interface Dictionary {
             payoutKinds: Record<'COUPON' | 'PRINCIPAL' | 'DIVIDEND', string>;
             paid: string;
             announced: string;
-            noPayouts: string;
             perUnit: string;
             prices: string;
             noPrices: string;
             failed: string;
+            /** The label beside how much was subscribed. */
+            subscriptions: string;
+            /** The first card's button that opens the payments; `{count}` how many. */
+            showPayouts: string;
+            /** The latest price's tile, and the day it was traded at (`{date}`). */
+            price: string;
+            priceOn: string;
+            /** A bond with no price yet. */
+            notTraded: string;
+            /** A share's dividends and a bond's next payment, each with its day (`{date}`). */
+            lastDividend: string;
+            nextDividend: string;
+            nextPayment: string;
+            paidOn: string;
+            paysOn: string;
+            exOn: string;
+            /** A share's figures from its BVB page: `{value}` the P/BV, `{year}`/`{amount}` the last dividend. */
+            marketCap: string;
+            priceEarnings: string;
+            priceBook: string;
+            dividendYield: string;
+            dividendOf: string;
+            earningsPerShare: string;
+            range52: string;
+            sharesTotal: string;
+            shareCapital: string;
+            tradingSince: string;
+            /** A bond's figures from its BVB page: `{value}` its coupon there, `{bid}`/`{ask}` the best prices. */
+            yieldToMaturity: string;
+            atCurrentPrice: string;
+            bvbCoupon: string;
+            bidAsk: string;
+            bidAskValue: string;
+            unitsIssued: string;
+            issueValue: string;
+            /** A government bond's order, and the link that opens it among the laws. */
+            order: string;
+            openOrder: string;
+            /** A coupon's period. */
+            period: string;
+            /** A bond's coupons, as its prospectus lays them out. */
+            couponNumber: string;
+            couponRate: string;
+            recordDate: string;
+            paymentDate: string;
+            close: string;
+            /** The price chart's ranges, by months, and the select's name. */
+            windows: Record<'1' | '3' | '12' | '60', string>;
+            window: string;
+            /** A share's issuer, as BVB last showed it: `{date}` the day read, or the day the structure is as of; `{count}` shares. */
+            profile: {
+                title: string;
+                /** A bond's card: no issuer, only its page on BVB. */
+                titleBond: string;
+                neverBond: string;
+                neverHintBond: string;
+                refresh: string;
+                tooOften: string;
+                readAt: string;
+                never: string;
+                neverHint: string;
+                shareholders: string;
+                shareholdersAsOf: string;
+                noShareholders: string;
+                shares: string;
+                meetings: string;
+                noMeetings: string;
+                upcoming: string;
+                financialCalendar: string;
+                noFinancialEvents: string;
+            };
         };
         /** A person's bonds and shares, each purchase on its own. */
         holdings: {
@@ -724,12 +804,34 @@ export interface Dictionary {
             sell: string;
             none: string;
             emptyHint: string;
-            status: string;
             unit: string;
             loadFailed: string;
             open: string;
             sold: string;
-            columns: { instrument: string; bought: string; units: string; cost: string; value: string; result: string };
+            /** The positions' card, its empty sold tab, a position's purchases (`{count}`) and the button that opens them. */
+            listTitle: string;
+            noneSold: string;
+            purchases: string;
+            showPurchases: string;
+            /** A purchase's and a sale's day (`{date}`), what a position has paid in and a purchase's fees (`{amount}`). */
+            boughtOn: string;
+            soldOn: string;
+            received: string;
+            fees: string;
+            /** Under a position's units: its weighted average price (`{price}`); the purchases dialog's line. */
+            atAverage: string;
+            purchasesHint: string;
+            columns: {
+                instrument: string;
+                units: string;
+                price: string;
+                bought: string;
+                sold: string;
+                cost: string;
+                value: string;
+                proceeds: string;
+                result: string;
+            };
             /** `{date}` */
             pricedOn: string;
             atFace: string;
@@ -740,11 +842,17 @@ export interface Dictionary {
                 instrument: string;
                 instrumentSearch: string;
                 noMatch: string;
+                /** The instrument select's empty field, and what its menu says before two characters are typed. */
+                instrumentChoose: string;
+                typeToSearch: string;
                 units: string;
                 pricePerUnit: string;
                 pricePerUnitHint: string;
                 boughtOn: string;
                 soldOn: string;
+                /** The sale's units: how many the place holds (`{units}`), and which go first (`{place}`). */
+                unitsHeld: string;
+                saleOrder: string;
                 fees: string;
                 heldAt: string;
                 save: string;

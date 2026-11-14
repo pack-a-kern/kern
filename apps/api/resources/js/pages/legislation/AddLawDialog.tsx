@@ -465,7 +465,7 @@ export default function AddLawDialog({
                                 <div className="min-w-0 flex-1">
                                     <p className="text-sm font-semibold text-balance">{act.title}</p>
                                     <div className="mt-1 flex flex-wrap gap-1.5">
-                                        <Pill className={cn('act', actKind(act.type).tone)}>{act.typeLabel}</Pill>
+                                        <Pill className={cn('tone', actKind(act.type).tone)}>{act.typeLabel}</Pill>
                                         <Pill>
                                             nr. {act.number}
                                             {act.year === null ? '' : `/${String(act.year)}`}

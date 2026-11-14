@@ -27,13 +27,13 @@ it('queues an order already a law but never read for its issues, or read as havi
     Queue::fake();
     $source = app(OfficialSourceRepository::class)->idForCode('LEGISLATIE');
     $law = static fn (string $identifier, string $title): SourceDocument => SourceDocument::query()->create(['official_source_id' => $source, 'document_type' => 'ORDIN', 'external_identifier' => $identifier, 'canonical_url' => 'https://legislatie.just.ro/x', 'title' => $title]);
-    $version = static fn (SourceDocument $document) => SourceDocumentVersion::query()->create(['source_document_id' => $document->id, 'retrieved_at' => now(), 'content_sha256' => str_repeat('a', 64), 'raw_object_path' => 'x', 'size_bytes' => 1]);
+    $version = static fn (SourceDocument $document) => SourceDocumentVersion::query()->create(['source_document_id' => $document->id, 'retrieved_at' => now(), 'content_sha256' => str_repeat('a', 64), 'raw_object_path' => 'x', 'size_bytes' => 1, 'parser_version' => '1.7.0']);
 
     $unread = $law('ORDIN 1324/2026', 'ORDIN … în cadrul Programului Tezaur …');
     $version($unread);
     $read = $law('ORDIN 851/2026', 'ORDIN … în cadrul Programului Tezaur …');
     $version($read);
-    TreasuryOrder::query()->create(['source_document_id' => $read->id, 'programme' => Programme::TEZAUR, 'issues_count' => 3, 'read_at' => now()]);
+    TreasuryOrder::query()->create(['source_document_id' => $read->id, 'programme' => Programme::TEZAUR, 'issues_count' => 3, 'read_at' => now(), 'parser_version' => '1.7.0']);
     $none = $law('ORDIN 123/2026', 'ORDIN … în cadrul Programului Tezaur …');
     $version($none);
     TreasuryOrder::query()->create(['source_document_id' => $none->id, 'programme' => Programme::TEZAUR, 'issues_count' => 0, 'read_at' => now()]);
@@ -41,7 +41,7 @@ it('queues an order already a law but never read for its issues, or read as havi
     // Still being read as a law: no version yet.
     $law('ORDIN 1528/2026', 'ORDIN … în cadrul Programului Tezaur …');
 
-    expect(app(UnreadOrders::class)->queue())->toBe('orders: 2 already laws, never read for their issues or read as having none, queued to be read');
+    expect(app(UnreadOrders::class)->queue())->toBe('orders: 2 already laws, never read for their issues, read as having none or read again as laws since, queued to be read');
     Queue::assertPushed(ReadTreasuryOrder::class, 2);
     Queue::assertPushed(ReadTreasuryOrder::class, fn (ReadTreasuryOrder $job): bool => $job->sourceDocumentId === $unread->id && $job->programme === Programme::TEZAUR);
     Queue::assertPushed(ReadTreasuryOrder::class, fn (ReadTreasuryOrder $job): bool => $job->sourceDocumentId === $none->id);

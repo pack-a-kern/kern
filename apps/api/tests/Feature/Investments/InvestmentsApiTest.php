@@ -74,30 +74,33 @@ it('answers only someone signed in', function (): void {
     $this->postJson('/api/v1/investments/issuers/ALFA/refresh')->assertUnauthorized();
 });
 
-it('lists the active market by name, each with its latest price, a page at a time', function (): void {
+it('lists the active market by name, each with its latest price, a numbered page at a time, counting each kind', function (): void {
     ['alpha' => $alpha] = market();
     $evidence = evidence();
     InstrumentPrice::query()->create(['instrument_id' => $alpha->id, 'trading_date' => '2026-11-06', 'price' => '10.0000', 'priced_at' => now(), 'evidence_id' => $evidence]);
     InstrumentPrice::query()->create(['instrument_id' => $alpha->id, 'trading_date' => '2026-11-09', 'price' => '11.5000', 'priced_at' => now(), 'evidence_id' => $evidence]);
-    config(['investments.api.page_size' => '2']);
-    app()->forgetInstance(\Kern\Investments\Config\InvestmentsConfig::class);
+    config(['kern.paging.sizes' => '2,25', 'kern.paging.default' => '25']);
+    app()->forgetInstance(\Kern\Platform\Routing\PageSizes::class);
 
-    $first = $this->actingAs($this->user)->getJson('/api/v1/investments/instruments')->assertOk();
-    $cursor = $first->json('nextCursor');
-    expect($cursor)->toBeString();
-    $second = $this->actingAs($this->user)->getJson('/api/v1/investments/instruments?cursor=' . (is_string($cursor) ? $cursor : ''))->assertOk();
+    $first = $this->actingAs($this->user)->getJson('/api/v1/investments/instruments?per_page=2')->assertOk();
+    $second = $this->actingAs($this->user)->getJson('/api/v1/investments/instruments?per_page=2&page=2')->assertOk();
 
     expect(column($first->json('data'), 'name'))->toBe(['Alfa Ștefănești S.A.', 'Beta S.A.'])
         ->and($first->json('data.0.latestPrice'))->toBe(['price' => '11.5000', 'tradingDate' => '2026-11-09'])
-        ->and(column($second->json('data'), 'name'))->toBe(['TEZAUR 0001'])
-        ->and($second->json('nextCursor'))->toBeNull();
+        ->and([$first->json('total'), $first->json('page'), $first->json('perPage')])->toBe([3, 1, 2])
+        ->and($first->json('counts'))->toEqual(['SHARE' => 2, 'GOVERNMENT_BOND' => 1])
+        ->and($first->json('countAll'))->toBe(3)
+        ->and(column($second->json('data'), 'name'))->toBe(['TEZAUR 0001']);
+    $this->actingAs($this->user)->getJson('/api/v1/investments/instruments?per_page=7')->assertUnprocessable();
 });
 
 it('filters by kind, programme and status, and searches a code exactly or words of a name', function (): void {
     market();
     $names = fn (string $query): array => column($this->actingAs($this->user)->getJson("/api/v1/investments/instruments?{$query}")->assertOk()->json('data'), 'name');
 
-    expect($names('kind=SHARE'))->toBe(['Alfa Ștefănești S.A.', 'Beta S.A.'])
+    expect($this->actingAs($this->user)->getJson('/api/v1/investments/instruments?kind=SHARE')->json('counts'))
+        ->toEqual(['SHARE' => 2, 'GOVERNMENT_BOND' => 1])
+        ->and($names('kind=SHARE'))->toBe(['Alfa Ștefănești S.A.', 'Beta S.A.'])
         ->and($names('programme=TEZAUR'))->toBe(['TEZAUR 0001'])
         ->and($names('status=MATURED'))->toBe(['Old bond'])
         ->and($names('q=beta'))->toBe(['Beta S.A.'])
@@ -111,28 +114,61 @@ it('refuses a filter it does not know, and a search too short or too long', func
     $this->actingAs($this->user)->getJson("/api/v1/investments/instruments?{$query}")->assertUnprocessable();
 })->with(['kind=FUND', 'status=GONE', 'q=a', 'q=' . str_repeat('a', 65)]);
 
-it('shows an instrument with every payout in date order', function (): void {
-    ['tezaur' => $tezaur] = market();
-    foreach (['2028-07-01' => PayoutKind::PRINCIPAL, '2027-07-01' => PayoutKind::COUPON] as $paid => $kind) {
+it('shows an instrument with how its price moved, how far off it matures, and its next and last payment', function (): void {
+    ['tezaur' => $tezaur, 'alpha' => $alpha] = market();
+    $tezaur->forceFill(['maturity_date' => '2029-07-01'])->save();
+    foreach (['2026-07-01' => PayoutKind::COUPON, '2027-07-01' => PayoutKind::COUPON, '2029-07-01' => PayoutKind::PRINCIPAL] as $paid => $kind) {
         InstrumentPayout::query()->create(['instrument_id' => $tezaur->id, 'kind' => $kind, 'payment_date' => $paid, 'rate' => '6.50', 'status' => PayoutStatus::ANNOUNCED, 'source' => PayoutSource::ORDER]);
     }
+    InstrumentPrice::query()->create(['instrument_id' => $alpha->id, 'trading_date' => '2026-11-09', 'price' => '11.5000', 'change_percent' => '-1.25', 'priced_at' => now(), 'evidence_id' => evidence()]);
 
-    $shown = $this->actingAs($this->user)->getJson("/api/v1/investments/instruments/{$tezaur->id}")->assertOk();
+    $bond = $this->actingAs($this->user)->getJson("/api/v1/investments/instruments/{$tezaur->id}")->assertOk();
+    $share = $this->actingAs($this->user)->getJson("/api/v1/investments/instruments/{$alpha->id}")->assertOk();
 
-    expect($shown->json('issueCode'))->toBe('0001')
-        ->and(column($shown->json('payouts'), 'paymentDate'))->toBe(['2027-07-01', '2028-07-01'])
-        ->and($shown->json('latestPrice'))->toBeNull();
+    // A bond's list is its coupons: its repayment is among its terms.
+    expect($bond->json('issueCode'))->toBe('0001')
+        ->and($bond->json('payoutsCount'))->toBe(2)
+        ->and($bond->json('nextPayout.paymentDate'))->toBe('2027-07-01')
+        ->and($bond->json('lastPayout.paymentDate'))->toBe('2026-07-01')
+        ->and($bond->json('maturesIn'))->toBe(['value' => 3, 'unit' => 'year'])
+        ->and($bond->json('latestChange'))->toBeNull()
+        ->and($bond->json('termsDocumentId'))->toBe($tezaur->terms_document_id)
+        ->and($bond->json())->not->toHaveKey('payouts')
+        ->and($share->json('latestChange'))->toBe(['percent' => '-1.25', 'trend' => 'DOWN'])
+        ->and($share->json('maturesIn'))->toBeNull();
     $this->actingAs($this->user)->getJson('/api/v1/investments/instruments/01900000-0000-7000-8000-000000000000')->assertNotFound();
 });
 
-it('answers a span of prices, and refuses one longer than configured or backwards', function (): void {
+it('lists a bond’s coupons numbered and a share’s every payment, in date order, when asked', function (): void {
+    ['tezaur' => $tezaur, 'alpha' => $alpha] = market();
+    foreach ([[PayoutKind::PRINCIPAL, '2028-07-01'], [PayoutKind::COUPON, '2027-07-01'], [PayoutKind::COUPON, '2028-07-01']] as [$kind, $paid]) {
+        InstrumentPayout::query()->create(['instrument_id' => $tezaur->id, 'kind' => $kind, 'payment_date' => $paid, 'period_start' => '2026-07-01', 'period_end' => '2027-06-30', 'rate' => '6.50', 'status' => PayoutStatus::ANNOUNCED, 'source' => PayoutSource::ORDER]);
+    }
+    InstrumentPayout::query()->create(['instrument_id' => $alpha->id, 'kind' => PayoutKind::DIVIDEND, 'payment_date' => '2026-06-25', 'amount_per_unit' => '1.5', 'status' => PayoutStatus::PAID, 'source' => PayoutSource::BVB]);
+
+    $coupons = $this->actingAs($this->user)->getJson("/api/v1/investments/instruments/{$tezaur->id}/payouts")->assertOk()->json('data');
+    $dividends = $this->actingAs($this->user)->getJson("/api/v1/investments/instruments/{$alpha->id}/payouts")->assertOk()->json('data');
+
+    expect(column($coupons, 'number'))->toBe([1, 2])
+        ->and(column($coupons, 'paymentDate'))->toBe(['2027-07-01', '2028-07-01'])
+        ->and(column($coupons, 'kind'))->toBe(['COUPON', 'COUPON'])
+        ->and(column($coupons, 'periodStart'))->toBe(['2026-07-01', '2026-07-01'])
+        ->and(column($dividends, 'number'))->toBe([null])
+        ->and(column($dividends, 'amountPerUnit'))->toBe(['1.5']);
+    $this->actingAs($this->user)->getJson('/api/v1/investments/instruments/01900000-0000-7000-8000-000000000000/payouts')->assertNotFound();
+});
+
+it('answers the prices of the last so many months, and refuses a span longer than configured', function (): void {
     ['alpha' => $alpha] = market();
-    InstrumentPrice::query()->create(['instrument_id' => $alpha->id, 'trading_date' => '2026-11-09', 'price' => '11.5000', 'priced_at' => now(), 'evidence_id' => evidence()]);
+    $evidence = evidence();
+    InstrumentPrice::query()->create(['instrument_id' => $alpha->id, 'trading_date' => '2026-11-09', 'price' => '11.5000', 'priced_at' => now(), 'evidence_id' => $evidence]);
+    InstrumentPrice::query()->create(['instrument_id' => $alpha->id, 'trading_date' => '2026-07-01', 'price' => '9.0000', 'priced_at' => now(), 'evidence_id' => $evidence]);
     $url = "/api/v1/investments/instruments/{$alpha->id}/prices";
 
-    expect($this->actingAs($this->user)->getJson("{$url}?from=2026-11-01&to=2026-11-30")->assertOk()->json('data.0.price'))->toBe('11.5000');
-    $this->actingAs($this->user)->getJson("{$url}?from=2016-01-01&to=2026-11-30")->assertUnprocessable();
-    $this->actingAs($this->user)->getJson("{$url}?from=2026-11-30&to=2026-11-01")->assertUnprocessable();
+    expect(column($this->actingAs($this->user)->getJson("{$url}?months=3")->assertOk()->json('data'), 'price'))->toBe(['11.5000'])
+        ->and(column($this->actingAs($this->user)->getJson("{$url}?months=12")->assertOk()->json('data'), 'price'))->toBe(['9.0000', '11.5000']);
+    $this->actingAs($this->user)->getJson("{$url}?months=120")->assertUnprocessable();
+    $this->actingAs($this->user)->getJson("{$url}?months=0")->assertUnprocessable();
     $this->actingAs($this->user)->getJson($url)->assertUnprocessable();
 });
 
@@ -147,12 +183,27 @@ it('lists upcoming payouts soonest first and recent ones latest first', function
     $this->actingAs($this->user)->getJson('/api/v1/investments/payouts/later')->assertNotFound();
 });
 
-it('answers a stored profile without reaching out, and 404 for one never read', function (): void {
+it('answers a stored profile without reaching out, its calendar latest first and marked, null for one never read', function (): void {
+    market();
     Http::fake();
-    IssuerProfile::query()->create(['issuer_key' => 'ALFA', 'meetings' => [['date' => '2026-04-28', 'kind' => 'Adunarea Generala Ordinara']], 'shareholders' => [], 'read_at' => now(), 'evidence_id' => evidence()]);
+    IssuerProfile::query()->create([
+        'issuer_key' => 'ALFA',
+        'meetings' => [['date' => '2026-04-28', 'kind' => 'Adunarea Generala Ordinara'], ['date' => '2026-12-15', 'kind' => 'Adunarea Generala Extraordinara']],
+        'shareholders' => [],
+        'read_at' => now(),
+        'evidence_id' => evidence(),
+    ]);
 
-    expect($this->actingAs($this->user)->getJson('/api/v1/investments/issuers/ALFA')->assertOk()->json('meetings.0.kind'))->toBe('Adunarea Generala Ordinara');
-    $this->actingAs($this->user)->getJson('/api/v1/investments/issuers/BETA')->assertNotFound();
+    $stored = $this->actingAs($this->user)->getJson('/api/v1/investments/issuers/ALFA')->assertOk();
+    // A profile read before its figures were kept has none of them, and no financial calendar.
+    expect(column($stored->json('meetings'), 'date'))->toBe(['2026-12-15', '2026-04-28'])
+        ->and(column($stored->json('meetings'), 'upcoming'))->toBe([true, false])
+        ->and($stored->json('financialCalendar'))->toBe([])
+        ->and($stored->json('figures.marketCap'))->toBeNull()
+        ->and($stored->json('figures.couponDiffers'))->toBeFalse();
+    // Never read: JSON's own null, not an empty object.
+    expect($this->actingAs($this->user)->getJson('/api/v1/investments/issuers/BETA')->assertOk()->getContent())->toBe('null');
+    $this->actingAs($this->user)->getJson('/api/v1/investments/issuers/MADEUP')->assertNotFound();
     $this->actingAs($this->user)->getJson('/api/v1/investments/issuers/bad;key')->assertNotFound();
     Http::assertNothingSent();
 });
@@ -181,7 +232,34 @@ it('reads a profile from BVB when asked, and answers the stored one while it is 
 
     expect($read->json('meetings'))->toHaveCount(5)
         ->and($read->json('shareholders.0.shares'))->toBe(360094390)
-        ->and($read->json('shareholdersAsOf'))->toBe('2025-12-31');
+        ->and($read->json('shareholdersAsOf'))->toBe('2025-12-31')
+        // Latest first, each still to come on 2026-11-09.
+        ->and($read->json('financialCalendar'))->toBe([
+            ['date' => '2026-11-17', 'what' => 'Teleconferinta – prezentare rezultate financiare trimestrul III', 'upcoming' => true],
+            ['date' => '2026-11-16', 'what' => 'Rezultate financiare trimestrul III 2026', 'upcoming' => true],
+        ])
+        ->and($read->json('figures'))->toMatchArray([
+            'marketCap' => '84382961569.20', 'priceEarnings' => '19.38', 'dividendYield' => '5.10',
+            'lastDividend' => '9.571562', 'lastDividendYear' => 2025, 'week52High' => '221.0000',
+            'sharesTotal' => 449802567, 'tradingSince' => '2023-07-12', 'category' => 'Premium',
+        ]);
+    Http::assertSentCount(1);
+});
+
+it('reads a listed bond’s yield and issue from BVB, and never asks for a bond that is not listed', function (): void {
+    FinancialInstrument::query()->create(['kind' => InstrumentKind::GOVERNMENT_BOND, 'programme' => Programme::FIDELIS, 'isin' => 'RO0000EXMPL1', 'symbol' => 'R2899A', 'name' => 'FIDELIS R2899A', 'issuer_name' => 'Example ministry', 'currency' => 'RON', 'rate' => '8.00', 'market' => Market::BVB, 'status' => InstrumentStatus::ACTIVE]);
+    FinancialInstrument::query()->create(['kind' => InstrumentKind::GOVERNMENT_BOND, 'programme' => Programme::TEZAUR, 'issue_code' => '9999', 'symbol' => 'T9999', 'name' => 'TEZAUR 9999', 'issuer_name' => 'Example ministry', 'currency' => 'RON', 'status' => InstrumentStatus::ACTIVE]);
+    Http::fake(['https://www.bvb.ro/*' => Http::response((string) file_get_contents(base_path('../../packages/investments/tests/Fixtures/bvb/instrument-bond.html')))]);
+
+    $read = $this->actingAs($this->user)->postJson('/api/v1/investments/issuers/R2899A/refresh')->assertOk();
+    $this->actingAs($this->user)->postJson('/api/v1/investments/issuers/T9999/refresh')->assertNotFound();
+
+    expect($read->json('figures'))->toMatchArray([
+        'bid' => '100.4500', 'ask' => '100.9999', 'couponRate' => '8.2500', 'yieldToMaturity' => '6.75',
+        'unitsIssued' => 990835, 'issueValue' => '99083500', 'marketCap' => null,
+        // Its terms say 8%, BVB 8.25%: said.
+        'couponDiffers' => true,
+    ])->and($read->json('shareholders'))->toBe([]);
     Http::assertSentCount(1);
 });
 

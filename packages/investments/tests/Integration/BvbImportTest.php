@@ -9,6 +9,8 @@ use Kern\Investments\Enums\InstrumentKind;
 use Kern\Investments\Enums\InstrumentStatus;
 use Kern\Investments\Enums\Market;
 use Kern\Investments\Enums\PayoutKind;
+use Kern\Investments\Enums\PayoutSource;
+use Kern\Investments\Enums\PayoutStatus;
 use Kern\Investments\Enums\Programme;
 use Kern\Investments\Models\FinancialInstrument;
 use Kern\Investments\Models\InstrumentPayout;
@@ -124,6 +126,19 @@ it('marks a share gone from the list delisted, and keeps it and its prices', fun
     expect($tlv->status)->toBe(InstrumentStatus::DELISTED)
         ->and(InstrumentPrice::query()->where('instrument_id', $tlv->id)->count())->toBe(1)
         ->and($lines[2])->toContain('1 delisted');
+});
+
+it('marks a payment whose day has passed paid, an order’s coupon too, and leaves one still to come', function (): void {
+    bvb();
+    $issue = fidelis();
+    foreach (['2026-07-16', '2027-07-16'] as $paid) {
+        InstrumentPayout::query()->create(['instrument_id' => $issue->id, 'kind' => PayoutKind::COUPON, 'payment_date' => $paid, 'rate' => '8.25', 'status' => PayoutStatus::ANNOUNCED, 'source' => PayoutSource::ORDER]);
+    }
+
+    $lines = app(BvbImport::class)->run();
+
+    expect(InstrumentPayout::query()->where('instrument_id', $issue->id)->orderBy('payment_date')->pluck('status')->all())->toBe([PayoutStatus::PAID, PayoutStatus::ANNOUNCED])
+        ->and($lines[2])->toContain('1 payments paid');
 });
 
 it('writes nothing when a page does not read', function (): void {

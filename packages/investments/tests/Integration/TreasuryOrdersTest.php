@@ -16,6 +16,7 @@ use Kern\Investments\Models\InstrumentPayout;
 use Kern\Investments\Models\TreasuryOrder;
 use Kern\Investments\Parsing\ParseFailure;
 use Kern\Investments\Services\TreasuryOrders;
+use Kern\Investments\Services\UnreadOrders;
 use Kern\Legislation\Events\LawConsolidationsRead;
 use Kern\Legislation\Models\SourceDocument;
 use Kern\Legislation\Models\SourceDocumentVersion;
@@ -138,6 +139,24 @@ it('reads again an order read as having no issue, and writes the issues it finds
 
     expect(TreasuryOrder::query()->sole()->issues_count)->toBe(7)
         ->and(FinancialInstrument::query()->count())->toBe(7);
+});
+
+it('reads again an order whose law was read since under a newer parser, and writes what it says now', function (): void {
+    Queue::fake();
+    $order = storedOrder('fidelis-terms', 'ORDIN … Programul FIDELIS');
+    app(TreasuryOrders::class)->read($order->id, Programme::FIDELIS);
+    $coupon = static fn (): InstrumentPayout => InstrumentPayout::query()->where('kind', PayoutKind::COUPON)->orderBy('payment_date')->firstOrFail();
+    // As an older reading of the law left it: no periods.
+    InstrumentPayout::query()->update(['period_start' => null, 'period_end' => null]);
+    SourceDocumentVersion::query()->where('source_document_id', $order->id)->update(['parser_version' => '99.0.0']);
+
+    expect(app(UnreadOrders::class)->queue())->toContain('orders: 1 ');
+
+    app(TreasuryOrders::class)->read($order->id, Programme::FIDELIS);
+
+    expect(TreasuryOrder::query()->sole()->parser_version)->toBe('99.0.0')
+        ->and($coupon()->period_start?->format('Y-m-d'))->toBe('2026-10-14')
+        ->and(app(UnreadOrders::class)->queue())->toContain('orders: 0 ');
 });
 
 it('reads an order from its provisions as stored, its page gone from the object store', function (): void {

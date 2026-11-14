@@ -13,11 +13,17 @@ final readonly class BvbSource
 
     public const string SYMBOL = '{symbol}';
 
+    /**
+     * @param int<1, 365> $pageRefreshDays how old an instrument's page reading may grow before the day's import reads it again
+     * @param int<1, 3600> $spacingSeconds the pause between two instruments read in the background
+     */
     public function __construct(
         public string $sharesUrl,
         public string $bondsUrl,
         public string $dividendsUrl,
         private string $instrumentUrl,
+        public int $pageRefreshDays,
+        public int $spacingSeconds,
         public DateTimeZone $timezone,
     ) {
     }

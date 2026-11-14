@@ -151,15 +151,20 @@ function buy(TestCase $case, User $user, TaxSubject $subject, FinancialInstrumen
     ]);
 }
 
-/** @return array<string, array<array-key, mixed>> the holdings the API answers, by lot id */
+/** @return array<string, array<array-key, mixed>> every lot the API answers, open and sold, by lot id */
 function holdings(TestCase $case, User $user, TaxSubject $subject): array
 {
-    $lines = $case->actingAs($user)->getJson("/api/v1/subjects/{$subject->id}/wallet/holdings")->assertOk()->json('holdings');
     $byId = [];
 
-    foreach (is_array($lines) ? $lines : [] as $line) {
-        if (is_array($line) && is_string($line['id'] ?? null)) {
-            $byId[$line['id']] = $line;
+    foreach (['open', 'sold'] as $state) {
+        $positions = $case->actingAs($user)->getJson("/api/v1/subjects/{$subject->id}/wallet/holdings?state={$state}&per_page=100")->assertOk()->json('positions');
+
+        foreach (is_array($positions) ? $positions : [] as $position) {
+            foreach (is_array($position) && is_array($position['lots'] ?? null) ? $position['lots'] : [] as $line) {
+                if (is_array($line) && is_string($line['id'] ?? null)) {
+                    $byId[$line['id']] = $line;
+                }
+            }
         }
     }
 
@@ -207,6 +212,38 @@ it('adds a lot with its instrument’s terms, and refuses an instrument no longe
         ->and($line['instrumentName'])->toBe('FIDELIS R2899T')
         ->and($line['units'])->toBe('12.5')
         ->and($line['costMinor'])->toBe(125_250);
+});
+
+it('answers one position per share per place, its purchases under it, added up exactly, a page at a time', function (): void {
+    [$user, $subject] = owner();
+    $share = instrument();
+    $other = instrument(['symbol' => 'OTHR', 'isin' => 'ROOTHR000001', 'name' => 'Alt SA', 'issuer_name' => 'Alt SA']);
+    price($share, '120');
+    buy($this, $user, $subject, $share, ['units' => '10', 'price_per_unit' => '100', 'fees_minor' => 500, 'bought_on' => '2025-03-01'])->assertCreated();
+    buy($this, $user, $subject, $share, ['units' => '5.5', 'price_per_unit' => '110', 'bought_on' => '2026-01-10'])->assertCreated();
+    buy($this, $user, $subject, $other, ['bought_on' => '2026-02-01'])->assertCreated();
+    $url = "/api/v1/subjects/{$subject->id}/wallet/holdings";
+
+    $first = $this->actingAs($user)->getJson("{$url}?state=open&per_page=10")->assertOk();
+    /** @var array{instrumentId: string, lots: list<mixed>, units: string, costMinor: int, averagePrice: string, valueMinor: int, resultMinor: int, resultPercent: string, firstBoughtOn: string, receivedMinor: int} $position */
+    $position = $first->json('positions.0');
+
+    expect($first->json('total'))->toBe(2)
+        ->and($first->json('positions'))->toHaveCount(2)
+        ->and($position['instrumentId'])->toBe($share->id)
+        ->and($position['lots'])->toHaveCount(2)
+        ->and($position['units'])->toBe('15.500000')
+        // 10 × 100 + 5 fees + 5.5 × 110 = 1610 RON, over 15.5 units.
+        ->and($position['costMinor'])->toBe(161000)
+        ->and($position['averagePrice'])->toBe('103.8709')
+        // 15.5 × 120 = 1860 RON: 250 more than it cost.
+        ->and([$position['valueMinor'], $position['resultMinor'], $position['resultPercent']])->toBe([186000, 25000, '15.52'])
+        ->and($position['firstBoughtOn'])->toBe('2025-03-01')
+        ->and($position['receivedMinor'])->toBe(0);
+    expect($this->actingAs($user)->getJson("{$url}?state=open&per_page=10&page=2")->assertOk()->json('positions'))->toBe([])
+        ->and($this->actingAs($user)->getJson("{$url}?state=sold")->assertOk()->json('total'))->toBe(0);
+    $this->actingAs($user)->getJson($url)->assertUnprocessable();
+    $this->actingAs($user)->getJson("{$url}?state=all")->assertUnprocessable();
 });
 
 it('refuses a malformed number of units', function (): void {
@@ -258,7 +295,7 @@ it('never shows, adds to or sells another taxpayer’s holding', function (): vo
         'sold_on' => '2026-03-01',
         'fees_minor' => 0,
     ])->assertNotFound();
-    $this->actingAs($bob)->getJson("/api/v1/subjects/{$hers->id}/wallet/holdings")->assertForbidden();
+    $this->actingAs($bob)->getJson("/api/v1/subjects/{$hers->id}/wallet/holdings?state=open")->assertForbidden();
 
     expect(InvestmentLot::query()->withoutGlobalScope(TenantScope::class)->whereNotNull('sold_on')->count())->toBe(0);
 });

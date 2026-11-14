@@ -1,50 +1,81 @@
 import { apiRequest } from '../lib/http';
 import {
     type HeldAt,
-    type HoldingLine,
-    type Instrument,
+    type HoldingPage,
     type InstrumentDetail,
     type InstrumentKind,
+    type InstrumentPage,
+    type IssuerProfile,
     type InstrumentStatus,
+    type PayoutRow,
     type PricePoint,
-    parseHoldingLine,
-    parseInstrument,
+    type Programme,
+    parseHoldingPage,
     parseInstrumentDetail,
-    parsePage,
+    parseInstrumentPage,
+    parseIssuerProfile,
+    parsePayoutRow,
     parsePricePoint,
 } from '../types/investments';
 import { obj } from '../lib/json';
 
-/** The market, a page at a time: active by default, filtered and searched as asked. */
+/** One page of the market: active by default, filtered and searched as asked, with what the filters keep. */
 export async function listInstruments(filters: {
     kind?: InstrumentKind;
     status?: InstrumentStatus;
+    programme?: Programme;
     q?: string;
-    cursor?: string | null;
-}): Promise<{ data: Instrument[]; nextCursor: string | null }> {
+    page?: number;
+    perPage?: number;
+}): Promise<InstrumentPage> {
+    const { perPage, ...rest } = filters;
     const query = new URLSearchParams();
 
-    for (const [key, value] of Object.entries(filters)) {
-        if (typeof value === 'string' && value !== '') {
-            query.set(key, value);
+    for (const [key, value] of Object.entries({ ...rest, per_page: perPage })) {
+        if ((typeof value === 'string' && value !== '') || typeof value === 'number') {
+            query.set(key, String(value));
         }
     }
 
     const suffix = query.size === 0 ? '' : `?${query.toString()}`;
 
-    return parsePage(JSON.parse(await apiRequest(`/v1/investments/instruments${suffix}`)), parseInstrument);
+    return parseInstrumentPage(JSON.parse(await apiRequest(`/v1/investments/instruments${suffix}`)));
 }
 
 export async function getInstrument(id: string): Promise<InstrumentDetail> {
     return parseInstrumentDetail(JSON.parse(await apiRequest(`/v1/investments/instruments/${encodeURIComponent(id)}`)));
 }
 
+/** The payments an instrument's list shows, in date order — asked for when the list is opened. */
+export async function listInstrumentPayouts(id: string): Promise<PayoutRow[]> {
+    const answer = obj(JSON.parse(await apiRequest(`/v1/investments/instruments/${encodeURIComponent(id)}/payouts`)));
+
+    return (Array.isArray(answer.data) ? answer.data : []).map(parsePayoutRow);
+}
+
+/** A listed instrument's profile as last read from BVB, by its symbol — or null when it has never been read. Never reaches out. */
+export async function getIssuerProfile(symbol: string): Promise<IssuerProfile | null> {
+    const answer: unknown = JSON.parse(await apiRequest(`/v1/investments/issuers/${encodeURIComponent(symbol)}`));
+
+    return answer === null ? null : parseIssuerProfile(answer);
+}
+
+/** Reads the company's profile from BVB now — the stored one while it is still fresh. */
+export async function refreshIssuerProfile(symbol: string): Promise<IssuerProfile> {
+    return parseIssuerProfile(
+        JSON.parse(
+            await apiRequest(`/v1/investments/issuers/${encodeURIComponent(symbol)}/refresh`, { method: 'POST' }),
+        ),
+    );
+}
+
 /** The price each trading day from `from` to `to`, oldest first. */
-export async function getPrices(id: string, from: string, to: string): Promise<PricePoint[]> {
+/** The price on each trading day of the last so many months, oldest first — the server counts the span. */
+export async function getPrices(id: string, months: number): Promise<PricePoint[]> {
     const answer = obj(
         JSON.parse(
             await apiRequest(
-                `/v1/investments/instruments/${encodeURIComponent(id)}/prices?${new URLSearchParams({ from, to }).toString()}`,
+                `/v1/investments/instruments/${encodeURIComponent(id)}/prices?${new URLSearchParams({ months: String(months) }).toString()}`,
             ),
         ),
     );
@@ -54,11 +85,16 @@ export async function getPrices(id: string, from: string, to: string): Promise<P
 
 const holdingsPath = (subjectId: string): string => `/v1/subjects/${encodeURIComponent(subjectId)}/wallet/holdings`;
 
-/** Every purchase held or sold, with its value and its result, as the server computes them. */
-export async function listHoldings(subjectId: string): Promise<HoldingLine[]> {
-    const answer = obj(JSON.parse(await apiRequest(holdingsPath(subjectId))));
+/** One page of positions still held (`open`) or sold, each with its purchases, as the server computes them. */
+export async function listHoldings(
+    subjectId: string,
+    state: 'open' | 'sold',
+    page: number,
+    perPage: number,
+): Promise<HoldingPage> {
+    const query = new URLSearchParams({ state, page: String(page), per_page: String(perPage) });
 
-    return (Array.isArray(answer.holdings) ? answer.holdings : []).map(parseHoldingLine);
+    return parseHoldingPage(JSON.parse(await apiRequest(`${holdingsPath(subjectId)}?${query.toString()}`)));
 }
 
 /** A purchase: the instrument's terms are its own, the rest is what was paid. The server finds or opens the money account for where it is held. */

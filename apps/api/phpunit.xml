@@ -89,6 +89,8 @@
         <env name="INVESTMENTS_BVB_BONDS_URL" value="https://www.bvb.ro/FinancialInstruments/Markets/Bonds" force="true"/>
         <env name="INVESTMENTS_BVB_DIVIDENDS_URL" value="https://www.bvb.ro/FinancialInstruments/CorporateActions/InfoDividend" force="true"/>
         <env name="INVESTMENTS_BVB_INSTRUMENT_URL" value="https://www.bvb.ro/FinancialInstruments/Details/FinancialInstrumentsDetails.aspx?s={symbol}" force="true"/>
+        <env name="INVESTMENTS_BVB_PAGE_REFRESH_DAYS" value="7" force="true"/>
+        <env name="INVESTMENTS_BVB_SPACING_SECONDS" value="10" force="true"/>
         <env name="INVESTMENTS_BVB_TIMEZONE" value="Europe/Bucharest" force="true"/>
         <env name="INVESTMENTS_ORDERS_ACT_TYPE" value="ORDIN" force="true"/>
         <env name="INVESTMENTS_FIDELIS_SEARCH" value="Programul FIDELIS" force="true"/>

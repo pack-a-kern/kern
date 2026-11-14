@@ -18,6 +18,7 @@ use Kern\Investments\Enums\PayoutSource;
 use Kern\Investments\Enums\PayoutStatus;
 use Kern\Investments\Enums\Programme;
 use Kern\Investments\Models\FinancialInstrument;
+use Kern\Investments\Models\InstrumentPayout;
 use Kern\Investments\Parsing\Bvb\AnnouncedDividend;
 use Kern\Investments\Parsing\Bvb\BvbBondType;
 use Kern\Investments\Parsing\Bvb\BvbListings;
@@ -34,7 +35,8 @@ use Kern\Legislation\Services\SourceIngestionService;
  * - A price is stored under the day BVB prints beside it, so a day the exchange is closed adds nothing.
  * - A dividend is written for a share already known; one for any other is counted and skipped.
  * - Nothing is deleted. A share or a bond no longer listed is delisted; one past its maturity matured; an
- *   issue whose day has come active.
+ *   issue whose day has come active; a payment whose day has passed paid — an order's coupons too, which
+ *   no list brings again.
  */
 final readonly class BvbImport
 {
@@ -76,13 +78,13 @@ final readonly class BvbImport
 
             $prices = $this->writePrices([...$shares, ...$bonds], $ids, $pages['shares']->sourceDocumentVersionId, $pages['bonds']->sourceDocumentVersionId, $now);
             [$paid, $unknown] = $this->writeDividends($dividends, $this->idsByIsin(array_map(static fn (AnnouncedDividend $d): string => $d->isin, $dividends)), $today, $now);
-            [$delisted, $matured, $issued] = $this->updateStatuses($listed, $today);
+            [$delisted, $matured, $issued, $paidOut] = $this->updateStatuses($listed, $today);
             $unlisted = FinancialInstrument::query()->where('programme', Programme::FIDELIS)->where('status', InstrumentStatus::ACTIVE)->whereNotIn('isin', $listed)->count();
 
             return [
                 sprintf('BVB: %d shares, %d bonds, %d prices, %d dividends written (%d for a share not known, skipped)', count($shares), count($bonds) - $orphans, $prices, $paid, $unknown),
                 sprintf('BVB: %d listed government bonds with no order behind them, not written; %d active Fidelis issues not listed', $orphans, $unlisted),
-                sprintf('BVB: %d delisted, %d matured, %d issued since the last run', $delisted, $matured, $issued),
+                sprintf('BVB: %d delisted, %d matured, %d issued, %d payments paid since the last run', $delisted, $matured, $issued, $paidOut),
             ];
         });
     }
@@ -224,7 +226,7 @@ final readonly class BvbImport
     /**
      * @param list<string> $listed every ISIN BVB lists today
      *
-     * @return array{int, int, int} delisted, matured, issued
+     * @return array{int, int, int, int} delisted, matured, issued, payments paid
      */
     private function updateStatuses(array $listed, DateTimeImmutable $today): array
     {
@@ -240,7 +242,9 @@ final readonly class BvbImport
             ->whereNotIn('isin', $listed)
             ->update(['status' => InstrumentStatus::DELISTED]);
 
-        return [$delisted, $matured, $issued];
+        $paid = InstrumentPayout::query()->where('status', PayoutStatus::ANNOUNCED)->where('payment_date', '<', $day)->update(['status' => PayoutStatus::PAID]);
+
+        return [$delisted, $matured, $issued, $paid];
     }
 
     /**

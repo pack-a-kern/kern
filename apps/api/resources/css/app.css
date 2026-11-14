@@ -183,13 +183,14 @@
     --attention: #f59e0b;
     --critical: #dc2626;
 
-    /* One ink per kind of act (`lib/actKinds.ts`), apart from the status colours and from each other. */
-    --act-lege: #2f6fb5;
-    --act-oug: #b8326e;
-    --act-og: #a85a14;
-    --act-hg: #12806f;
-    --act-ordin: #7048b8;
-    --act-decizie: #66761a;
+    /* One ink per kind of a thing — an act (`lib/actKinds.ts`), an instrument (`lib/instrumentKinds.ts`): apart
+       from the status colours and from each other. */
+    --tone-blue: #2f6fb5;
+    --tone-magenta: #b8326e;
+    --tone-orange: #a85a14;
+    --tone-teal: #12806f;
+    --tone-violet: #7048b8;
+    --tone-olive: #66761a;
 
     --background: #f5f7f9;
     --foreground: #182230;
@@ -258,12 +259,12 @@
     /* Four distinct greys, not one with opacity: canvas, shell, card, hover. Depth here comes from
        surface separation rather than shadow, which barely reads on a dark ground. */
     /* The same kinds, lifted for a dark ground. */
-    --act-lege: #7fb0e8;
-    --act-oug: #ec86b2;
-    --act-og: #e3a35f;
-    --act-hg: #5cc8b4;
-    --act-ordin: #b39af0;
-    --act-decizie: #b4c565;
+    --tone-blue: #7fb0e8;
+    --tone-magenta: #ec86b2;
+    --tone-orange: #e3a35f;
+    --tone-teal: #5cc8b4;
+    --tone-violet: #b39af0;
+    --tone-olive: #b4c565;
     --background: #191a1c;
     --foreground: #eceef0;
     --shell: #202225;
@@ -2242,31 +2243,31 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     grid-template-rows: minmax(0, 1fr) auto auto;
 }
 
-/* An act's kind: its ink, and a wash of it behind — on its card's mark and on its type's pill. */
-.act {
-    color: var(--act);
-    background: color-mix(in oklab, var(--act) 13%, transparent);
+/* A kind's ink, and a wash of it behind — on a card's mark, a type's pill, a kind's tab. */
+.tone {
+    color: var(--tone);
+    background: color-mix(in oklab, var(--tone) 13%, transparent);
 }
-.act-lege {
-    --act: var(--act-lege);
+.tone-blue {
+    --tone: var(--tone-blue);
 }
-.act-oug {
-    --act: var(--act-oug);
+.tone-magenta {
+    --tone: var(--tone-magenta);
 }
-.act-og {
-    --act: var(--act-og);
+.tone-orange {
+    --tone: var(--tone-orange);
 }
-.act-hg {
-    --act: var(--act-hg);
+.tone-teal {
+    --tone: var(--tone-teal);
 }
-.act-ordin {
-    --act: var(--act-ordin);
+.tone-violet {
+    --tone: var(--tone-violet);
 }
-.act-decizie {
-    --act: var(--act-decizie);
+.tone-olive {
+    --tone: var(--tone-olive);
 }
-.act-other {
-    --act: var(--muted-foreground);
+.tone-plain {
+    --tone: var(--muted-foreground);
 }
 
 /* The act's name: a step under the body text, not bold, at most two lines; where they cut it, the
@@ -2669,6 +2670,78 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 @media (width >= 64rem) {
     .stat-grid {
         grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+/* Tiles that come three, five or six: three to a row on a desktop — 3, 3 + 2, 3 + 3 — never four and a
+   lonely one or two. */
+@media (width >= 64rem) {
+    .stat-grid-thirds:has(> :nth-child(3):last-child),
+    .stat-grid-thirds:has(> :nth-child(5):last-child),
+    .stat-grid-thirds:has(> :nth-child(6):last-child) {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+/* An instrument's terms: a grid of facts, each a mark, a label and its value, set off by hairlines — one
+   column on a phone, two, then three as the card widens. */
+.facts {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 24px;
+    border-top: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+}
+@media (width >= 40rem) {
+    .facts {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (width >= 64rem) {
+    .facts {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+.fact {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-block: 10px;
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+}
+.fact-mark {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-md);
+    background: var(--muted);
+    color: var(--muted-foreground);
+}
+.fact-figure {
+    margin: 0;
+    overflow-wrap: anywhere;
+    font-size: var(--text-sm);
+    font-weight: 600;
+}
+/* A phone: the label beside its mark, the value at the far edge — one line a fact, read down two edges. */
+.fact-text {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+}
+.fact-text .fact-figure {
+    text-align: right;
+}
+/* Wider, in columns: the value under its label, both against the mark. */
+@media (width >= 40rem) {
+    .fact-text {
+        display: block;
+    }
+    .fact-text .fact-figure {
+        text-align: left;
     }
 }
 .stat {
@@ -3262,7 +3335,9 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
         min-width: 0;
     }
     .toolbar > .filter-select,
-    .toolbar-row > .filter-select {
+    .toolbar-row > .filter-select,
+    /* A control sharing a line with a select, half and half — "clear filters" beside the last one. */
+    .toolbar-row > .toolbar-half {
         flex: 1 1 calc(50% - var(--toolbar-gap) / 2);
         width: auto;
         min-width: 0;

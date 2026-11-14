@@ -18,7 +18,8 @@ return [
         'trust_tier' => 'D',
         // The exchange's home page, as each source shows its own on the official sources screen.
         'base_url' => env('INVESTMENTS_BVB_BASE_URL'),
-        'allowed_hosts' => ['www.bvb.ro', 'bvb.ro'],
+        // wapi.bvb.ro: the prices behind an instrument page's own chart.
+        'allowed_hosts' => ['www.bvb.ro', 'bvb.ro', 'wapi.bvb.ro'],
         'enabled' => true,
         'priority' => 1,
     ],

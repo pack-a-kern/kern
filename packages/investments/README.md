@@ -18,7 +18,7 @@ The decisions behind it are [ADR 0025](../../docs/adr/0025-investments-are-a-pac
 | `ext_financial_instruments` | security: a Fidelis or Tezaur issue, a listed bond, a share | ISIN; or programme + issue code (Tezaur); or market + symbol |
 | `ext_instrument_payouts` | payment per unit: a coupon, the repayment, a dividend | instrument + kind + payment date |
 | `ext_instrument_prices` | instrument per trading day | instrument + trading date |
-| `ext_issuer_profiles` | company: its shareholders' meetings and shareholders | the symbol BVB files it under |
+| `ext_issuer_profiles` | listed instrument: its BVB page — figures, calendar, a company's meetings and shareholders | the symbol BVB files it under |
 
 Each identity is a unique index, so reading a source twice changes nothing.
 
@@ -133,10 +133,11 @@ Every answer is shaped for the screen: dates `Y-m-d`, decimals as text, enums by
 | Call | Answers |
 |---|---|
 | `GET instruments?kind=&programme=&status=&q=&cursor=` | The market, active by default, by name; `q` is a symbol, ISIN or code exactly, or words of a name. Each with its latest price. |
-| `GET instruments/{id}` | The terms, every payout in date order, the latest price. |
-| `GET instruments/{id}/prices?from=&to=` | The price each trading day of a span, at most `INVESTMENTS_API_MAX_SPAN_DAYS`. |
+| `GET instruments/{id}` | The terms, the latest price and its move, how far off it matures, how many payments its list holds, the next and the last paid. |
+| `GET instruments/{id}/payouts` | That list: a bond's coupons, numbered; a share's every payment. In date order. |
+| `GET instruments/{id}/prices?months=` | The price each trading day of the last so many months, at most `INVESTMENTS_API_MAX_SPAN_DAYS`. |
 | `GET payouts/upcoming?kind=` · `GET payouts/recent?kind=` | Coupons, repayments and dividends from today on, or before it. |
-| `GET issuers/{key}` | A company's stored profile — meetings, shareholders — or 404. Never reaches out. |
+| `GET issuers/{key}` | A listed instrument's stored profile, or null when never read; 404 for a symbol not listed. Never reaches out. |
 | `POST issuers/{key}/refresh` | The profile read from BVB now; the stored one while younger than `INVESTMENTS_PROFILE_REFRESH_HOURS`. |
 
 Lists page by cursor, `INVESTMENTS_API_PAGE_SIZE` rows at most; follow `nextCursor` until it is `null`.
@@ -167,9 +168,15 @@ Two scheduled tasks of this package, each on the Operations screen:
 
 - **`investments.import_government_bonds`** (weekly) — the Ministry's subscription lists, and any order
   already a law but never read for its issues (added before this package was installed, say).
-- **`investments.import_bvb`** (weekdays, after the close) — shares, bonds, dividends, the day's prices.
+- **`investments.import_bvb`** (weekdays, after the close) — shares, bonds, dividends, the day's prices;
+  then each listed instrument's page due a reading is queued, one every `INVESTMENTS_BVB_SPACING_SECONDS`.
 
 Each says in its run history what it wrote and what it skipped.
+
+An instrument's past prices are read once, the first time its page is: the page is opened in the browser
+worker (`config/playbooks/bvb.php`), its chart's six months asked for, and the daily prices the chart
+fetches kept as evidence — that address answers nothing but its own page. The browser goes out with the
+Browser card's engine and name, and through its proxy if the card ticks `bvb` for one (ADR 0025 §5).
 
 ## Tests
 

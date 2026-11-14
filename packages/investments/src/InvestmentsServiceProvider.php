@@ -40,6 +40,8 @@ final class InvestmentsServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__ . '/../config/investments.php', 'investments');
+        // What the browser worker does on BVB's site, as instructions rather than code.
+        $this->mergeConfigFrom(__DIR__ . '/../config/playbooks/bvb.php', 'playbooks.bvb');
 
         $this->app->booting(static function (Application $app): void {
             $config = $app->make(ConfigRepository::class);

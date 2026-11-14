@@ -25,14 +25,16 @@ use Kern\Investments\Parsing\Orders\OrderPayout;
 use Kern\Investments\Parsing\Orders\TreasuryOrderParser;
 use Kern\Investments\Parsing\ParseFailure;
 use Kern\Legislation\Models\SourceDocument;
+use Kern\Legislation\Models\SourceDocumentVersion;
 use Kern\Legislation\Provisions\StoredProvisions;
 
 /**
  * A Ministry of Finance order, read for the issues it launches and written as instruments and their
  * payouts (ADR 0025 §5). Read from its provisions as `kern/legislation` stored them, never fetched again —
  * a law it reads again with a better parser reads here as it now stands; an order read for its issues is
- * not read twice. One with no issue is recorded as read all the same, and read again
- * when asked: a layout this reading did not know then is one it may know now.
+ * not read twice under the same reading of its law, and is read again once its law was read under a newer
+ * parser, which may say more of each issue. One with no issue is recorded as read all the same, and read
+ * again when asked: a layout this reading did not know then is one it may know now.
  *
  * An instrument is found by its ISIN (Fidelis) or its programme and code (Tezaur). One another order
  * already wrote is left as that order wrote it: skipped, counted on this order's record, said in the log —
@@ -48,7 +50,9 @@ final readonly class TreasuryOrders
 
     public function read(string $sourceDocumentId, Programme $programme): void
     {
-        if (TreasuryOrder::query()->where('source_document_id', $sourceDocumentId)->where('issues_count', '>', 0)->exists()) {
+        $parserVersion = SourceDocumentVersion::query()->where('source_document_id', $sourceDocumentId)->latest('retrieved_at')->value('parser_version');
+
+        if (TreasuryOrder::query()->where('source_document_id', $sourceDocumentId)->where('issues_count', '>', 0)->where('parser_version', $parserVersion)->exists()) {
             return;
         }
 
@@ -57,7 +61,7 @@ final readonly class TreasuryOrders
         $issues = $programme === Programme::FIDELIS ? TreasuryOrderParser::fidelis($provisions) : TreasuryOrderParser::tezaur($provisions);
         $issuer = is_string($order->issuer) && $order->issuer !== '' ? $order->issuer : throw ParseFailure::at("order {$order->id}", 'names no issuer');
 
-        DB::transaction(function () use ($order, $programme, $issues, $issuer): void {
+        DB::transaction(function () use ($order, $programme, $issues, $issuer, $parserVersion): void {
             $skipped = [];
 
             foreach ($issues as $issue) {
@@ -78,6 +82,7 @@ final readonly class TreasuryOrders
                 'issues_count' => count($issues),
                 'skipped_issues' => $skipped,
                 'read_at' => now(),
+                'parser_version' => $parserVersion,
             ]);
         });
     }

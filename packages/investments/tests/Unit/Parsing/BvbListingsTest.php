@@ -64,6 +64,15 @@ it('reads every listed bond from BVB’s real page, an untraded one without a pr
         ->and(array_unique(array_map(fn (ListedBond $bond): string => $bond->type->value, $bonds)))->toHaveCount(3);
 });
 
+it('reads a bond whose coupon BVB leaves empty as one without a coupon, and still refuses one not a number', function (): void {
+    $row = '<td align="right">09.11.2026 17:27</td><td align="right">8,2500</td>';
+    $bonds = listings()->bonds(str_replace($row, '<td align="right">09.11.2026 17:27</td><td align="right"></td>', page('bonds')));
+
+    expect(array_values(array_filter($bonds, fn (ListedBond $bond): bool => $bond->symbol === 'R2707B'))[0]->couponPercent)->toBeNull()
+        ->and(fn () => listings()->bonds(str_replace($row, '<td align="right">09.11.2026 17:27</td><td align="right">n/a</td>', page('bonds'))))
+        ->toThrow(ParseFailure::class);
+});
+
 it('reads every dividend from BVB’s real page', function (): void {
     $dividends = listings()->dividends(page('dividends'));
 

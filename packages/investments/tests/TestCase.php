@@ -53,6 +53,9 @@ abstract class TestCase extends Testbench
         $app['config']->set('sources.storage.prefix', 'sources');
         $app['config']->set('sources.identify_as', 'browser');
         $app['config']->set('sources.browser.user_agent', 'Mozilla/5.0 (Test) Chrome/128.0.0.0');
+        $app['config']->set('sources.browser.engine', 'chromium');
+        $app['config']->set('browser_worker.url', 'https://browser-worker.test');
+        $app['config']->set('browser_worker.proxy', ['enabled' => false, 'server' => null, 'username' => null, 'password' => null, 'playbooks' => 'bvb']);
         $app['config']->set('sources.crawler.name', 'Kern-Test-Crawler/1.0');
         $app['config']->set('ai.embeddings.enabled', false);
         $app['config']->set('investments', require __DIR__ . '/Fixtures/config.php');

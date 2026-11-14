@@ -23,6 +23,10 @@ return [
         'dividends_url' => env('INVESTMENTS_BVB_DIVIDENDS_URL'),
         // One instrument's page; `{symbol}` is replaced by its symbol.
         'instrument_url' => env('INVESTMENTS_BVB_INSTRUMENT_URL'),
+        // After each day's import, each listed instrument's page read again once older than so many days
+        // (a person's own reading counts), one every so many seconds.
+        'page_refresh_days' => env('INVESTMENTS_BVB_PAGE_REFRESH_DAYS'),
+        'spacing_seconds' => env('INVESTMENTS_BVB_SPACING_SECONDS'),
         // Whose clock the times on those pages are — a price's "17:59" is that, there.
         'timezone' => env('INVESTMENTS_BVB_TIMEZONE'),
     ],

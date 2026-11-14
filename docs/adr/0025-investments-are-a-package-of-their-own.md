@@ -259,10 +259,25 @@ the last trading day and the run adds nothing.
    not listed once its trading day has passed, is reported by the run, never invented. An instrument that
    left the listing is marked delisted or matured, never deleted.
 
-**Only when asked — an issuer's profile.** Never read by a schedule and never by opening a page: only
-when a caller asks for it — later, a button on a screen. The package delivers it whole (the parser, the
-table, the endpoints); no screen is built now. Asked again while the stored one is younger than
-`investments.profile_refresh_hours`, it answers the stored one without a request to BVB.
+**A listed instrument's page — paced after the day's import, or when asked.** Never read by opening a
+page. After each day's BVB import, every active listed instrument (share or bond) whose page was never
+read, or was last read more than `INVESTMENTS_BVB_PAGE_REFRESH_DAYS` ago, is queued to be read in the
+background, one every `INVESTMENTS_BVB_SPACING_SECONDS`; the first time, its past prices are read too, once,
+filling only days the daily list did not price. A person can read it now from the instrument's screen; that
+reading counts, so the schedule leaves it for the configured days. Asked again while the stored one is younger
+than `investments.profile_refresh_hours`, it answers the stored one without a request to BVB. *(Amended
+2026-11-13: it was first read only when asked.)*
+
+**Past prices come through the page, in the browser worker.** BVB offers investors its delayed data on its
+pages — the market's day and each symbol's page — and points elsewhere for the rest. The chart on a symbol's
+page loads its prices from `wapi.bvb.ro/api/history` with a key the page carries; asked directly, that address
+answers 401. So the page is opened as a person opens it (`config/playbooks/bvb.php`): its chart's "6m" tab is
+clicked and the daily prices it then fetches (`rs=1D`) are kept as evidence, as any page is. Six months, and
+the daily import adds a day at a time from there. BVB's firewall refused a browser naming itself
+"HeadlessChrome" (2026-11-13), and served the same headless browser under an ordinary name from the same
+server; the name and its engine are the Browser card's, sent by every playbook (ADR 0019 amendment), and a
+proxy is there for a playbook ticked for one — BVB needed none. *(Amended 2026-11-14: the history was first
+read by calling that address directly, configured as `INVESTMENTS_BVB_HISTORY_URL`, which is gone.)*
 
 Every import parses the whole source before it writes anything; a source that does not parse writes
 nothing and fails the run, saying what did not match. Writes are upserts by natural key, in chunks, so a run
@@ -299,10 +314,14 @@ Read-only, behind authentication, rate-limited like the other read endpoints; pr
 
 - `GET instruments` — filtered by kind, programme and status (active by default), searched by symbol, ISIN,
   issue code or name; paginated by cursor.
-- `GET instruments/{id}` — the terms, the payouts, the latest price.
-- `GET instruments/{id}/prices` — the price history, by date range, bounded.
+- `GET instruments/{id}` — the terms, the latest price and its move, how far off it matures, how many
+  payments its list holds, the next and the last paid.
+- `GET instruments/{id}/payouts` — that list, asked for when opened: a bond's coupons numbered, a share's
+  every payment.
+- `GET instruments/{id}/prices?months=` — the price history of the last so many months, bounded.
 - `GET payouts/upcoming` and `GET payouts/recent` — dividends and coupons by date, bounded.
-- `GET issuers/{key}` — the stored profile, as last read; 404 when it was never read. Never fetches.
+- `GET issuers/{key}` — the stored profile, as last read; null when it was never read, 404 for a symbol not
+  listed. Never fetches.
 - `POST issuers/{key}/refresh` — reads it from BVB now (§5), rate-limited; answers the profile.
 
 Each answers a DTO shaped for the screen; nothing is parsed or computed in the browser.

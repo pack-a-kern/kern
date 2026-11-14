@@ -18,6 +18,7 @@ use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
  * @property int $issues_count
  * @property list<string>|null $skipped_issues the ISINs or codes of issues another order already wrote; null, read before this was kept
  * @property Carbon $read_at
+ * @property string|null $parser_version the law parser its provisions were read under; null, read before this was kept
  */
 final class TreasuryOrder extends Model
 {
@@ -26,7 +27,7 @@ final class TreasuryOrder extends Model
     protected $table = 'ext_treasury_orders';
 
     /** @var list<string> */
-    protected $fillable = ['source_document_id', 'programme', 'issues_count', 'skipped_issues', 'read_at'];
+    protected $fillable = ['source_document_id', 'programme', 'issues_count', 'skipped_issues', 'read_at', 'parser_version'];
 
     /** @var array<string, string> */
     protected $casts = [

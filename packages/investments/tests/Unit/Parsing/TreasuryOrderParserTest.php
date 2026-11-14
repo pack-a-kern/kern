@@ -71,6 +71,48 @@ it('reads a Fidelis order of the older layouts: its opening a block of labels th
         ->and($two->payouts[1]->recordDate?->format('Y-m-d'))->toBe('2023-07-06');
 });
 
+/** @return list<string> each coupon's period, "from – to" */
+function periods(OrderIssue $issue): array
+{
+    return array_values(array_map(
+        fn (OrderPayout $p): string => $p->periodStart?->format('Y-m-d') . ' – ' . $p->periodEnd?->format('Y-m-d'),
+        array_filter($issue->payouts, fn (OrderPayout $p): bool => $p->kind === PayoutKind::COUPON),
+    ));
+}
+
+it('reads each Fidelis coupon’s period, however the order lays the periods out', function (): void {
+    // 2026: the froms stacked in one cell, the tos beside them. 2021: a row per period, or the periods
+    // stacked in one cell, each from and to on a line.
+    $twentySix = TreasuryOrderParser::fidelis(order('fidelis-terms'))[0];
+    $twentyOne = TreasuryOrderParser::fidelis(order('fidelis-terms-2021'));
+
+    expect(periods($twentySix))->toBe(['2026-10-14 – 2027-10-13', '2027-10-14 – 2028-10-13'])
+        ->and(array_map(periods(...), $twentyOne))->toBe([
+            ['2021-07-15 – 2022-07-14'],
+            ['2021-07-15 – 2022-07-14', '2022-07-15 – 2023-07-14'],
+            ['2021-07-15 – 2022-07-14', '2022-07-15 – 2023-07-14'],
+        ]);
+});
+
+it('reads the periods however the 2026 orders print them, and leaves without one the coupon an order left out', function (): void {
+    // Order 1.005/2026: a row per period, a cell stacking them, or a cell beside an empty one; its annex 5
+    // lists three periods for four coupons. Order 1.178/2026, annex 1: the periods under the heading, in its cell.
+    $august = TreasuryOrderParser::fidelis(order('fidelis-terms-2026-08'));
+    $september = TreasuryOrderParser::fidelis(order('fidelis-terms-2026-09'));
+
+    expect(periods($august[0]))->toBe(['2026-08-19 – 2027-08-18', '2027-08-19 – 2028-08-18'])
+        ->and(periods($august[1]))->toBe(['2026-08-19 – 2027-08-18', '2027-08-19 – 2028-08-18'])
+        ->and(periods($august[3]))->toHaveCount(3)
+        ->and(periods($august[4]))->toBe(['2026-08-19 – 2027-08-18', '2027-08-19 – 2028-08-18', '2028-08-19 – 2029-08-18', ' – '])
+        ->and(periods($august[5])[9])->toBe('2035-08-19 – 2036-08-18')
+        ->and(periods($september[0]))->toBe(['2026-09-16 – 2027-09-15', '2027-09-16 – 2028-09-15']);
+});
+
+it('fails a Fidelis order whose periods do not read', function (): void {
+    expect(fn () => TreasuryOrderParser::fidelis(order('fidelis-terms', ['id="id_parA1359">14 octombrie 2026' => 'id="id_parA1359">oricând'])))
+        ->toThrow(ParseFailure::class, 'Perioada de dobândă');
+});
+
 it('reads a Fidelis order however it words what it prints the same', function (array $changes, string $rate): void {
     $first = TreasuryOrderParser::fidelis(order('fidelis-terms', $changes))[0];
 

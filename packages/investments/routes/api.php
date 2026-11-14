@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
+use Kern\Investments\Http\Controllers\ListInstrumentPayoutsController;
 use Kern\Investments\Http\Controllers\ListInstrumentPricesController;
 use Kern\Investments\Http\Controllers\ListInstrumentsController;
 use Kern\Investments\Http\Controllers\ListPayoutsController;
@@ -24,6 +25,7 @@ Route::prefix('v1/investments')->middleware(['auth:web', 'throttle:investments-r
     Route::get('instruments', ListInstrumentsController::class);
     Route::get('instruments/{instrument}', ShowInstrumentController::class)->whereUuid('instrument');
     Route::get('instruments/{instrument}/prices', ListInstrumentPricesController::class)->whereUuid('instrument');
+    Route::get('instruments/{instrument}/payouts', ListInstrumentPayoutsController::class)->whereUuid('instrument');
     Route::get('payouts/{when}', ListPayoutsController::class)->whereIn('when', ['upcoming', 'recent']);
     Route::get('issuers/{key}', ShowIssuerProfileController::class)->where('key', '[A-Z0-9]{1,16}');
     Route::post('issuers/{key}/refresh', RefreshIssuerProfileController::class)

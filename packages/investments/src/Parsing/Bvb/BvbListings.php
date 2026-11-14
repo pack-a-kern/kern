@@ -70,7 +70,7 @@ final readonly class BvbListings
                 pricePercent: Values::optionalDecimal(HtmlPage::text($row[$price]), "{$where}, {$price}"),
                 changePercent: Values::optionalDecimal(HtmlPage::text($row[self::CHANGE]), "{$where}, " . self::CHANGE),
                 pricedAt: $this->time($row[self::TIME], $where),
-                couponPercent: Values::decimal(HtmlPage::text($row[$coupon]), "{$where}, {$coupon}"),
+                couponPercent: Values::optionalDecimal(HtmlPage::text($row[$coupon]), "{$where}, {$coupon}"),
                 currency: CurrencyCode::isValid($code) ? $code : throw ParseFailure::at("{$where}, {$currency}", 'not a currency'),
                 maturity: Values::date(HtmlPage::text($row[$maturity]), "{$where}, {$maturity}"),
                 type: BvbBondType::tryFrom(HtmlPage::text($row[$type])) ?? throw ParseFailure::at("{$where}, {$type}", 'a bond type this list does not know'),
