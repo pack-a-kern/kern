@@ -272,6 +272,13 @@ jobs:
       REDIS_CLIENT: phpredis
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: 6379
+      # The embedding switch has no default in code (ADR 0025 §4) and is read
+      # strictly — true or false, anything else throws. Pest reads it from the
+      # real environment, not the assembled .env (only `php artisan` loads that
+      # file), so it is set here like APP_KEY and the DB/Redis keys. `false`
+      # keeps the suite on UnconfiguredEmbeddingProvider; the Python embedding
+      # service is not part of this job.
+      RETRIEVAL_EMBEDDING_ENABLED: "false"
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
