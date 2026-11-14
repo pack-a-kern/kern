@@ -2,7 +2,7 @@ import type { Frame, Locator, Page, Response } from "playwright";
 
 import { assertAllowed } from "./allowList.js";
 import type { Secrets } from "./secrets.js";
-import type { PageSource, Playbook, RunResult, Scope, Step } from "./types.js";
+import type { Capture, PageSource, Playbook, RunResult, Scope, Step } from "./types.js";
 
 /** Long enough for a portal that generates a document, short enough to fail a hung page. */
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -14,6 +14,16 @@ const DEFAULT_TIMEOUT_MS = 15_000;
  * one way and fine the other.
  */
 export const DEFAULT_MAX_SOURCE_BYTES = 10 * 1024 * 1024;
+
+/** Whether a response's address is the capture's — the same address before its query, and each value asked for. */
+function matches(address: string, capture: Capture): boolean {
+  const url = new URL(address);
+
+  return (
+    `${url.origin}${url.pathname}` === capture.url &&
+    Object.entries(capture.query ?? {}).every(([name, value]) => url.searchParams.get(name) === value)
+  );
+}
 
 export class StepFailedError extends Error {
   public constructor(message: string, public readonly step: number) {
@@ -58,11 +68,12 @@ export class Interpreter {
   private tainted = false;
 
   /**
-   * What the server answered the last `goto` with, for a `source` step to keep.
+   * What the server answered the last `goto` with, or the response a click captured, for a `source`
+   * step to keep.
    *
-   * Forgotten by a click: a click may navigate, and the response it led to is not this one. A `source`
-   * after it then refuses, rather than handing back the page before the click as if it were the page
-   * after.
+   * Otherwise forgotten by a click: a click may navigate, and the response it led to is not this one. A
+   * `source` after it then refuses, rather than handing back the page before the click as if it were the
+   * page after.
    */
   private lastResponse: Response | null = null;
 
@@ -136,10 +147,23 @@ export class Interpreter {
     }
 
     if ("click" in step) {
+      const { capture } = step.click;
+      const timeout = step.click.timeout ?? DEFAULT_TIMEOUT_MS;
+
       this.lastResponse = null;
-      await this.locator(step.click.selector, step.click).click({
-        timeout: step.click.timeout ?? DEFAULT_TIMEOUT_MS,
-      });
+
+      // Its host checked as a `goto`'s is; the response itself came through the allow-list's proxy.
+      if (capture !== undefined) {
+        assertAllowed(capture.url, this.playbook.allow);
+      }
+
+      // Listening before the click, so a response that answers at once is not missed.
+      const [captured] = await Promise.all([
+        capture === undefined ? null : this.page.waitForResponse((response) => matches(response.url(), capture), { timeout }),
+        this.locator(step.click.selector, step.click).click({ timeout }),
+      ]);
+
+      this.lastResponse = captured;
       assertAllowed(this.page.url(), this.playbook.allow);
 
       return null;
@@ -291,7 +315,8 @@ export class Interpreter {
   }
 
   /**
-   * The last `goto`'s response, refused when it is larger than this worker hands back.
+   * The last `goto`'s response, or a click's captured one, refused when it is larger than this worker
+   * hands back.
    *
    * Checked twice: the size the server declared, before the body is read, and the body itself, because
    * a declared length is the server's word and a missing one is allowed.
@@ -300,7 +325,7 @@ export class Interpreter {
     const response = this.lastResponse;
 
     if (response === null) {
-      throw new StepFailedError("There is no page to keep: `source` follows a `goto`, with no click between.", index);
+      throw new StepFailedError("There is no page to keep: `source` follows a `goto`, or a `click` that captured, with no other click between.", index);
     }
 
     const declared = Number(response.headers()["content-length"]);

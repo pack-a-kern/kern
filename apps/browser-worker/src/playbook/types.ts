@@ -31,9 +31,15 @@ export type AllowList = readonly string[];
  * How the browser presents itself.
  *
  * Every field maps to something Playwright already takes when a context is created, except `proxy`,
- * which is this worker's own egress proxy's to use ({@see UpstreamProxy}).
+ * which is this worker's own egress proxy's to use ({@see UpstreamProxy}), and `engine`, which picks the
+ * browser that is launched.
  */
 export interface RunContext {
+  /**
+   * The browser behind the page — Chromium unless named. One that matches the `userAgent`: a page reads
+   * its engine from more than the header, and a Firefox name on Chromium is a contradiction it can see.
+   */
+  readonly engine?: Engine;
   /** A Playwright device descriptor — "iPhone 13". Sets viewport, user agent and scale together. */
   readonly device?: string;
   readonly viewport?: { readonly width: number; readonly height: number };
@@ -44,6 +50,11 @@ export interface RunContext {
   /** Resource types to refuse — "image", "font", "media". A page loads faster without them. */
   readonly block?: readonly string[];
 }
+
+/** The browsers Playwright drives, each in this worker's image. */
+export const ENGINES = ["chromium", "firefox", "webkit"] as const;
+
+export type Engine = (typeof ENGINES)[number];
 
 /**
  * A proxy to go out through — a mobile or residential one, so a site sees that network rather than this
@@ -87,7 +98,24 @@ export interface FillStep {
 }
 
 export interface ClickStep {
-  readonly click: { readonly selector: string; readonly timeout?: number } & Scope;
+  readonly click: {
+    readonly selector: string;
+    /**
+     * A response the click makes the page fetch — kept for a `source` step after it, as a `goto`'s is.
+     * What a page loads on a click is often the data itself: a chart's prices.
+     */
+    readonly capture?: Capture;
+    readonly timeout?: number;
+  } & Scope;
+}
+
+/**
+ * Which response a click keeps: the first whose address is `url` — scheme, host and path, nothing after
+ * it — and whose query has each of `query`'s values. A page often asks the same address several ways.
+ */
+export interface Capture {
+  readonly url: string;
+  readonly query?: Readonly<Record<string, string>>;
 }
 
 export interface SelectStep {
@@ -173,7 +201,8 @@ export interface UploadStep {
 }
 
 /**
- * Keep the page exactly as its server sent it: the last `goto`'s response, byte for byte.
+ * Keep the page exactly as its server sent it: the last `goto`'s response, or the one a `click` captured,
+ * byte for byte.
  *
  * Not what Chromium made of it. `page.content()` is the document after its scripts ran, serialised
  * again — a caller that stores a page "as served" and parses it with rules written against the served

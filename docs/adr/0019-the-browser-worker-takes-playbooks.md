@@ -87,3 +87,16 @@ than kept under an SPV name.
 What this does **not** do is unblock SPV. The selectors still have to be observed
 (`tools/observe-spv-page.js`, `docs/AGENTS.md` §1 rule 1). It changes what that observation produces:
 a config file rather than code.
+
+## Amendment, 2026-11-14 — the engine, and what a click fetches
+
+Two fields, no new verb. `context.engine` picks the browser — Chromium, Firefox or WebKit, all three
+in the worker's image — so a playbook's `userAgent` can name the browser that is actually there: a
+page reads its engine from more than the header, and BVB's site turned away a browser whose header
+said "HeadlessChrome" (2026-11-13). `click.capture` keeps the response a click makes the page fetch,
+for the `source` step after it, as a `goto`'s is kept: BVB's chart loads its prices from `wapi.bvb.ro`
+when a range is picked, a call that answers 401 to anything but its own page. The captured host must
+be one the playbook allows, and every engine goes out only through the egress gate.
+
+The application fills `engine`, `userAgent` and, where it is on for that playbook, `proxy` from its
+Browser settings for every playbook that does not name its own.

@@ -1,4 +1,4 @@
-import { PLAYBOOK_VERSION, type Playbook, type Step } from "./types.js";
+import { ENGINES, PLAYBOOK_VERSION, type Playbook, type Step } from "./types.js";
 
 /**
  * Checks a playbook before a browser is opened for it.
@@ -167,6 +167,31 @@ function checkStep(step: unknown, path: string, problems: string[]): void {
   if ((verb === "fill" || verb === "select") && typeof body.value !== "string") {
     problems.push(`${path}.${verb}.value must be a string`);
   }
+
+  if (verb === "click" && body.capture !== undefined) {
+    checkCapture(body.capture, `${path}.click.capture`, problems);
+  }
+}
+
+/** A click's capture: an http(s) address with no query of its own, and the query values as strings. */
+function checkCapture(capture: unknown, path: string, problems: string[]): void {
+  let url: URL | null;
+
+  try {
+    url = isRecord(capture) && text(capture.url) ? new URL(capture.url) : null;
+  } catch {
+    url = null;
+  }
+
+  if (url === null || (url.protocol !== "https:" && url.protocol !== "http:") || url.search !== "" || url.hash !== "") {
+    problems.push(`${path}.url must be an http(s) address without a query`);
+  }
+
+  const query = isRecord(capture) ? capture.query : undefined;
+
+  if (query !== undefined && !(isRecord(query) && Object.values(query).every((value) => typeof value === "string"))) {
+    problems.push(`${path}.query must name its values as strings`);
+  }
 }
 
 /** A playbook's own proxy: `http://host:port`, with credentials as strings when there are any. */
@@ -224,6 +249,12 @@ export function validatePlaybook(value: unknown): Playbook {
   }
 
   checkProxy(isRecord(value.context) ? value.context.proxy : undefined, problems);
+
+  const engine = isRecord(value.context) ? value.context.engine : undefined;
+
+  if (engine !== undefined && !ENGINES.some((known) => known === engine)) {
+    problems.push(`context.engine must be one of: ${ENGINES.join(", ")}`);
+  }
 
   if (!isRecord(value.sequences) || Object.keys(value.sequences).length === 0) {
     problems.push("sequences must name at least one sequence");

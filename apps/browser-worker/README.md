@@ -122,6 +122,7 @@ allow:
   - example.com
 
 context:
+  engine: chromium                    # or firefox / webkit — Chromium when unnamed; match the userAgent
   device: "iPhone 13"                 # or viewport / userAgent / locale / timezoneId
   block: ["image", "font", "stylesheet", "media"]   # resource types the page does not need
   proxy:                              # optional — go out through a proxy of your own (see below)
@@ -174,7 +175,12 @@ Each takes an optional `timeout`, and an optional `frame` for pages that put the
   "2015privind"). `attr` reads an attribute instead.
 - **`source: true`** keeps the page as its server answered the last `goto`, byte for byte — not
   Chromium's document after its scripts ran. Only `/v1/source` sends it back. A click forgets it: a
-  `source` after a click refuses, rather than handing back the page from before the click.
+  `source` after a click refuses, rather than handing back the page from before the click — unless
+  the click captured.
+- **`click`** with `capture: { url: "https://host/path", query: { rs: "1D" } }` keeps the first
+  response the click makes the page fetch at that address — before its query — with each of those
+  query values, for a `source` after it: what a chart loads when its range is picked, say. The host
+  must be one `allow` names; it is listened for before the click.
 - **`waitFor`** races its branches; see Outcomes.
 
 ### Outcomes

@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { chromium, devices, type Browser, type BrowserContext, type BrowserContextOptions } from "playwright";
+import { chromium, devices, firefox, webkit, type Browser, type BrowserContext, type BrowserContextOptions } from "playwright";
 
 import { startEgressProxy } from "../network/egressProxy.js";
 import type { AllowList, RunContext } from "../playbook/types.js";
@@ -16,7 +16,7 @@ export interface BrowserContextHandle {
 export type BrowserContextFactory = (allow: AllowList, context?: RunContext) => Promise<BrowserContextHandle>;
 
 /**
- * One Chromium browser and one browser context per session.
+ * One browser — the playbook's engine — and one browser context per session.
  *
  * Never reused between sessions: a profile carries cookies, storage and cached credentials, and two
  * callers sharing one would share whoever signed in first. Downloads land in a directory private to
@@ -59,7 +59,7 @@ export const createPlaywrightBrowserContext: BrowserContextFactory = async (allo
   let browser: Browser;
 
   try {
-    browser = await chromium.launch({ headless: true, downloadsPath: downloadsDir, proxy: { server: proxy.url, bypass: "<-loopback>" } });
+    browser = await { chromium, firefox, webkit }[runContext?.engine ?? "chromium"].launch({ headless: true, downloadsPath: downloadsDir, proxy: { server: proxy.url, bypass: "<-loopback>" } });
   } catch (error) {
     await proxy.close();
     await rm(downloadsDir, { recursive: true, force: true });

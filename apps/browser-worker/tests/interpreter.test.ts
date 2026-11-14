@@ -313,6 +313,36 @@ describe("Interpreter", () => {
     await assert.rejects(new Interpreter(page, book, new Secrets({}), 10).run(book.sequences.kept ?? []), SourceTooLargeError);
   });
 
+  it("keeps what a click made the page fetch, and refuses to capture outside the allow-list", async () => {
+    // The same address asked twice, as a chart does; only the second is the one wanted.
+    const page = await pageShowing(
+      `<button onclick="fetch('https://example.test/api/prices?range=1D').then(() => fetch('https://example.test/api/prices?range=6M'))">6m</button>`,
+    );
+
+    // The chart's data, answered as JSON where the page answers HTML.
+    await page.route("https://example.test/api/**", async (route) => {
+      await route.fulfill({ contentType: "application/json", body: route.request().url().endsWith("6M") ? '{"c":[101,98]}' : '{"c":[1]}' });
+    });
+
+    const book = playbook({
+      captured: [
+        { goto: "https://example.test/act" },
+        { click: { selector: "button", capture: { url: "https://example.test/api/prices", query: { range: "6M" } } } },
+        { source: true },
+      ],
+      elsewhere: [{ goto: "https://example.test/act" }, { click: { selector: "button", capture: { url: "https://other.test/api" } } }],
+    });
+
+    const kept = await new Interpreter(page, book, new Secrets({})).run(book.sequences.captured ?? []);
+
+    assert.ok(kept.source !== undefined);
+    assert.equal(kept.source.body.toString(), '{"c":[101,98]}');
+    assert.equal(kept.source.url, "https://example.test/api/prices?range=6M");
+    assert.equal(kept.source.contentType, "application/json");
+
+    await assert.rejects(new Interpreter(page, book, new Secrets({})).run(book.sequences.elsewhere ?? []));
+  });
+
   it("reads a field as the page shows it when asked, where markup alone runs words together", async () => {
     const page = await pageShowing('<div class="row"><p><b>LEGE nr. 227 din 8 septembrie 2015</b><br>privind Codul fiscal</p></div>');
     const book = playbook({

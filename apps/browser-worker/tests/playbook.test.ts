@@ -47,6 +47,18 @@ describe("validatePlaybook", () => {
     assert.throws(() => validatePlaybook(two), PlaybookInvalidError);
   });
 
+  it("refuses an engine Playwright does not drive, and a capture that is not a URL", () => {
+    const engine = structuredClone(VALID) as Record<string, unknown>;
+    const capture = structuredClone(VALID);
+
+    engine.context = { engine: "opera" };
+    (capture.sequences.signIn as unknown[])[0] = { click: { selector: "a", capture: { url: "https://example.test/api?rs=1D" } } };
+
+    assert.throws(() => validatePlaybook(engine), PlaybookInvalidError);
+    assert.throws(() => validatePlaybook(capture), PlaybookInvalidError);
+    assert.equal(validatePlaybook({ ...structuredClone(VALID), context: { engine: "webkit" } }).name, "example");
+  });
+
   it("names the path of every problem it found", () => {
     const playbook = structuredClone(VALID);
 

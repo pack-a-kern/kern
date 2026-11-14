@@ -4,6 +4,7 @@ import { connect, createServer as createTcpServer, type AddressInfo, type Socket
 import { describe, it } from "node:test";
 
 import { isPrivateAddress, startEgressProxy } from "../src/network/egressProxy.js";
+import { ENGINES } from "../src/playbook/types.js";
 import { PlaybookInvalidError, validatePlaybook } from "../src/playbook/validate.js";
 import { createPlaywrightBrowserContext } from "../src/sessions/browserContextFactory.js";
 
@@ -85,6 +86,30 @@ describe("the egress proxy", () => {
       }
     });
   });
+
+  // The proxy is the browser's only way out whichever browser it is: each engine takes the proxy setting
+  // its own way, and loopback is the address one of them would reach around it.
+  for (const engine of ENGINES) {
+    it(`holds ${engine} to the allow-list, a redirect and loopback included`, async () => {
+      await withSite(async (base, hits) => {
+        const handle = await createPlaywrightBrowserContext(["127.0.0.1"], { engine });
+
+        try {
+          const page = await handle.context.newPage();
+
+          assert.equal((await page.goto(`${base}/act`))?.status(), 200);
+          await assert.rejects(page.goto(`${base}/away`));
+          await assert.rejects(page.goto(`http://localhost:${new URL(base).port}/secret`));
+          assert.deepEqual(
+            hits.filter((hit) => hit.endsWith("/secret")),
+            [],
+          );
+        } finally {
+          await handle.close();
+        }
+      });
+    });
+  }
 
   it("knows the private ranges, IPv4 written as IPv6 included", () => {
     for (const address of ["10.1.2.3", "127.0.0.1", "169.254.169.254", "172.20.0.1", "192.168.1.1", "100.64.0.1", "::1", "fd00::1", "fe80::1", "::ffff:10.0.0.1"]) {
