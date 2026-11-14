@@ -84,6 +84,16 @@ The risk that shape carries is worth stating: a package that forgets to declare 
 them silently. The answer is that the test belongs beside the words — `kern/tax-romania`'s own suite
 fails if its declaration is removed.
 
+## Sending a playbook to the browser worker
+
+`BrowserWorker\BrowserWorkerClient` is the one way to `apps/browser-worker`; a package brings its playbook
+under `config('playbooks.<key>')` and nothing else. On the way out every playbook is dressed by
+`PlaybookContext` from the Browser card: its engine and `User-Agent` together (`SOURCES_BROWSER_ENGINE`,
+`SOURCES_BROWSER_USER_AGENT`), and the proxy (`BROWSER_WORKER_PROXY_*`) when it is on and the playbook's
+`name` is ticked for it. A playbook that names its own engine, name, device or proxy keeps it. Both are
+saved on the card in their own dialogs, behind step-up and audited — the proxy's password enciphered and
+never shown.
+
 ## What the application must bind
 
 | Contract | Because |

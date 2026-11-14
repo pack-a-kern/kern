@@ -5,7 +5,9 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Route;
 use Kern\Platform\Http\Controllers\Settings\ListAiModelsController;
 use Kern\Platform\Http\Controllers\Settings\ReplaceAiConnectionController;
+use Kern\Platform\Http\Controllers\Settings\ReplaceBrowserProxyController;
 use Kern\Platform\Http\Controllers\Settings\ShowAiProvidersController;
+use Kern\Platform\Http\Controllers\Settings\ShowBrowserProxyController;
 use Kern\Platform\Http\Controllers\Settings\ShowSettingsController;
 use Kern\Platform\Http\Controllers\Settings\ShowSystemHealthController;
 use Kern\Platform\Http\Controllers\Settings\TestAiConnectionController;
@@ -44,12 +46,16 @@ Route::prefix('v1/settings')->middleware(['auth:web'])->group(function (): void 
         // fresh what it fetched is, is a question about *this product's* data. The application
         // registers it in `routes/api.php`.
         Route::get('ai/providers', ShowAiProvidersController::class);
+        Route::get('browser/proxy', ShowBrowserProxyController::class);
     });
 
     Route::middleware('permission:system.settings.manage')->group(function (): void {
         // The provider's address and key, together — the only route that writes either. Everything
         // else in the AI group is saved through `group/ai` below, which refuses those two.
         Route::put('ai/connection', ReplaceAiConnectionController::class)->middleware('throttle:operator-calls-per-user');
+        // The browsers' proxy, its credentials and the playbooks that use it — together, and only after
+        // the password or code again: a proxy sees where every browser it carries goes.
+        Route::put('browser/proxy', ReplaceBrowserProxyController::class)->middleware(['verify-recent', 'throttle:operator-calls-per-user']);
         // Both reach out to the configured provider with real credentials, so they are writes in
         // every sense that matters even though neither stores anything.
         Route::post('ai/test-connection', TestAiConnectionController::class)->middleware('throttle:operator-calls-per-user');

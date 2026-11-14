@@ -1105,6 +1105,16 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     opacity: 0.45;
 }
 
+/* A heading over the options of one group — a label in the list, not a row to pick. */
+.select-group {
+    padding: 0.625rem 0.5rem 0.25rem;
+    color: var(--muted-foreground);
+    font-size: var(--text-2xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
 /* Keyboard and pointer share one highlight: arrowing to a row and pointing at it must look the
    same, or the list appears to have two cursors. */
 .select-option-active:not(:disabled) {

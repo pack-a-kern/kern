@@ -773,12 +773,23 @@ export function PanelSelect(props: {
      * neighbour — "Amount (RON) · number -1234.56" against "Balance (RON) · number 1234.56" — and a
      * chip only has to say which was chosen.
      */
-    options: Array<{ value: string; label: string; shortLabel?: string; description?: string; icon?: ReactNode }>;
+    options: Array<{
+        value: string;
+        label: string;
+        shortLabel?: string;
+        description?: string;
+        icon?: ReactNode;
+        group?: string;
+    }>;
     /** How many characters a chip shows before it is cut. The full text stays on hover. */
     chipMaxChars?: number;
     /** Shows a search box above the list. Worth it past roughly a dozen options, not before. */
     /** A value typed into the search rather than picked — see `CustomSelect`'s `custom`. */
     custom?: (typed: string) => { value: string; label: string } | null;
+    /** Searched on the server as a person types — see `CustomSelect`'s `onSearch`. */
+    onSearch?: (query: string) => void;
+    /** What the menu says with nothing to show, where "No results" is not the whole story. */
+    emptyText?: string;
     /** The search box's own words, where "Search" does not say what may be typed there. */
     searchPlaceholder?: string;
     searchable?: boolean;
@@ -822,11 +833,12 @@ export function PanelSelect(props: {
             {...(props['aria-label'] === undefined ? {} : { 'aria-label': props['aria-label'] })}
             disabled={props.disabled ?? false}
             searchable={props.searchable ?? false}
+            {...(props.onSearch === undefined ? {} : { onSearch: props.onSearch })}
             {...(props.custom === undefined ? {} : { custom: props.custom })}
             optionVisual={props.optionVisual ?? 'bare'}
             {...(props.icon === undefined ? {} : { icon: props.icon })}
             searchPlaceholder={props.searchPlaceholder ?? t((d) => d.common.search)}
-            emptyText={t((d) => d.common.noResults)}
+            emptyText={props.emptyText ?? t((d) => d.common.noResults)}
         />
     );
 }
@@ -1130,8 +1142,8 @@ export function PanelDialog(props: {
 }
 
 /** Summary tiles above a listing. */
-export function StatGrid({ children }: { children: ReactNode }): JSX.Element {
-    return <div className="stat-grid">{children}</div>;
+export function StatGrid({ children, className }: { children: ReactNode; className?: string }): JSX.Element {
+    return <div className={cn('stat-grid', className)}>{children}</div>;
 }
 
 export function Stat(props: {

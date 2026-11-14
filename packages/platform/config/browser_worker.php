@@ -54,4 +54,21 @@ return [
      * Never logged (`BLUEPRINT.md` §4.10).
      */
     'auth_token' => env('BROWSER_WORKER_TOKEN', ''),
+
+    /*
+     * A proxy the browsers go out through, for the playbooks named — each by its own `name`, comma
+     * separated. Chained behind the worker's egress gate, never handed to the browser. Set on the
+     * Browser card, where turning it off empties the address and the credentials, and turning it on
+     * needs all three. A playbook that names its own proxy keeps it.
+     *
+     * No defaults: `enabled` is `true` or `false`, or every browser run fails naming it. The password
+     * is the card's secret, stored enciphered; here only for an installation set by environment.
+     */
+    'proxy' => [
+        'enabled' => env('BROWSER_WORKER_PROXY_ENABLED'),
+        'server' => env('BROWSER_WORKER_PROXY_SERVER'),
+        'username' => env('BROWSER_WORKER_PROXY_USERNAME'),
+        'password' => env('BROWSER_WORKER_PROXY_PASSWORD'),
+        'playbooks' => env('BROWSER_WORKER_PROXY_PLAYBOOKS'),
+    ],
 ];

@@ -2111,6 +2111,38 @@ export interface Dictionary {
             lockedBadge: string;
             /** The Official sources card's folded section of addresses, which are almost never changed. */
             sourceAddresses: { title: string; hint: string };
+            /** The Browser card: the engine and name every browser goes out as, and the proxy. */
+            browserCard: {
+                engine: string;
+                engines: Record<'chromium' | 'firefox' | 'webkit', string>;
+                /** By the list's own browser names: chrome, edge, opera, firefox, safari. */
+                browsers: Record<string, string | undefined>;
+                /** By the list's own system names: windows, macos, linux, chromeos, android, ios. */
+                systems: Record<string, string | undefined>;
+                change: string;
+                identityTitle: string;
+                identityHint: string;
+                identitySaved: string;
+                pickUserAgent: string;
+                /** `{value}` is what was typed. */
+                useTyped: string;
+                typedGroup: string;
+                /** `{date}` is the list's own date. */
+                listDate: string;
+                listEmpty: string;
+                proxyTitle: string;
+                proxyHint: string;
+                proxyOn: string;
+                proxyOff: string;
+                proxyEnabled: string;
+                proxyServer: string;
+                proxyUsername: string;
+                proxyPassword: string;
+                proxyPasswordAgain: string;
+                proxyPlaybooks: string;
+                proxyNoPlaybook: string;
+                proxySaved: string;
+            };
             settingLabels: Record<string, string>;
             /** A `choice` setting's values, by setting key then stored value. */
             settingChoices: Record<string, Record<string, string> | undefined>;

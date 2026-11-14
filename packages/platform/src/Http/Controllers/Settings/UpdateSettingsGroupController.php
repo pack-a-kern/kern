@@ -79,7 +79,7 @@ final readonly class UpdateSettingsGroupController
             }
 
             if ($key->isSetOnlyWithItsPair()) {
-                $errors["settings.{$rawKey}"] = ['The provider address and key are changed together, in the connection dialog.'];
+                $errors["settings.{$rawKey}"] = ['This setting is changed together with the ones beside it, in its own dialog.'];
 
                 continue;
             }

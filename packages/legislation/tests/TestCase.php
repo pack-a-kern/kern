@@ -63,6 +63,8 @@ abstract class TestCase extends Testbench
         $app['config']->set('sources.storage.prefix', 'sources');
         $app['config']->set('sources.identify_as', 'browser');
         $app['config']->set('sources.browser.user_agent', 'Mozilla/5.0 (Test) Chrome/128.0.0.0');
+        $app['config']->set('sources.browser.engine', 'chromium');
+        $app['config']->set('sources.entries.USER_AGENTS.endpoints.list', 'https://microlink.io/user-agents.json');
         $app['config']->set('sources.crawler.name', 'Kern-Test-Crawler/1.0');
         $app['config']->set('ai.embeddings.enabled', false);
         $app['config']->set('legislation.search', ['weight_meaning' => '0.5', 'weight_words' => '0.3', 'weight_label' => '0.2', 'min_label' => '0.3', 'min_meaning' => '0.3', 'results' => '20', 'max_results' => '50']);

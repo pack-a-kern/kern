@@ -148,6 +148,9 @@ enum OperationTask: string
     /** BVB's shares, bonds, dividends and the day's prices (`kern/investments`). Every weekday after the close. */
     case INVESTMENTS_IMPORT_BVB = 'investments.import_bvb';
 
+    /** The browsers' User-Agents the Browser card offers (`kern/legislation`). Weekly, the day after the list is published. */
+    case SOURCES_USER_AGENTS = 'sources.user_agents';
+
     /** The artisan command this task executes. Never read from configuration or a database row. */
     public function command(): string
     {
@@ -170,6 +173,7 @@ enum OperationTask: string
             self::HOLDINGS_POST_PAYOUTS => 'kern:wallet:post-holding-payouts',
             self::INVESTMENTS_IMPORT_GOVERNMENT_BONDS => 'kern:investments:import-government-bonds',
             self::INVESTMENTS_IMPORT_BVB => 'kern:investments:import-bvb',
+            self::SOURCES_USER_AGENTS => 'kern:sources:user-agents',
         };
     }
 
@@ -196,6 +200,7 @@ enum OperationTask: string
             self::HOLDINGS_POST_PAYOUTS,
             self::INVESTMENTS_IMPORT_GOVERNMENT_BONDS,
             self::INVESTMENTS_IMPORT_BVB,
+            self::SOURCES_USER_AGENTS,
         ], true);
     }
 

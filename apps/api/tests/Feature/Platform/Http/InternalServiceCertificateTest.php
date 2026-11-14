@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Platform\Http\InternalServiceCertificateTest;
 
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -26,6 +27,8 @@ use Throwable;
 const STACK_CA = '/run/kern/tls-ca/ca.crt';
 
 beforeEach(function (): void {
+    // The browser worker's client reads the Browser card's proxy before it calls.
+    Artisan::call('migrate', ['--force' => true]);
     Http::preventStrayRequests();
     Config::set('services.processing.base_url', 'https://python-api:8000');
     Config::set('services.processing.auth_token', 'test-shared-secret');

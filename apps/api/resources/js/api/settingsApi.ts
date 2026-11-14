@@ -2,12 +2,17 @@ import { apiRequest } from '../lib/http';
 import {
     type AiProvider,
     type BankLogoCoverage,
+    type BrowserEngine,
+    type BrowserProxyView,
     type ComponentHealth,
     type SettingGroupPayload,
+    type UserAgentChoices,
     parseAiProviders,
     parseBankLogoCoverage,
+    parseBrowserProxy,
     parseSettingGroups,
     parseSystemHealth,
+    parseUserAgentChoices,
 } from '../types/settings';
 // Both live in the Operations types because the services that produce them do — the settings screen
 // is where they are read, not where they are defined.
@@ -149,4 +154,46 @@ export async function getBankLogos(): Promise<BankLogoCoverage> {
 /** `POST /api/v1/settings/banks/logos/refresh` — reads the folder again after files were added or replaced. */
 export async function refreshBankLogos(): Promise<BankLogoCoverage> {
     return parseBankLogoCoverage(JSON.parse(await apiRequest('/v1/settings/banks/logos/refresh', { method: 'POST' })));
+}
+
+/** `GET /api/v1/settings/browser/user-agents` — the names the Browser card offers, by engine and system. */
+export async function listUserAgents(): Promise<UserAgentChoices> {
+    return parseUserAgentChoices(JSON.parse(await apiRequest('/v1/settings/browser/user-agents')));
+}
+
+/**
+ * `PUT /api/v1/settings/browser/identity` — the engine and the User-Agent, saved together. Asks for the
+ * password or code again first (`verify-recent`), which `apiRequest` answers through the step-up dialog.
+ */
+export async function replaceBrowserIdentity(engine: BrowserEngine, userAgent: string): Promise<void> {
+    await apiRequest('/v1/settings/browser/identity', { method: 'PUT', body: { engine, user_agent: userAgent } });
+}
+
+/** `GET /api/v1/settings/browser/proxy` — the proxy, never its password. */
+export async function getBrowserProxy(): Promise<BrowserProxyView> {
+    return parseBrowserProxy(JSON.parse(await apiRequest('/v1/settings/browser/proxy')));
+}
+
+/**
+ * `PUT /api/v1/settings/browser/proxy` — on with its address, user name and password, or off with none;
+ * and the playbooks that use it. Behind `verify-recent`, like the identity.
+ */
+export async function replaceBrowserProxy(proxy: {
+    enabled: boolean;
+    server: string;
+    username: string;
+    password: string;
+    playbooks: string[];
+}): Promise<BrowserProxyView> {
+    const body = proxy.enabled
+        ? {
+              enabled: true,
+              server: proxy.server,
+              username: proxy.username,
+              password: proxy.password,
+              playbooks: proxy.playbooks,
+          }
+        : { enabled: false, server: null, username: null, password: null, playbooks: proxy.playbooks };
+
+    return parseBrowserProxy(JSON.parse(await apiRequest('/v1/settings/browser/proxy', { method: 'PUT', body })));
 }

@@ -8,6 +8,8 @@ use Kern\Legislation\Http\Controllers\DeleteLawController;
 use Kern\Legislation\Http\Controllers\ImportPortalActsController;
 use Kern\Legislation\Http\Controllers\ListLawsController;
 use Kern\Legislation\Http\Controllers\SearchLegislationController;
+use Kern\Legislation\Http\Controllers\Settings\ListUserAgentsController;
+use Kern\Legislation\Http\Controllers\Settings\ReplaceBrowserIdentityController;
 use Kern\Legislation\Http\Controllers\ShowLawController;
 use Kern\Legislation\Http\Controllers\ShowLawOutlineController;
 use Kern\Legislation\Http\Controllers\ShowLawTextController;
@@ -90,4 +92,12 @@ Route::prefix('v1/legislation/watches')->middleware(['auth:web', 'permission:ope
     Route::post('{watch}/run', RunLawWatchController::class)->whereUuid('watch');
     // An act taken off the ignored list is read in by the next run that finds it: changed as a watch is.
     Route::delete('ignored/{ignored}', AllowIgnoredActController::class)->whereUuid('ignored')->middleware('verify-recent');
+});
+
+// Who this installation says it is, on the Browser card: the names it may pick from, by engine, and the
+// engine and name saved together — asked again for the password or code, as every change of identity.
+Route::prefix('v1/settings/browser')->middleware('auth:web')->group(function (): void {
+    Route::get('user-agents', ListUserAgentsController::class)->middleware('permission:system.settings.view');
+    Route::put('identity', ReplaceBrowserIdentityController::class)
+        ->middleware(['permission:system.settings.manage', 'verify-recent', 'throttle:operator-calls-per-user']);
 });

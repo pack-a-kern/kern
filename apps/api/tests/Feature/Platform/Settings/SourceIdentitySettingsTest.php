@@ -45,8 +45,9 @@ it('refuses a name that would not go out in a header as written', function (stri
 ]);
 
 it('sends a browser User-Agent saved on the screen to every source going out as a browser', function (): void {
+    // Saved with its engine, the only way it is: a name typed by hand goes out from Chromium.
     $this->actingAs($this->admin)
-        ->putJson('/api/v1/settings/group/browser', ['settings' => ['sources.browser_user_agent' => 'Mozilla/5.0 (Saved) Chrome/130.0.0.0']])
+        ->putJson('/api/v1/settings/browser/identity', ['engine' => 'chromium', 'user_agent' => 'Mozilla/5.0 (Saved) Chrome/130.0.0.0'])
         ->assertOk();
     Event::dispatch(new Looping('redis', 'default'));
 
@@ -57,7 +58,7 @@ it('sends a browser User-Agent saved on the screen to every source going out as 
         ->and($registry->find('ANAF')->userAgent)->toStartWith('Kern-RO-SourceCrawler/1.0');
 
     $this->actingAs($this->admin)
-        ->putJson('/api/v1/settings/group/browser', ['settings' => ['sources.browser_user_agent' => "Mozilla/5.0\r\nX-Injected: yes"]])
+        ->putJson('/api/v1/settings/browser/identity', ['engine' => 'chromium', 'user_agent' => "Mozilla/5.0\r\nX-Injected: yes"])
         ->assertUnprocessable();
 });
 

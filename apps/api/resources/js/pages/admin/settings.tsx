@@ -4,10 +4,14 @@ import { toast } from 'sonner';
 import {
     fetchAiModels,
     getBankLogos,
+    getBrowserProxy,
     getPlatformData,
     listAiProviders,
     listSettings,
+    listUserAgents,
     replaceAiConnection,
+    replaceBrowserIdentity,
+    replaceBrowserProxy,
     listSystemHealth,
     refreshBankLogos,
     testAiConnection,
@@ -72,7 +76,17 @@ import {
 
 import { iconForSetting } from '../../lib/settingIcons';
 import { unitFor } from '../../lib/settingUnits';
-import type { AiProvider, BankLogoCoverage, ComponentHealth, Setting, SettingGroupPayload } from '../../types/settings';
+import {
+    BROWSER_ENGINES,
+    type AiProvider,
+    type BankLogoCoverage,
+    type BrowserEngine,
+    type BrowserProxyView,
+    type ComponentHealth,
+    type Setting,
+    type SettingGroupPayload,
+    type UserAgentChoices,
+} from '../../types/settings';
 // Produced by the Operations module's probes; read here because what this installation is
 // configured to trust, and whether those sources are still delivering, is a settings question.
 import type { PlatformData, SchedulerStatus } from '../../types/operations';
@@ -93,6 +107,13 @@ const AI_GROUP = 'ai';
 const DOCUMENTS_GROUP = 'documents';
 const BANKS_GROUP = 'banks';
 const SOURCES_GROUP = 'sources';
+const BROWSER_GROUP = 'browser';
+
+/** The browser's engine and name: saved together, in their own dialog, never by the card's save. */
+const BROWSER_ENGINE_KEY = 'sources.browser_engine';
+const BROWSER_USER_AGENT_KEY = 'sources.browser_user_agent';
+/** The proxy's keys, likewise saved together in their own dialog. */
+const BROWSER_PROXY_PREFIX = 'browser_worker.proxy_';
 
 /** Settings whose value is a long line — a browser's User-Agent — given the card's full width; the rest pair up. */
 const WIDE_SETTINGS = new Set(['sources.browser_user_agent']);
@@ -498,6 +519,20 @@ function GroupPanel(props: GroupPanelProps): JSX.Element {
         );
     }
 
+    if (group.group === BROWSER_GROUP) {
+        return (
+            <BrowserPanel
+                group={group}
+                drafts={props.drafts}
+                onDraft={props.onDraft}
+                dirty={props.dirty}
+                actions={actions}
+                describeFailure={props.describeFailure}
+                onReloaded={props.onReloaded}
+            />
+        );
+    }
+
     if (group.group === SOURCES_GROUP) {
         return (
             <SourcesPanel
@@ -553,6 +588,489 @@ function GroupPanel(props: GroupPanelProps): JSX.Element {
                 })}
             </FieldGrid>
         </Panel>
+    );
+}
+
+/**
+ * Who this installation says it is, and how its browsers go out.
+ *
+ * The engine and the name are one choice — a name is honest only on its own engine — so they are shown
+ * here and changed in a dialog that saves both. The proxy likewise: on with its address and credentials,
+ * off with none. Both ask for the password or code again when saved. The crawler's own name stays a
+ * field of the card, saved with it.
+ */
+function BrowserPanel(props: {
+    group: SettingGroupPayload;
+    drafts: Draft;
+    onDraft: (key: string, value: string) => void;
+    dirty: boolean;
+    actions: ReactNode;
+    describeFailure: (cause: unknown) => string;
+    onReloaded: (groups: SettingGroupPayload[]) => void;
+}): JSX.Element {
+    const { t } = useTranslation();
+    const [proxy, setProxy] = useState<BrowserProxyView | null>(null);
+    const [identityOpen, setIdentityOpen] = useState(false);
+    const [proxyOpen, setProxyOpen] = useState(false);
+    const { describeFailure } = props;
+
+    useEffect(() => {
+        let active = true;
+
+        getBrowserProxy().then(
+            (loaded) => {
+                if (active) {
+                    setProxy(loaded);
+                }
+            },
+            (cause: unknown) => {
+                if (active) {
+                    toast.error(describeFailure(cause));
+                }
+            },
+        );
+
+        return () => {
+            active = false;
+        };
+    }, [describeFailure]);
+
+    const valueOf = (key: string): string => props.group.settings.find((setting) => setting.key === key)?.value ?? '';
+    const engine = valueOf(BROWSER_ENGINE_KEY);
+    const userAgent = valueOf(BROWSER_USER_AGENT_KEY);
+    const general = props.group.settings.filter(
+        (setting) =>
+            setting.key !== BROWSER_ENGINE_KEY &&
+            setting.key !== BROWSER_USER_AGENT_KEY &&
+            !setting.key.startsWith(BROWSER_PROXY_PREFIX),
+    );
+    const words = (d: Dictionary): Dictionary['pages']['adminSettings']['browserCard'] =>
+        d.pages.adminSettings.browserCard;
+
+    return (
+        <Panel
+            title={t((d) => d.pages.adminSettings.groups.browser)}
+            description={t((d) => d.pages.adminSettings.groupHints.browser)}
+            icon={GROUP_ICONS.browser}
+            aside={props.dirty ? <Pill>{t((d) => d.pages.adminSettings.unsaved)}</Pill> : undefined}
+            footActions={props.actions}
+        >
+            <FieldGrid>
+                <FieldSpan>
+                    <Field label={t((d) => words(d).engine)} hint={t((d) => words(d).identityHint)}>
+                        <PanelInput
+                            id="browser.identity.engine"
+                            readOnly
+                            icon={<AppWindowIcon className="size-3.5" />}
+                            value={
+                                (BROWSER_ENGINES as readonly string[]).includes(engine)
+                                    ? t((d) => words(d).engines[engine as BrowserEngine])
+                                    : engine
+                            }
+                            actionEnd={
+                                <PanelButton
+                                    onClick={() => {
+                                        setIdentityOpen(true);
+                                    }}
+                                >
+                                    <PencilIcon className="size-3.5" aria-hidden="true" />
+                                    {t((d) => words(d).change)}
+                                </PanelButton>
+                            }
+                        />
+                    </Field>
+                </FieldSpan>
+                <FieldSpan>
+                    <Field
+                        label={t(
+                            (d) =>
+                                d.pages.adminSettings.settingLabels[BROWSER_USER_AGENT_KEY] ?? BROWSER_USER_AGENT_KEY,
+                        )}
+                    >
+                        <PanelInput id="browser.identity.user_agent" readOnly value={userAgent} />
+                    </Field>
+                </FieldSpan>
+                {general.map((setting) => (
+                    <SettingField
+                        key={setting.key}
+                        setting={setting}
+                        draft={props.drafts[setting.key]}
+                        onDraft={(value) => {
+                            props.onDraft(setting.key, value);
+                        }}
+                    />
+                ))}
+            </FieldGrid>
+
+            <div className="border-border mt-4 border-t pt-4">
+                <RowList>
+                    <Row
+                        title={t((d) => words(d).proxyTitle)}
+                        subtitle={
+                            proxy === null
+                                ? t((d) => words(d).proxyHint)
+                                : proxy.enabled
+                                  ? `${proxy.server ?? ''} · ${proxy.playbooks.length === 0 ? t((d) => words(d).proxyNoPlaybook) : proxy.playbooks.join(', ')}`
+                                  : t((d) => words(d).proxyHint)
+                        }
+                        status={
+                            proxy === null ? undefined : (
+                                <Pill>{proxy.enabled ? t((d) => words(d).proxyOn) : t((d) => words(d).proxyOff)}</Pill>
+                            )
+                        }
+                    >
+                        <PanelButton
+                            disabled={proxy === null}
+                            onClick={() => {
+                                setProxyOpen(true);
+                            }}
+                        >
+                            <PencilIcon className="size-3.5" aria-hidden="true" />
+                            {t((d) => words(d).change)}
+                        </PanelButton>
+                    </Row>
+                </RowList>
+            </div>
+
+            <BrowserIdentityDialog
+                open={identityOpen}
+                onOpenChange={setIdentityOpen}
+                engine={engine}
+                userAgent={userAgent}
+                describeFailure={props.describeFailure}
+                onSaved={props.onReloaded}
+            />
+            {proxy === null ? null : (
+                <BrowserProxyDialog
+                    open={proxyOpen}
+                    onOpenChange={setProxyOpen}
+                    proxy={proxy}
+                    describeFailure={props.describeFailure}
+                    onSaved={setProxy}
+                />
+            )}
+        </Panel>
+    );
+}
+
+/**
+ * The engine first, then a name it can honestly send, grouped by system — from the list read weekly. A
+ * name typed by hand is the operator's to vouch for, so it is offered on Chromium only, as the server
+ * accepts it.
+ */
+function BrowserIdentityDialog(props: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    engine: string;
+    userAgent: string;
+    describeFailure: (cause: unknown) => string;
+    onSaved: (groups: SettingGroupPayload[]) => void;
+}): JSX.Element {
+    const { t } = useTranslation();
+    const [choices, setChoices] = useState<UserAgentChoices | null>(null);
+    const [engine, setEngine] = useState(props.engine);
+    const [userAgent, setUserAgent] = useState(props.userAgent);
+    const [saving, setSaving] = useState(false);
+    const errors = useFormErrors();
+    const { open, describeFailure } = props;
+    const loaded = choices !== null;
+
+    useEffect(() => {
+        if (!open || loaded) {
+            return;
+        }
+
+        listUserAgents().then(setChoices, (cause: unknown) => {
+            toast.error(describeFailure(cause));
+        });
+    }, [open, loaded, describeFailure]);
+
+    const words = (d: Dictionary): Dictionary['pages']['adminSettings']['browserCard'] =>
+        d.pages.adminSettings.browserCard;
+    const systems = choices?.engines.find((entry) => entry.engine === engine)?.systems ?? [];
+    const listed = systems.flatMap((system) =>
+        system.agents.map((agent) => ({
+            value: agent.userAgent,
+            label: `${t((d) => words(d).browsers[agent.browser] ?? agent.browser)} ${String(agent.version)}`,
+            description: agent.userAgent,
+            group: t((d) => words(d).systems[system.system] ?? system.system),
+        })),
+    );
+    const typedAllowed = engine === 'chromium';
+    // The name saved, when the list no longer holds it: shown as what it is, so the select never reads empty.
+    const options =
+        userAgent !== '' && typedAllowed && !listed.some((option) => option.value === userAgent)
+            ? [{ value: userAgent, label: userAgent, group: t((d) => words(d).typedGroup) }, ...listed]
+            : listed;
+
+    const save = async (): Promise<void> => {
+        setSaving(true);
+        errors.reset();
+
+        try {
+            await replaceBrowserIdentity(engine as BrowserEngine, userAgent);
+            props.onSaved(await listSettings());
+            toast.success(t((d) => words(d).identitySaved));
+            props.onOpenChange(false);
+        } catch (cause: unknown) {
+            if (!errors.capture(cause)) {
+                toast.error(props.describeFailure(cause));
+            }
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <PanelDialog
+            open={props.open}
+            onOpenChange={(next) => {
+                setEngine(props.engine);
+                setUserAgent(props.userAgent);
+                errors.reset();
+                props.onOpenChange(next);
+            }}
+            title={t((d) => words(d).identityTitle)}
+            description={t((d) => words(d).identityHint)}
+            actions={
+                <>
+                    <PanelButton
+                        variant="outline"
+                        onClick={() => {
+                            props.onOpenChange(false);
+                        }}
+                    >
+                        <X className="size-3.5" aria-hidden="true" />
+                        {t((d) => d.pages.adminSettings.cancel)}
+                    </PanelButton>
+                    <PanelButton
+                        primary
+                        disabled={userAgent === '' || saving}
+                        onClick={() => {
+                            void save();
+                        }}
+                    >
+                        <Check className="size-3.5" aria-hidden="true" />
+                        {saving ? t((d) => d.pages.adminSettings.saving) : t((d) => d.pages.adminSettings.save)}
+                    </PanelButton>
+                </>
+            }
+        >
+            <FieldGrid>
+                <FieldSpan>
+                    <Field label={t((d) => words(d).engine)} error={errors.get('engine')}>
+                        <PanelSelect
+                            id="browser.identity.engine.choice"
+                            value={engine}
+                            options={BROWSER_ENGINES.map((value) => ({
+                                value,
+                                label: t((d) => words(d).engines[value]),
+                            }))}
+                            onValueChange={(value) => {
+                                setEngine(value);
+                                // A name belongs to one engine: picking another starts the name again.
+                                setUserAgent(value === props.engine ? props.userAgent : '');
+                            }}
+                        />
+                    </Field>
+                </FieldSpan>
+                <FieldSpan>
+                    <Field
+                        label={t(
+                            (d) =>
+                                d.pages.adminSettings.settingLabels[BROWSER_USER_AGENT_KEY] ?? BROWSER_USER_AGENT_KEY,
+                        )}
+                        hint={
+                            choices === null
+                                ? null
+                                : choices.publishedAt === null
+                                  ? t((d) => words(d).listEmpty)
+                                  : t((d) => words(d).listDate).replace('{date}', choices.publishedAt.slice(0, 10))
+                        }
+                        error={errors.get('user_agent')}
+                    >
+                        <PanelSelect
+                            id="browser.identity.user_agent.choice"
+                            value={userAgent}
+                            options={options}
+                            searchable
+                            placeholder={t((d) => words(d).pickUserAgent)}
+                            {...(typedAllowed
+                                ? {
+                                      custom: (typed: string) =>
+                                          typed === ''
+                                              ? null
+                                              : {
+                                                    value: typed,
+                                                    label: t((d) => words(d).useTyped).replace('{value}', typed),
+                                                },
+                                  }
+                                : {})}
+                            onValueChange={setUserAgent}
+                        />
+                    </Field>
+                </FieldSpan>
+            </FieldGrid>
+        </PanelDialog>
+    );
+}
+
+/**
+ * The proxy: on with its address, user name and password, or off — which empties all three. The
+ * password is never shown; keeping the proxy on means typing it again. Which playbooks use it is ticked
+ * from those the installed packages registered.
+ */
+function BrowserProxyDialog(props: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    proxy: BrowserProxyView;
+    describeFailure: (cause: unknown) => string;
+    onSaved: (proxy: BrowserProxyView) => void;
+}): JSX.Element {
+    const { t } = useTranslation();
+    const [enabled, setEnabled] = useState(props.proxy.enabled);
+    const [server, setServer] = useState(props.proxy.server ?? '');
+    const [username, setUsername] = useState(props.proxy.username ?? '');
+    const [password, setPassword] = useState('');
+    const [playbooks, setPlaybooks] = useState<string[]>(props.proxy.playbooks);
+    const [saving, setSaving] = useState(false);
+    const errors = useFormErrors();
+    const words = (d: Dictionary): Dictionary['pages']['adminSettings']['browserCard'] =>
+        d.pages.adminSettings.browserCard;
+
+    const save = async (): Promise<void> => {
+        setSaving(true);
+        errors.reset();
+
+        try {
+            props.onSaved(await replaceBrowserProxy({ enabled, server: server.trim(), username, password, playbooks }));
+            toast.success(t((d) => words(d).proxySaved));
+            props.onOpenChange(false);
+        } catch (cause: unknown) {
+            if (!errors.capture(cause)) {
+                toast.error(props.describeFailure(cause));
+            }
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <PanelDialog
+            open={props.open}
+            onOpenChange={(next) => {
+                // Opened fresh every time, from what is saved — never a password typed last time.
+                setEnabled(props.proxy.enabled);
+                setServer(props.proxy.server ?? '');
+                setUsername(props.proxy.username ?? '');
+                setPassword('');
+                setPlaybooks(props.proxy.playbooks);
+                errors.reset();
+                props.onOpenChange(next);
+            }}
+            title={t((d) => words(d).proxyTitle)}
+            description={t((d) => words(d).proxyHint)}
+            actions={
+                <>
+                    <PanelButton
+                        variant="outline"
+                        onClick={() => {
+                            props.onOpenChange(false);
+                        }}
+                    >
+                        <X className="size-3.5" aria-hidden="true" />
+                        {t((d) => d.pages.adminSettings.cancel)}
+                    </PanelButton>
+                    <PanelButton
+                        primary
+                        disabled={saving}
+                        onClick={() => {
+                            void save();
+                        }}
+                    >
+                        <Check className="size-3.5" aria-hidden="true" />
+                        {saving ? t((d) => d.pages.adminSettings.saving) : t((d) => d.pages.adminSettings.save)}
+                    </PanelButton>
+                </>
+            }
+        >
+            <RowList>
+                <Row title={t((d) => words(d).proxyEnabled)}>
+                    <Switch
+                        id="browser.proxy.enabled"
+                        aria-label={t((d) => words(d).proxyEnabled)}
+                        checked={enabled}
+                        onCheckedChange={setEnabled}
+                    />
+                </Row>
+            </RowList>
+
+            {enabled ? (
+                <FieldGrid>
+                    <FieldSpan>
+                        <Field label={t((d) => words(d).proxyServer)} error={errors.get('server')}>
+                            <PanelInput
+                                id="browser.proxy.server"
+                                value={server}
+                                placeholder="http://proxy.example.net:3128"
+                                autoComplete="off"
+                                icon={<LinkIcon className="size-3.5" />}
+                                onChange={(event) => {
+                                    setServer(event.target.value);
+                                }}
+                            />
+                        </Field>
+                    </FieldSpan>
+                    <Field label={t((d) => words(d).proxyUsername)} error={errors.get('username')}>
+                        <PanelInput
+                            id="browser.proxy.username"
+                            value={username}
+                            autoComplete="off"
+                            onChange={(event) => {
+                                setUsername(event.target.value);
+                            }}
+                        />
+                    </Field>
+                    <Field
+                        label={t((d) => words(d).proxyPassword)}
+                        hint={props.proxy.passwordSet ? t((d) => words(d).proxyPasswordAgain) : null}
+                        error={errors.get('password')}
+                    >
+                        <PanelInput
+                            id="browser.proxy.password"
+                            type="password"
+                            autoComplete="new-password"
+                            value={password}
+                            icon={<KeyRoundIcon className="size-3.5" />}
+                            onChange={(event) => {
+                                setPassword(event.target.value);
+                            }}
+                        />
+                    </Field>
+                </FieldGrid>
+            ) : null}
+
+            <p className="eyebrow mt-4 mb-2">{t((d) => words(d).proxyPlaybooks)}</p>
+            {props.proxy.availablePlaybooks.length === 0 ? (
+                <p className="note">{t((d) => words(d).proxyNoPlaybook)}</p>
+            ) : (
+                <RowList>
+                    {props.proxy.availablePlaybooks.map((name) => (
+                        <Row key={name} title={name}>
+                            <Checkbox
+                                aria-label={name}
+                                checked={playbooks.includes(name)}
+                                onCheckedChange={(checked) => {
+                                    setPlaybooks((current) =>
+                                        checked ? [...current, name] : current.filter((entry) => entry !== name),
+                                    );
+                                }}
+                            />
+                        </Row>
+                    ))}
+                </RowList>
+            )}
+        </PanelDialog>
     );
 }
 

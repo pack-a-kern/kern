@@ -1,4 +1,4 @@
-import { vArray, vBoolean, vNullable, vNumber, vObject, vString } from '../lib/validate';
+import { vArray, vBoolean, vEnum, vNullable, vNumber, vObject, vString } from '../lib/validate';
 
 /**
  * System settings as `GET /api/v1/settings` returns them.
@@ -221,5 +221,80 @@ export function parseBankLogoCoverage(payload: unknown): BankLogoCoverage {
         banks: parsed.banks,
         withLogo: parsed.with_logo,
         missing: parsed.missing,
+    };
+}
+
+/** The browsers the worker drives. Mirrors `Kern\Platform\BrowserWorker\BrowserEngine`. */
+export const BROWSER_ENGINES = ['chromium', 'firefox', 'webkit'] as const;
+
+export type BrowserEngine = (typeof BROWSER_ENGINES)[number];
+
+/** A name the Browser card offers, as the list gave it. */
+export interface UserAgentChoice {
+    userAgent: string;
+    browser: string;
+    version: number;
+}
+
+/**
+ * `GET /api/v1/settings/browser/user-agents` — the names, by engine and then by system, as the server
+ * grouped and ordered them. The list's own date, or null before it was first read.
+ */
+export interface UserAgentChoices {
+    publishedAt: string | null;
+    engines: { engine: BrowserEngine; systems: { system: string; agents: UserAgentChoice[] }[] }[];
+}
+
+const userAgentChoices = vObject({
+    publishedAt: vNullable(vString),
+    engines: vArray(
+        vObject({
+            engine: vEnum(BROWSER_ENGINES),
+            systems: vArray(
+                vObject({
+                    system: vString,
+                    agents: vArray(vObject({ userAgent: vString, browser: vString, version: vNumber })),
+                }),
+            ),
+        }),
+    ),
+});
+
+export function parseUserAgentChoices(payload: unknown): UserAgentChoices {
+    return userAgentChoices(payload);
+}
+
+/** `GET /api/v1/settings/browser/proxy` — never the password, only whether one is set. */
+export interface BrowserProxyView {
+    enabled: boolean;
+    server: string | null;
+    username: string | null;
+    passwordSet: boolean;
+    playbooks: string[];
+    availablePlaybooks: string[];
+    updatedAt: string | null;
+}
+
+const browserProxy = vObject({
+    enabled: vBoolean,
+    server: vNullable(vString),
+    username: vNullable(vString),
+    password_set: vBoolean,
+    playbooks: vArray(vString),
+    available_playbooks: vArray(vString),
+    updated_at: vNullable(vString),
+});
+
+export function parseBrowserProxy(payload: unknown): BrowserProxyView {
+    const parsed = browserProxy(payload);
+
+    return {
+        enabled: parsed.enabled,
+        server: parsed.server,
+        username: parsed.username,
+        passwordSet: parsed.password_set,
+        playbooks: parsed.playbooks,
+        availablePlaybooks: parsed.available_playbooks,
+        updatedAt: parsed.updated_at,
     };
 }

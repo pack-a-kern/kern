@@ -1,4 +1,14 @@
-import { useEffect, useId, useMemo, useRef, useState, type JSX, type KeyboardEvent, type ReactNode } from 'react';
+import {
+    Fragment,
+    useEffect,
+    useId,
+    useMemo,
+    useRef,
+    useState,
+    type JSX,
+    type KeyboardEvent,
+    type ReactNode,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -33,6 +43,11 @@ export interface SelectOption<TMeta = unknown> {
     keywords?: string[];
     icon?: ReactNode;
     disabled?: boolean;
+    /**
+     * The heading this option sits under — "Windows", "macOS". Options of one group come together in the
+     * list, and the heading is drawn once above the first of them; it is a label, never an option.
+     */
+    group?: string;
     meta?: TMeta;
 }
 
@@ -148,6 +163,7 @@ export default function CustomSelect<TMeta = unknown>({
     closeOnSelect = true,
     hideChevron = false,
     custom,
+    onSearch,
     'aria-label': ariaLabel,
 }: {
     options: SelectOption<TMeta>[];
@@ -210,6 +226,13 @@ export default function CustomSelect<TMeta = unknown>({
      * where it is typed. The caller decides what counts: this only offers what it is handed.
      */
     custom?: (typed: string) => SelectOption<TMeta> | null;
+    /**
+     * Searched by the caller rather than here: told each time what is in the search box — empty when the
+     * menu opens or closes — and the options it then hands over are shown as they come, already the
+     * answer. For a list too large to hand over whole, found on the server as a person types. Needs
+     * `searchable`.
+     */
+    onSearch?: (query: string) => void;
     'aria-label'?: string;
 }): JSX.Element {
     const generatedId = useId();
@@ -229,7 +252,8 @@ export default function CustomSelect<TMeta = unknown>({
     const filtered = useMemo(() => {
         const needle = query.trim().toLowerCase();
 
-        if (needle === '') {
+        // The caller searched already: what it handed over is the answer.
+        if (needle === '' || onSearch !== undefined) {
             return options;
         }
 
@@ -244,7 +268,7 @@ export default function CustomSelect<TMeta = unknown>({
         const typed = custom?.(query.trim()) ?? null;
 
         return typed === null || options.some((option) => option.value === typed.value) ? matches : [typed, ...matches];
-    }, [options, query, custom]);
+    }, [options, query, custom, onSearch]);
 
     function openMenu(): void {
         if (disabled || triggerRef.current === null) {
@@ -253,6 +277,7 @@ export default function CustomSelect<TMeta = unknown>({
 
         setRect(measure(triggerRef.current));
         setQuery('');
+        onSearch?.('');
         setActiveIndex(
             Math.max(
                 0,
@@ -264,6 +289,7 @@ export default function CustomSelect<TMeta = unknown>({
     function closeMenu(): void {
         setRect(null);
         setQuery('');
+        onSearch?.('');
     }
 
     function commit(option: SelectOption<TMeta>): void {
@@ -431,6 +457,7 @@ export default function CustomSelect<TMeta = unknown>({
                                 onChange={(event) => {
                                     setQuery(event.target.value);
                                     setActiveIndex(0);
+                                    onSearch?.(event.target.value);
                                 }}
                                 onKeyDown={onKeyDown}
                                 placeholder={searchPlaceholder}
@@ -466,30 +493,44 @@ export default function CustomSelect<TMeta = unknown>({
                     ) : (
                         filtered.map((option, index) => {
                             const isSelected = option.value === value;
+                            const heading = option.group !== undefined && option.group !== filtered[index - 1]?.group;
 
                             return (
-                                <button
-                                    key={String(option.value)}
-                                    type="button"
-                                    role="option"
-                                    aria-selected={isSelected}
-                                    disabled={option.disabled === true}
-                                    onMouseEnter={() => {
-                                        if (option.disabled !== true) {
-                                            setActiveIndex(index);
-                                        }
-                                    }}
-                                    onClick={() => {
-                                        commit(option);
-                                    }}
-                                    className={cn('select-option', index === activeIndex && 'select-option-active')}
-                                >
-                                    {renderOption === undefined ? (
-                                        <DefaultOption option={option} selected={isSelected} visual={optionVisual} />
-                                    ) : (
-                                        renderOption(option, { selected: isSelected, active: index === activeIndex })
-                                    )}
-                                </button>
+                                <Fragment key={String(option.value)}>
+                                    {heading ? (
+                                        <p className="select-group" role="presentation">
+                                            {option.group}
+                                        </p>
+                                    ) : null}
+                                    <button
+                                        type="button"
+                                        role="option"
+                                        aria-selected={isSelected}
+                                        disabled={option.disabled === true}
+                                        onMouseEnter={() => {
+                                            if (option.disabled !== true) {
+                                                setActiveIndex(index);
+                                            }
+                                        }}
+                                        onClick={() => {
+                                            commit(option);
+                                        }}
+                                        className={cn('select-option', index === activeIndex && 'select-option-active')}
+                                    >
+                                        {renderOption === undefined ? (
+                                            <DefaultOption
+                                                option={option}
+                                                selected={isSelected}
+                                                visual={optionVisual}
+                                            />
+                                        ) : (
+                                            renderOption(option, {
+                                                selected: isSelected,
+                                                active: index === activeIndex,
+                                            })
+                                        )}
+                                    </button>
+                                </Fragment>
                             );
                         })
                     )}

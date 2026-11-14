@@ -30,6 +30,9 @@ use Throwable;
  * term alike: one more redacted string costs nothing, and a second mechanism for "values that are not
  * secret" would be a second thing to get right.
  *
+ * Every playbook leaves dressed by {@see PlaybookContext}: the Browser card's engine, `User-Agent` and
+ * proxy, where the playbook names none of its own.
+ *
  * Read from configuration on every call rather than once: the address and the time limit are settings,
  * and a queue worker that has been running for a day should use today's.
  */
@@ -38,6 +41,7 @@ final readonly class BrowserWorkerClient
     public function __construct(
         private HttpFactory $http,
         private ConfigRepository $config,
+        private PlaybookContext $context,
     ) {
     }
 
@@ -162,6 +166,12 @@ final readonly class BrowserWorkerClient
         // deployment that trusts the network it is on configures neither side, and this must not refuse
         // on its behalf.
         $request = $worker->request($this->http, $this->config->integer('browser_worker.timeout_seconds'))->asJson();
+
+        if (isset($body['playbook']) && is_array($body['playbook'])) {
+            /** @var array<string, mixed> $playbook */
+            $playbook = $body['playbook'];
+            $body['playbook'] = $this->context->dress($playbook);
+        }
 
         try {
             return $method === 'delete'

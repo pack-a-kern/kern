@@ -26,11 +26,13 @@ return [
     /*
      * The browser's `User-Agent`, sent by every source that goes out as `browser`. legislatie.just.ro
      * answers 403 to a plain client and 200 to a browser (2026-09-08); mfinante.gov.ro resets the
-     * connection of a short one (2026-11-09). Only what this installation's own requests send; the
-     * browser worker's Chromium names itself. No default, as above.
+     * connection of a short one (2026-11-09). The browser worker sends it too, from `engine` — the
+     * browser it belongs to (chromium, firefox or webkit), saved with it on the Browser card: BVB's site
+     * refused a browser that named itself HeadlessChrome (2026-11-13). No default, as above.
      */
     'browser' => [
         'user_agent' => env('SOURCES_BROWSER_USER_AGENT'),
+        'engine' => env('SOURCES_BROWSER_ENGINE'),
     ],
 
     /*
@@ -178,6 +180,21 @@ return [
         // BIC archives download from mapping.gleif.org without a redirect; the legal forms file
         // redirects once, within www.gleif.org. Verified 2026-11-05: api.gleif.org answers JSON with
         // no key, and 404 for an entity that reports no parent.
+        // The browsers' User-Agents a person can pick from on the Browser card: microlink.io's list of the
+        // most used, republished every Tuesday (checked 2026-11-14), read by `kern:sources:user-agents`.
+        // Not an authority on anything — a list of names, kept as such.
+        'USER_AGENTS' => [
+            'trust_tier' => 'D',
+            'base_url' => 'https://microlink.io',
+            'allowed_hosts' => ['microlink.io'],
+            'enabled' => true,
+            'priority' => 1,
+            'endpoints' => [
+                // No default: an address is the installation's to name.
+                'list' => env('SOURCES_USER_AGENTS_URL'),
+            ],
+        ],
+
         'GLEIF' => [
             'trust_tier' => 'D',
             'base_url' => 'https://www.gleif.org',

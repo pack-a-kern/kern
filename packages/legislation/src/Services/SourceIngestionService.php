@@ -53,14 +53,27 @@ final readonly class SourceIngestionService
         ?string $externalIdentifier = null,
         bool $expectXml = false,
     ): IngestedSourceDocument {
-        $officialSourceId = $this->sources->idForCode($sourceCode);
-
         $fetched = $this->fetcher->fetch($sourceCode, $url);
 
         if ($expectXml) {
             $this->assertLooksLikeXml($url, $fetched);
         }
 
+        return $this->keep($sourceCode, $url, $fetched, $documentType, $externalIdentifier);
+    }
+
+    /**
+     * A document fetched some other way — what a page fetched when the browser worker opened it — kept as
+     * evidence exactly as one this service fetched itself, under `$url`, the address a person would open.
+     */
+    public function keep(
+        string $sourceCode,
+        string $url,
+        FetchedDocument $fetched,
+        string $documentType,
+        ?string $externalIdentifier = null,
+    ): IngestedSourceDocument {
+        $officialSourceId = $this->sources->idForCode($sourceCode);
         $stored = $this->rawStore->store($sourceCode, $fetched->body);
 
         $sourceDocument = SourceDocument::query()->firstOrCreate(

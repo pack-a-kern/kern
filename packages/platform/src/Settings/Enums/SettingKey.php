@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kern\Platform\Settings\Enums;
 
+use Kern\Platform\BrowserWorker\BrowserEngine;
+
 /**
  * The closed set of system-wide settings this module manages. Deliberately **not** an open,
  * arbitrary-string key/value store (`docs/CODE-QUALITY.md` §2 — no speculative generality): every
@@ -100,8 +102,22 @@ enum SettingKey: string
      */
     case LEGISLATION_PORTAL_TIMEOUT_SECONDS = 'legislation.portal_timeout_seconds';
 
-    /** The `User-Agent` of every source that goes out as a browser (ADR 0025 §3). */
+    /**
+     * The `User-Agent` of every source that goes out as a browser (ADR 0025 §3), and the engine the
+     * browser worker runs it on — saved together, so a name is never sent from an engine it is not.
+     */
     case SOURCES_BROWSER_USER_AGENT = 'sources.browser_user_agent';
+    case SOURCES_BROWSER_ENGINE = 'sources.browser_engine';
+
+    /**
+     * A proxy the worker's browsers go out through, and the playbooks that use it — saved together on
+     * the Browser card, the password enciphered.
+     */
+    case BROWSER_PROXY_ENABLED = 'browser_worker.proxy_enabled';
+    case BROWSER_PROXY_SERVER = 'browser_worker.proxy_server';
+    case BROWSER_PROXY_USERNAME = 'browser_worker.proxy_username';
+    case BROWSER_PROXY_PASSWORD = 'browser_worker.proxy_password';
+    case BROWSER_PROXY_PLAYBOOKS = 'browser_worker.proxy_playbooks';
 
     /** How the crawler names itself to a source that goes out as one, and who it may write to about it. */
     case SOURCES_CRAWLER_NAME = 'sources.crawler_name';
@@ -175,20 +191,26 @@ enum SettingKey: string
      */
     public function isSecret(): bool
     {
-        return $this === self::AI_API_KEY;
+        return $this === self::AI_API_KEY || $this === self::BROWSER_PROXY_PASSWORD;
     }
 
     /**
-     * The provider's address and its key: written together or not at all, and only by
-     * `ReplaceAiConnectionController`.
+     * Keys written together or not at all, each set by its own endpoint — never by the general update.
      *
-     * A key is only ever sent to the address it was saved with. When the two could be changed apart,
-     * a new address with the key left as it was sent the stored key wherever that address pointed —
-     * so the general settings update refuses both, as it refuses a read-only key.
+     * - The AI provider's address and its key (`ReplaceAiConnectionController`). A key is only ever
+     *   sent to the address it was saved with. When the two could be changed apart, a new address with
+     *   the key left as it was sent the stored key wherever that address pointed.
+     * - The browser's engine and `User-Agent`: a name is honest only on its own engine.
+     * - The browser proxy: on needs its address and credentials, off empties them.
      */
     public function isSetOnlyWithItsPair(): bool
     {
-        return in_array($this, [self::AI_BASE_URL, self::AI_API_KEY], true);
+        return in_array($this, [
+            self::AI_BASE_URL, self::AI_API_KEY,
+            self::SOURCES_BROWSER_USER_AGENT, self::SOURCES_BROWSER_ENGINE,
+            self::BROWSER_PROXY_ENABLED, self::BROWSER_PROXY_SERVER, self::BROWSER_PROXY_USERNAME,
+            self::BROWSER_PROXY_PASSWORD, self::BROWSER_PROXY_PLAYBOOKS,
+        ], true);
     }
 
     /**
@@ -232,8 +254,10 @@ enum SettingKey: string
             self::SOURCES_FETCH_MAX_REDIRECTS => SettingGroup::SOURCES,
 
             // What a request says about itself, in one place: the browser it goes out as, or the crawler.
-            self::SOURCES_BROWSER_USER_AGENT, self::SOURCES_CRAWLER_NAME,
-            self::SOURCES_CRAWLER_CONTACT => SettingGroup::BROWSER,
+            self::SOURCES_BROWSER_USER_AGENT, self::SOURCES_BROWSER_ENGINE, self::SOURCES_CRAWLER_NAME,
+            self::SOURCES_CRAWLER_CONTACT, self::BROWSER_PROXY_ENABLED, self::BROWSER_PROXY_SERVER,
+            self::BROWSER_PROXY_USERNAME, self::BROWSER_PROXY_PASSWORD,
+            self::BROWSER_PROXY_PLAYBOOKS => SettingGroup::BROWSER,
 
             self::LEGISLATION_PORTAL_SEARCH, self::LEGISLATION_PORTAL_PAGES,
             self::LEGISLATION_PORTAL_TIMEOUT_SECONDS => SettingGroup::LEGISLATION_PORTAL,
@@ -287,6 +311,12 @@ enum SettingKey: string
             self::LEGISLATION_PORTAL_PAGES => 'sources.entries.LEGISLATIE.pages',
             self::LEGISLATION_PORTAL_TIMEOUT_SECONDS => 'sources.entries.LEGISLATIE.timeout_seconds',
             self::SOURCES_BROWSER_USER_AGENT => 'sources.browser.user_agent',
+            self::SOURCES_BROWSER_ENGINE => 'sources.browser.engine',
+            self::BROWSER_PROXY_ENABLED => 'browser_worker.proxy.enabled',
+            self::BROWSER_PROXY_SERVER => 'browser_worker.proxy.server',
+            self::BROWSER_PROXY_USERNAME => 'browser_worker.proxy.username',
+            self::BROWSER_PROXY_PASSWORD => 'browser_worker.proxy.password',
+            self::BROWSER_PROXY_PLAYBOOKS => 'browser_worker.proxy.playbooks',
             self::SOURCES_CRAWLER_NAME => 'sources.crawler.name',
             self::SOURCES_CRAWLER_CONTACT => 'sources.crawler.contact',
             self::FX_VERIFICATION_TOLERANCE => 'sources.fx.verification_tolerance',
@@ -312,20 +342,21 @@ enum SettingKey: string
     {
         return match ($this) {
             self::AI_ENABLED, self::AI_SUPPORTS_ENHANCEMENT, self::AI_SUPPORTS_CONVERSION,
-            self::IDENTITY_REGISTRATION_ENABLED,
+            self::IDENTITY_REGISTRATION_ENABLED, self::BROWSER_PROXY_ENABLED,
             self::IDENTITY_EMAIL_VERIFICATION_REQUIRED => SettingType::BOOLEAN,
-            self::AI_API_KEY => SettingType::SECRET,
-            self::AI_BASE_URL, self::SOURCES_BNR_DAILY_URL,
+            self::AI_API_KEY, self::BROWSER_PROXY_PASSWORD => SettingType::SECRET,
+            self::AI_BASE_URL, self::BROWSER_PROXY_SERVER, self::SOURCES_BNR_DAILY_URL,
             self::SOURCES_BNR_YEARLY_URL_TEMPLATE, self::SOURCES_ECB_INSTITUTION_LIST_PAGE_URL,
             self::SOURCES_GLEIF_BIC_LEI_PAGE_URL, self::SOURCES_GLEIF_LEGAL_FORMS_PAGE_URL => SettingType::URL,
             self::FX_VERIFICATION_TOLERANCE => SettingType::DECIMAL,
             self::FX_CURRENCIES => SettingType::CURRENCY_LIST,
             self::BANKS_COUNTRIES => SettingType::COUNTRY_LIST,
-            self::LEGISLATION_PORTAL_SEARCH, self::LEGISLATION_PORTAL_PAGES => SettingType::CHOICE,
+            self::LEGISLATION_PORTAL_SEARCH, self::LEGISLATION_PORTAL_PAGES,
+            self::SOURCES_BROWSER_ENGINE => SettingType::CHOICE,
             self::SOURCES_BROWSER_USER_AGENT, self::SOURCES_CRAWLER_NAME => SettingType::HEADER_VALUE,
             self::SOURCES_CRAWLER_CONTACT => SettingType::CONTACT,
-            self::AI_PROVIDER, self::AI_MODEL, self::CRYPTO_KMS_DRIVER,
-            self::SECURITY_HASH_DRIVER => SettingType::STRING,
+            self::AI_PROVIDER, self::AI_MODEL, self::CRYPTO_KMS_DRIVER, self::BROWSER_PROXY_USERNAME,
+            self::BROWSER_PROXY_PLAYBOOKS, self::SECURITY_HASH_DRIVER => SettingType::STRING,
             default => SettingType::INTEGER,
         };
     }
@@ -343,6 +374,7 @@ enum SettingKey: string
         return match ($this) {
             self::LEGISLATION_PORTAL_SEARCH => ['soap', 'browser'],
             self::LEGISLATION_PORTAL_PAGES => ['direct', 'browser'],
+            self::SOURCES_BROWSER_ENGINE => array_map(static fn (BrowserEngine $engine): string => $engine->value, BrowserEngine::cases()),
             default => [],
         };
     }

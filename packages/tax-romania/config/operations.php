@@ -88,6 +88,7 @@ return [
             'legislation.watch' => env('OPERATIONS_CRON_LEGISLATION_WATCH'),
             'investments.import_government_bonds' => env('OPERATIONS_CRON_INVESTMENTS_IMPORT_GOVERNMENT_BONDS'),
             'investments.import_bvb' => env('OPERATIONS_CRON_INVESTMENTS_IMPORT_BVB'),
+            'sources.user_agents' => env('OPERATIONS_CRON_SOURCES_USER_AGENTS'),
             'holdings.post_payouts' => env('OPERATIONS_CRON_HOLDINGS_POST_PAYOUTS'),
         ],
     ],

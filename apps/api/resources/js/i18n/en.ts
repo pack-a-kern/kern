@@ -2319,6 +2319,44 @@ export const en = {
                 locked: 'Cannot be changed — it would corrupt data already saved.',
             },
             lockedBadge: 'locked',
+            browserCard: {
+                engine: 'Browser engine',
+                engines: { chromium: 'Chromium (Chrome, Edge, Opera)', firefox: 'Firefox', webkit: 'WebKit (Safari)' },
+                browsers: { chrome: 'Chrome', edge: 'Edge', opera: 'Opera', firefox: 'Firefox', safari: 'Safari' },
+                systems: {
+                    windows: 'Windows',
+                    macos: 'macOS',
+                    linux: 'Linux',
+                    chromeos: 'ChromeOS',
+                    android: 'Android',
+                    ios: 'iOS',
+                },
+                change: 'Change',
+                identityTitle: 'Browser engine and user agent',
+                identityHint:
+                    'Sent by every request to an official source, and by every browser the worker opens. A name is only offered for the engine that sends it.',
+                identitySaved: 'Browser engine and user agent saved',
+                pickUserAgent: 'Choose a user agent',
+                useTyped: 'Use “{value}”',
+                typedGroup: 'Typed by hand',
+                listDate:
+                    'From the list of the most used browsers, published {date}. A name typed by hand is sent from Chromium only.',
+                listEmpty:
+                    'The list of browsers has not been read yet — run “Browser names list” in Operations. Until then, type a name (Chromium only).',
+                proxyTitle: 'Proxy',
+                proxyHint:
+                    'A proxy the worker’s browsers go out through, for the playbooks ticked. Turned off, its address and credentials are emptied.',
+                proxyOn: 'On',
+                proxyOff: 'Off',
+                proxyEnabled: 'Use a proxy',
+                proxyServer: 'Address (http://host:port)',
+                proxyUsername: 'User name',
+                proxyPassword: 'Password',
+                proxyPasswordAgain: 'A password is saved but never shown: type it again to keep the proxy on.',
+                proxyPlaybooks: 'Playbooks that use it',
+                proxyNoPlaybook: 'No playbook uses it',
+                proxySaved: 'Proxy saved',
+            },
             sourceAddresses: {
                 title: 'Source addresses',
                 hint: 'Where each source is fetched from. Change one only when the source has moved.',
@@ -2364,6 +2402,12 @@ export const en = {
                 'legislation.portal_pages': 'Read a law’s pages with',
                 'legislation.portal_timeout_seconds': 'Timeout for legislatie.just.ro',
                 'sources.browser_user_agent': 'Browser user agent',
+                'sources.browser_engine': 'Browser engine',
+                'browser_worker.proxy_enabled': 'Proxy on',
+                'browser_worker.proxy_server': 'Proxy address',
+                'browser_worker.proxy_username': 'Proxy user name',
+                'browser_worker.proxy_password': 'Proxy password',
+                'browser_worker.proxy_playbooks': 'Playbooks that use the proxy',
                 'sources.crawler_name': 'Crawler user agent',
                 'sources.crawler_contact': 'Contact, added to the crawler user agent',
                 'fx.verification_tolerance': 'Rate verification tolerance',
@@ -2398,7 +2442,7 @@ export const en = {
                 sources:
                     'Where BNR, ECB, GLEIF, ANAF and MF are read from, and the limits on what is downloaded from them. Which hosts may be fetched is fixed in code (an allowlist), not here.',
                 browser:
-                    'What the app’s requests to official sources say they are. Every source is sent the browser user agent unless its configuration names it for the crawler, which is then sent with its contact.',
+                    'What the app’s requests to official sources and its browsers say they are, and the proxy those browsers go out through. Every source is sent the browser user agent unless its configuration names it for the crawler, which is then sent with its contact.',
                 legislation_portal:
                     'How legislatie.just.ro is searched and how a law’s pages are read. Each way is used alone: when it fails, it says so, and the other is not tried.',
                 fx: 'Tolerance between the locally calculated average and the one BNR publishes.',
@@ -2719,6 +2763,7 @@ export const en = {
                     'holdings.post_payouts': 'Record holding payouts',
                     'investments.import_government_bonds': 'Government bond import',
                     'investments.import_bvb': 'BVB import',
+                    'sources.user_agents': 'Browser names list',
                 },
                 descriptions: {
                     'holdings.post_payouts':
@@ -2727,6 +2772,8 @@ export const en = {
                         'Runs every law watch that is due, each on its own clock: a new act a watched search finds is read as a law.',
                     'investments.import_government_bonds':
                         'Reads the Ministry of Finance’s subscription lists, and any Fidelis or Tezaur order already a law but never read for its issues.',
+                    'sources.user_agents':
+                        'Reads the published list of the most used browsers’ names, which the Browser card offers. A list already read changes nothing.',
                     'investments.import_bvb':
                         'Reads BVB’s shares, bonds and dividends, and the day’s prices. A day the exchange is closed adds nothing.',
                     'wallet.maturity_reminders':

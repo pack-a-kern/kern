@@ -2323,6 +2323,45 @@ export const ro = {
                 locked: 'Nu poate fi modificată — ar strica datele deja salvate.',
             },
             lockedBadge: 'blocat',
+            browserCard: {
+                engine: 'Motorul browserului',
+                engines: { chromium: 'Chromium (Chrome, Edge, Opera)', firefox: 'Firefox', webkit: 'WebKit (Safari)' },
+                browsers: { chrome: 'Chrome', edge: 'Edge', opera: 'Opera', firefox: 'Firefox', safari: 'Safari' },
+                systems: {
+                    windows: 'Windows',
+                    macos: 'macOS',
+                    linux: 'Linux',
+                    chromeos: 'ChromeOS',
+                    android: 'Android',
+                    ios: 'iOS',
+                },
+                change: 'Schimbă',
+                identityTitle: 'Motorul și user agentul browserului',
+                identityHint:
+                    'Trimis de fiecare cerere către o sursă oficială și de fiecare browser deschis de worker. Un nume e oferit doar pentru motorul care îl trimite.',
+                identitySaved: 'Motorul și user agentul browserului au fost salvate',
+                pickUserAgent: 'Alege un user agent',
+                useTyped: 'Folosește „{value}”',
+                typedGroup: 'Scris de mână',
+                listDate:
+                    'Din lista celor mai folosite browsere, publicată pe {date}. Un nume scris de mână e trimis doar din Chromium.',
+                listEmpty:
+                    'Lista de browsere n-a fost citită încă — rulează „Lista de nume de browser” din Operațiuni. Până atunci, scrie un nume (doar Chromium).',
+                proxyTitle: 'Proxy',
+                proxyHint:
+                    'Un proxy prin care ies browserele workerului, pentru playbook-urile bifate. Oprit, adresa și datele lui de acces sunt golite.',
+                proxyOn: 'Pornit',
+                proxyOff: 'Oprit',
+                proxyEnabled: 'Folosește un proxy',
+                proxyServer: 'Adresa (http://gazdă:port)',
+                proxyUsername: 'Utilizator',
+                proxyPassword: 'Parolă',
+                proxyPasswordAgain:
+                    'O parolă e salvată, dar nu se afișează: scrie-o din nou ca proxy-ul să rămână pornit.',
+                proxyPlaybooks: 'Playbook-uri care îl folosesc',
+                proxyNoPlaybook: 'Niciun playbook nu îl folosește',
+                proxySaved: 'Proxy salvat',
+            },
             sourceAddresses: {
                 title: 'Adresele surselor',
                 hint: 'De unde se descarcă fiecare sursă. Se schimbă doar dacă sursa s-a mutat.',
@@ -2368,6 +2407,12 @@ export const ro = {
                 'legislation.portal_pages': 'Citirea paginilor unei legi prin',
                 'legislation.portal_timeout_seconds': 'Timp maxim pentru legislatie.just.ro',
                 'sources.browser_user_agent': 'User agent browser',
+                'sources.browser_engine': 'Motorul browserului',
+                'browser_worker.proxy_enabled': 'Proxy pornit',
+                'browser_worker.proxy_server': 'Adresa proxy-ului',
+                'browser_worker.proxy_username': 'Utilizatorul proxy-ului',
+                'browser_worker.proxy_password': 'Parola proxy-ului',
+                'browser_worker.proxy_playbooks': 'Playbook-uri care folosesc proxy-ul',
                 'sources.crawler_name': 'User agent crawler',
                 'sources.crawler_contact': 'Contact, adăugat la user agentul crawlerului',
                 'fx.verification_tolerance': 'Toleranță verificare curs',
@@ -2402,7 +2447,7 @@ export const ro = {
                 sources:
                     'De unde se citesc BNR, BCE, GLEIF, ANAF și MF și limitele pentru ce se descarcă de la ele. Ce adrese pot fi descărcate e fixat în cod (o listă permisă), nu aici.',
                 browser:
-                    'Cum se prezintă cererile aplicației către sursele oficiale. Fiecare sursă primește user agentul browserului, în afară de cea pe care configurația o dă crawlerului, trimis atunci cu contactul lui.',
+                    'Cum se prezintă cererile aplicației către sursele oficiale și browserele ei, și proxy-ul prin care ies acele browsere. Fiecare sursă primește user agentul browserului, în afară de cea pe care configurația o dă crawlerului, trimis atunci cu contactul lui.',
                 legislation_portal:
                     'Cum se caută pe legislatie.just.ro și cum se citesc paginile unei legi. Fiecare mod e folosit singur: când nu merge, spune asta, iar celălalt nu e încercat.',
                 fx: 'Toleranța la diferența dintre media calculată local și cea publicată de BNR.',
@@ -2726,6 +2771,7 @@ export const ro = {
                     'holdings.post_payouts': 'Înregistrare plăți dețineri',
                     'investments.import_government_bonds': 'Import titluri de stat',
                     'investments.import_bvb': 'Import BVB',
+                    'sources.user_agents': 'Lista de nume de browser',
                 },
                 descriptions: {
                     'holdings.post_payouts':
@@ -2734,6 +2780,8 @@ export const ro = {
                         'Rulează fiecare căutare urmărită care e la rând, fiecare după propriul interval: un act nou găsit e citit ca lege.',
                     'investments.import_government_bonds':
                         'Citește listele de subscrieri ale Ministerului Finanțelor și orice ordin Fidelis sau Tezaur deja citit ca lege, dar necitit pentru emisiunile lui.',
+                    'sources.user_agents':
+                        'Citește lista publicată a numelor celor mai folosite browsere, pe care le oferă cardul Browser. O listă deja citită nu schimbă nimic.',
                     'investments.import_bvb':
                         'Citește acțiunile, obligațiunile și dividendele de pe BVB și prețurile zilei. O zi în care bursa e închisă nu adaugă nimic.',
                     'wallet.maturity_reminders':

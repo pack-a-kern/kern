@@ -9,6 +9,7 @@ use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\ServiceProvider;
+use Kern\Legislation\Console\Commands\ImportUserAgentsCommand;
 use Kern\Legislation\Console\Commands\ReindexLegislationCommand;
 use Kern\Legislation\Console\Commands\SyncLegislationCommand;
 use Kern\Legislation\Console\Commands\WatchLegislationCommand;
@@ -132,7 +133,7 @@ final class LegislationServiceProvider extends ServiceProvider
         ], 'kern-legislation-config');
 
         if ($this->app->runningInConsole()) {
-            $this->commands([SyncLegislationCommand::class, ReindexLegislationCommand::class, WatchLegislationCommand::class]);
+            $this->commands([SyncLegislationCommand::class, ReindexLegislationCommand::class, WatchLegislationCommand::class, ImportUserAgentsCommand::class]);
         }
     }
 }
