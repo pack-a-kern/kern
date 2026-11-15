@@ -196,7 +196,11 @@ it('closes a matured deposit and returns its principal and interest to where the
     $fundingId = currentAccount($this, $user, $subjectId);
     $depositId = deposit($this, $user, $subjectId, ['funding_account_id' => $fundingId]);
 
-    $dayAfterMaturity = day(6, 1);
+    // The maturity is the term's end moved off a weekend ({@see DepositTerm::maturity}), so settling
+    // runs the day after that real maturity — not the day after a plain six-month offset, which on a
+    // weekend falls before it and would leave the deposit open.
+    $maturity = DepositTerm::maturity(day(), 6);
+    $dayAfterMaturity = $maturity->addDay();
     app(PostMaturedDepositInterest::class)($dayAfterMaturity);
     app(CloseMaturedDeposits::class)($dayAfterMaturity);
     // Idempotent: a closed deposit is never settled twice.
@@ -207,10 +211,10 @@ it('closes a matured deposit and returns its principal and interest to where the
     $fundingRows = DB::table('financial_transactions')->where('account_id', $fundingId)->orderBy('amount_minor')->get();
 
     expect($interest)->toBeGreaterThan(0)
-        ->and($terms?->closed_at)->toBe(day(6)->toDateString())
+        ->and($terms?->closed_at)->toBe($maturity->toDateString())
         // Out when it opened, back with the interest when it matured — nothing vanishes.
         ->and($fundingRows->pluck('amount_minor')->all())->toBe([-5000000, 5000000 + $interest])
-        ->and($fundingRows->last()?->booked_at)->toBe(day(6)->toDateString())
+        ->and($fundingRows->last()?->booked_at)->toBe($maturity->toDateString())
         // The deposit is emptied: its interest moved on with the principal.
         ->and((int) DB::table('financial_transactions')->where('account_id', $depositId)->sum('amount_minor'))->toBe(0);
 

@@ -26,7 +26,7 @@ declare(strict_types=1);
 return [
 
     // The law a value is looked for in, as it is filed (`ext_source_documents.external_identifier`).
-    'law' => env('FISCAL_PARAMETERS_LAW', 'LEGE 227/2015'),
+    'law' => env('FISCAL_PARAMETERS_LAW'),
 
     'currency' => env('FISCAL_PARAMETERS_CURRENCY', 'RON'),
 
