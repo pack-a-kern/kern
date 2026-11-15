@@ -21,6 +21,7 @@ use Kern\Legislation\Http\Controllers\Watches\AllowIgnoredActController;
 use Kern\Legislation\Http\Controllers\Watches\CreateLawWatchController;
 use Kern\Legislation\Http\Controllers\Watches\DeleteLawWatchController;
 use Kern\Legislation\Http\Controllers\Watches\ListLawWatchesController;
+use Kern\Legislation\Http\Controllers\Watches\RunDeclaredLawWatchController;
 use Kern\Legislation\Http\Controllers\Watches\RunLawWatchController;
 use Kern\Legislation\Http\Controllers\Watches\UpdateLawWatchController;
 
@@ -91,6 +92,10 @@ Route::prefix('v1/legislation/watches')->middleware(['auth:web', 'permission:ope
     Route::delete('{watch}', DeleteLawWatchController::class)->whereUuid('watch')->middleware('verify-recent');
     // Running one now reads what it finds as it would at its hour: nothing it would not do on its own.
     Route::post('{watch}/run', RunLawWatchController::class)->whereUuid('watch');
+    // Running a package-declared watch by its key, mirroring its row first if a fresh install has not
+    // yet (ADR 0027). The key is matched against the declarations in config, so it brings no watch of
+    // the caller's choosing into being — like "Run now", it needs no `verify-recent`.
+    Route::post('declared/{key}/run', RunDeclaredLawWatchController::class)->where('key', '[a-z0-9_.-]{1,64}');
     // An act taken off the ignored list is read in by the next run that finds it: changed as a watch is.
     Route::delete('ignored/{ignored}', AllowIgnoredActController::class)->whereUuid('ignored')->middleware('verify-recent');
 });

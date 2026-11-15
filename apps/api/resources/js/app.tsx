@@ -22,8 +22,12 @@ import { TooltipProvider } from './components/ui/tooltip';
  */
 let appName = '';
 
-/** The screens before sign-in, which stand on their own rather than in the application's frame. */
-const PAGES_WITHOUT_SHELL = new Set(['home', 'auth/login', 'auth/verify-email']);
+/**
+ * The screens that stand on their own rather than in the application's frame: those before sign-in,
+ * and the setup screen — a signed-in person is held there until the install can compute (ADR 0027),
+ * so it wears its own full-page layout, not the shell whose every destination the gate has closed.
+ */
+const PAGES_WITHOUT_SHELL = new Set(['home', 'auth/login', 'auth/verify-email', 'setup/index']);
 
 // Before anything renders, so the first dialog's `<style>` already carries the page nonce.
 shareCspNonce();

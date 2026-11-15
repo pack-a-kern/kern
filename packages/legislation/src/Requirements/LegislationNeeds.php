@@ -54,4 +54,16 @@ final readonly class LegislationNeeds
 
         return is_string($watchId) && SourceDocument::query()->where('found_by_watch_id', $watchId)->exists();
     }
+
+    /**
+     * Whether the watch under this key has a run on the queue right now (asked to run, inside the job
+     * timeout). The setup screen shows "importing" while it does, so a step mid-fetch reads as working
+     * rather than as nothing found yet — and keeps the screen asking until the acts land.
+     */
+    public function watchIsRunning(string $key): bool
+    {
+        $watch = LawWatch::query()->where('key', $key)->first();
+
+        return $watch instanceof LawWatch && $watch->isRunning();
+    }
 }

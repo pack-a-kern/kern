@@ -12,6 +12,7 @@ use Kern\Investments\Events\IssueOnOffer;
 use Kern\Legislation\Dependents\DocumentDependents;
 use Kern\Legislation\Dependents\SectionDependents;
 use Kern\Legislation\Requirements\NeedResolvers;
+use Kern\Legislation\Requirements\NeedStatus;
 use Kern\Notifications\Services\NoticeTypes;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexReindexers;
 use Kern\Platform\Logging\Redactions;
@@ -179,10 +180,25 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
         // How a `parameters` need is decided (ADR 0027): resolved here, against this package's own
         // models, so `kern/legislation` owns the readiness question but never a fiscal value. The one
         // argument is the active year's values — the minimum wage approved for it.
-        $this->app->make(NeedResolvers::class)->register('parameters', function (string $argument): bool {
-            return $argument === 'active-year'
-                ? $this->app->make(FiscalParameterReadiness::class)->minimumWageApprovedForActiveYear()
-                : throw new RuntimeException("The legislation requirement need \"parameters\" was declared with \"{$argument}\"; the only argument is \"active-year\".");
+        $this->app->make(NeedResolvers::class)->register('parameters', function (string $argument): NeedStatus {
+            if ($argument !== 'active-year') {
+                throw new RuntimeException("The legislation requirement need \"parameters\" was declared with \"{$argument}\"; the only argument is \"active-year\".");
+            }
+
+            $readiness = $this->app->make(FiscalParameterReadiness::class);
+
+            // Approved for the active year: met, and the screen says so. Otherwise the detail is what
+            // it is waiting on — a value proposed and awaiting approval, named so a person knows what
+            // they are approving, or nothing proposed yet (still being read, or not published).
+            if ($readiness->minimumWageApprovedForActiveYear()) {
+                return new NeedStatus(true, ['state' => 'approved']);
+            }
+
+            $proposed = $readiness->proposedMinimumWageForActiveYear();
+
+            return new NeedStatus(false, $proposed === null
+                ? ['state' => 'absent', 'year' => $readiness->activeYear()]
+                : ['state' => 'proposed', ...$proposed]);
         });
 
         PackageRoutes::load(__DIR__ . '/../routes/api.php');

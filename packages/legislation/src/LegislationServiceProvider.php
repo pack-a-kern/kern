@@ -22,6 +22,7 @@ use Kern\Legislation\Queries\LawFlags;
 use Kern\Legislation\Requirements\LegislationNeeds;
 use Kern\Legislation\Requirements\LegislationRequirements;
 use Kern\Legislation\Requirements\NeedResolvers;
+use Kern\Legislation\Requirements\NeedStatus;
 use Kern\Legislation\Retrieval\Embedding\EmbeddingProvider;
 use Kern\Legislation\Retrieval\Embedding\HttpEmbeddingProvider;
 use Kern\Legislation\Retrieval\Embedding\UnconfiguredEmbeddingProvider;
@@ -138,7 +139,10 @@ final class LegislationServiceProvider extends ServiceProvider
         $resolvers = $this->app->make(NeedResolvers::class);
         $needs = $this->app->make(LegislationNeeds::class);
         $resolvers->register('law', static fn (string $identifier): bool => $needs->lawInForce($identifier));
-        $resolvers->register('watch', static fn (string $key): bool => $needs->watchHasRead($key));
+        $resolvers->register('watch', static fn (string $key): NeedStatus => new NeedStatus(
+            $needs->watchHasRead($key),
+            ['running' => $needs->watchIsRunning($key)],
+        ));
 
         ConfiguredRateLimit::register('legislation-search-per-user', 'legislation.rate_limits.search_per_user', ConfiguredRateLimit::perUser());
 

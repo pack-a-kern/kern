@@ -154,6 +154,68 @@ it('runs a watch now on the queue, once however often asked, and not one that is
         ->assertJsonPath('reason', 'WATCH_PAUSED');
 });
 
+/** One package-declared watch, in configuration, as the setup screen reaches it by key (ADR 0027). */
+function declareInConfig(): void
+{
+    config(['legislation.watches.declared' => [
+        'example.orders' => [
+            'declared_by' => 'kern/example',
+            'search' => 'exemplul de ordin',
+            'act_type' => 'ORDIN',
+            'title_pattern' => '/exemplul/u',
+            'first_year' => 2024,
+            'every_hours' => 168,
+        ],
+    ]]);
+}
+
+it('runs a package-declared watch by key, mirroring its row first on a fresh install', function (): void {
+    Queue::fake();
+    declareInConfig();
+
+    // The fresh-install case: nothing has mirrored the declarations yet.
+    expect(LawWatch::query()->where('key', 'example.orders')->exists())->toBeFalse();
+
+    $this->actingAs($this->operator)->postJson('/api/v1/legislation/watches/declared/example.orders/run')
+        ->assertStatus(202)
+        ->assertJsonPath('running', true);
+
+    $watch = LawWatch::query()->where('key', 'example.orders')->sole();
+    expect($watch->search_words)->toBe('exemplul de ordin')
+        ->and($watch->declared_by)->toBe('kern/example');
+    Queue::assertPushed(RunLawWatchNow::class, 1);
+
+    // Asked again before the first run ends, it is still one run.
+    $this->actingAs($this->operator)->postJson('/api/v1/legislation/watches/declared/example.orders/run')->assertStatus(202);
+    Queue::assertPushed(RunLawWatchNow::class, 1);
+});
+
+it('404s a declared-watch key that no package declares', function (): void {
+    config(['legislation.watches.declared' => []]);
+
+    $this->actingAs($this->operator)->postJson('/api/v1/legislation/watches/declared/example.orders/run')
+        ->assertNotFound();
+});
+
+it('does not resurrect a declared watch a person has paused', function (): void {
+    Queue::fake();
+    declareInConfig();
+    LawWatch::query()->create([
+        'key' => 'example.orders', 'declared_by' => 'kern/example', 'search_words' => 'exemplul de ordin',
+        'act_type' => 'ORDIN', 'first_year' => 2024, 'every_hours' => 168, 'enabled' => false, 'next_run_at' => now(),
+    ]);
+
+    $this->actingAs($this->operator)->postJson('/api/v1/legislation/watches/declared/example.orders/run')
+        ->assertStatus(409)
+        ->assertJsonPath('reason', 'WATCH_PAUSED');
+    Queue::assertNothingPushed();
+});
+
+it('runs a declared watch only for those who may start a reading', function (): void {
+    $this->postJson('/api/v1/legislation/watches/declared/example.orders/run')->assertUnauthorized();
+    $this->actingAs(ordinaryUser())->postJson('/api/v1/legislation/watches/declared/example.orders/run')->assertForbidden();
+});
+
 it('runs a watch on a queue of its own, not the one laws are read on, with a worker that outlasts it', function (): void {
     $job = new RunLawWatchNow('00000000-0000-0000-0000-000000000000', $this->operator->id);
     $supervisor = 'horizon.defaults.supervisor-legislation-watches';

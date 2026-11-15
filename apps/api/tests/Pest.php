@@ -45,6 +45,15 @@ uses(TestCase::class)->in('Feature');
  */
 uses()->beforeEach(function (): void {
     app()->instance(KeyManagementService::class, new InMemoryKeyManagementService());
+
+    // The install reads as bootstrapped by default, so the ADR 0027 gate ({@see RequireBootstrapped})
+    // lets a feature test's web navigation through instead of redirecting it to the setup checklist.
+    // Declaring no required legislation makes `is_bootstrapped` vacuously true — the gate exists only
+    // for a fresh install, and every suite but the gate's own is testing a working one. A test that
+    // exercises the gate declares its own requirements and forgets the singleton, overriding this
+    // (see Feature/Setup/RequireBootstrappedTest).
+    config(['legislation.requirements.declared' => []]);
+    app()->forgetInstance(\Kern\Legislation\Requirements\LegislationRequirements::class);
 })->in('Feature');
 
 /**

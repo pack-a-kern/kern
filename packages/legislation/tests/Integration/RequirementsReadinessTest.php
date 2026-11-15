@@ -154,3 +154,39 @@ it('fails loudly when a need names a kind no package resolves', function (): voi
         'example.x' => ['declared_by' => 'kern/example', 'tier' => 'required', 'needs' => ['nobody' => 'anything']],
     ]))->toThrow(RuntimeException::class, 'nobody');
 });
+
+it('attaches the watch run state as detail, while a law need carries none', function (): void {
+    lawInForce('LEGE 227/2015');
+    watchWithLaw('example.orders'); // read a law, no run on the queue
+
+    $report = readiness([
+        'example.cod' => ['declared_by' => 'kern/example', 'tier' => 'required', 'needs' => ['law' => 'LEGE 227/2015']],
+        'example.bonds' => ['declared_by' => 'kern/example', 'tier' => 'feature', 'feature' => 'example.bonds', 'needs' => ['watch' => 'example.orders']],
+    ]);
+
+    // A bare bool resolver (the law need) reports no detail; the watch resolver reports its run state.
+    expect($report['requirements'][0]['needs'][0])->not->toHaveKey('detail')
+        ->and($report['requirements'][1]['needs'][0]['detail'])->toBe(['running' => false]);
+});
+
+it('reports a watch as running while a run is on the queue', function (): void {
+    LawWatch::query()->create([
+        'key' => 'example.orders',
+        'declared_by' => 'kern/example',
+        'search_words' => 'exemplu',
+        'act_type' => 'ORDIN',
+        'first_year' => 2024,
+        'every_hours' => 168,
+        'enabled' => true,
+        'next_run_at' => now(),
+        'run_requested_at' => now(),
+    ]);
+
+    $report = readiness([
+        'example.bonds' => ['declared_by' => 'kern/example', 'tier' => 'feature', 'feature' => 'example.bonds', 'needs' => ['watch' => 'example.orders']],
+    ]);
+
+    // Nothing read yet, so the need is unmet, but the screen can show it as fetching.
+    expect($report['requirements'][0]['needs'][0]['met'])->toBeFalse()
+        ->and($report['requirements'][0]['needs'][0]['detail'])->toBe(['running' => true]);
+});

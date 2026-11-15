@@ -21,17 +21,20 @@ use RuntimeException;
  */
 final class NeedResolvers
 {
-    /** @var array<string, Closure(string): bool> */
+    /** @var array<string, Closure(string): (bool|NeedStatus)> */
     private array $resolvers = [];
 
     /**
      * "This is how a need of this kind is decided" — from the owning package's provider.
      *
-     * @param Closure(string): bool $isMet whether the need with this argument is satisfied
+     * The closure returns whether the need with this argument is satisfied, as a bare `bool`, or a
+     * {@see NeedStatus} when it also carries detail for the setup screen (what it is waiting for).
+     *
+     * @param Closure(string): (bool|NeedStatus) $resolve
      */
-    public function register(string $kind, Closure $isMet): void
+    public function register(string $kind, Closure $resolve): void
     {
-        $this->resolvers[$kind] = $isMet;
+        $this->resolvers[$kind] = $resolve;
     }
 
     public function knows(string $kind): bool
@@ -39,11 +42,18 @@ final class NeedResolvers
         return isset($this->resolvers[$kind]);
     }
 
-    public function isMet(RequirementNeed $need): bool
+    public function status(RequirementNeed $need): NeedStatus
     {
         $resolve = $this->resolvers[$need->kind]
             ?? throw new RuntimeException("No resolver is registered for the requirement need \"{$need->kind}\".");
 
-        return $resolve($need->argument);
+        $result = $resolve($need->argument);
+
+        return $result instanceof NeedStatus ? $result : new NeedStatus($result);
+    }
+
+    public function isMet(RequirementNeed $need): bool
+    {
+        return $this->status($need)->met;
     }
 }

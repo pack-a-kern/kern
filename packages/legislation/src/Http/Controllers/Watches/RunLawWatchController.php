@@ -6,8 +6,8 @@ namespace Kern\Legislation\Http\Controllers\Watches;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Kern\Legislation\Jobs\RunLawWatchNow;
 use Kern\Legislation\Models\LawWatch;
+use Kern\Legislation\Watches\StartWatchRun;
 
 /**
  * `POST /api/v1/legislation/watches/{id}/run` — run now, on the queue, rather than at its next hour. Only a
@@ -16,7 +16,7 @@ use Kern\Legislation\Models\LawWatch;
  */
 final class RunLawWatchController
 {
-    public function __invoke(Request $request, string $watch): JsonResponse
+    public function __invoke(Request $request, string $watch, StartWatchRun $start): JsonResponse
     {
         $found = LawWatch::query()->findOrFail($watch);
         $actor = $request->user()?->getAuthIdentifier();
@@ -28,17 +28,7 @@ final class RunLawWatchController
             return response()->json(['reason' => 'WATCH_PAUSED', 'message' => 'A paused watch is not run.'], 409);
         }
 
-        // One request at a time, claimed in one statement, so two clicks cannot start two runs.
-        $requested = LawWatch::query()
-            ->whereKey($found->id)
-            ->where(static fn ($query) => $query
-                ->whereNull('run_requested_at')
-                ->orWhere('run_requested_at', '<=', now()->subSeconds(config()->integer('legislation.job_timeout_seconds'))))
-            ->update(['run_requested_at' => now()]);
-
-        if ($requested === 1) {
-            RunLawWatchNow::dispatch($found->id, $actor);
-        }
+        $start($found, $actor);
 
         return response()->json(LawWatchView::of($found->refresh(), $actor), 202);
     }

@@ -18,7 +18,6 @@ import {
     Hourglass,
     Landmark,
     LayoutDashboard,
-    ListChecks,
     ListTodo,
     LogOut,
     PanelLeftClose,
@@ -209,12 +208,6 @@ const ADMIN_GROUP: NavLink = {
     children: [
         /* Hidden rather than refused: a row that answers 403 when pressed tells a person about a
            permission instead of about the installation. */
-        {
-            href: '/setup',
-            label: (d) => d.nav.setup,
-            icon: ListChecks,
-            permission: 'system.settings.view',
-        },
         {
             href: '/admin/settings',
             label: (d) => d.nav.adminSettings,

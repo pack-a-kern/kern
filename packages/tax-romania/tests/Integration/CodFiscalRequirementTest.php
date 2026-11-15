@@ -14,14 +14,21 @@ use Kern\TaxRomania\FiscalParameters\Requirements\FiscalParameterReadiness;
 use Kern\TaxRomania\TaxEngine\Services\FiscalYears;
 
 /**
- * ADR 0027 — this package declares Cod Fiscal (present and in force) plus the active year's minimum
- * wage approved as the one baseline the whole application rests on, and resolves the `parameters`
- * need against its own models so `kern/legislation` never learns what a fiscal value is.
+ * ADR 0027 — this package declares the one baseline the whole application rests on as two required
+ * requirements: Cod Fiscal present and in force, and the active year's minimum wage (its decision read
+ * by this package's watch, its value approved). It resolves the `parameters` need against its own
+ * models so `kern/legislation` never learns what a fiscal value is.
  */
 
 function parametersMet(): bool
 {
     return app(NeedResolvers::class)->isMet(new RequirementNeed('parameters', 'active-year'));
+}
+
+/** The resolved status of the active-year `parameters` need — met, plus the detail the screen reads. */
+function parametersStatus(): \Kern\Legislation\Requirements\NeedStatus
+{
+    return app(NeedResolvers::class)->status(new RequirementNeed('parameters', 'active-year'));
 }
 
 /**
@@ -44,14 +51,26 @@ function wageVersion(ApprovalStatus $status): void
     }
 }
 
-it('declares the cod-fiscal requirement with the fiscal law and active-year values', function (): void {
+it('declares the cod-fiscal requirement with the fiscal law as its one need', function (): void {
     $declared = config('legislation.requirements.declared');
 
     expect($declared)->toHaveKey('tax-romania.cod-fiscal')
         ->and($declared['tax-romania.cod-fiscal']['tier'])->toBe('required')
         ->and($declared['tax-romania.cod-fiscal']['declared_by'])->toBe('kern/tax-romania')
-        ->and($declared['tax-romania.cod-fiscal']['needs']['law'])->toBe(config('fiscal_parameters.law'))
-        ->and($declared['tax-romania.cod-fiscal']['needs']['parameters'])->toBe('active-year');
+        ->and($declared['tax-romania.cod-fiscal']['needs'])->toBe(['law' => config('fiscal_parameters.law')]);
+});
+
+it('declares the minimum-wage requirement needing its watch read and the value approved', function (): void {
+    $declared = config('legislation.requirements.declared');
+
+    // The watch argument is the key this package declares the minimum-wage watch under in watches.php,
+    // so the need and the watch that satisfies it name the same thing.
+    expect($declared)->toHaveKey('tax-romania.minimum-wage')
+        ->and($declared['tax-romania.minimum-wage']['tier'])->toBe('required')
+        ->and($declared['tax-romania.minimum-wage']['declared_by'])->toBe('kern/tax-romania')
+        ->and($declared['tax-romania.minimum-wage']['needs']['watch'])->toBe('tax-romania.minimum_wage')
+        ->and($declared['tax-romania.minimum-wage']['needs']['parameters'])->toBe('active-year')
+        ->and(config('legislation.watches.declared'))->toHaveKey('tax-romania.minimum_wage');
 });
 
 it('registers the parameters resolver on the shared registry', function (): void {
@@ -79,4 +98,32 @@ it('is met once the minimum wage is approved for the active year', function (): 
 it('rejects a parameters need declared with any argument but active-year', function (): void {
     expect(fn (): bool => app(NeedResolvers::class)->isMet(new RequirementNeed('parameters', 'next-year')))
         ->toThrow(\RuntimeException::class, 'active-year');
+});
+
+it('reports the active year as waiting while nothing is proposed', function (): void {
+    $status = parametersStatus();
+
+    expect($status->met)->toBeFalse()
+        ->and($status->detail)->toBe(['state' => 'absent', 'year' => app(FiscalYears::class)->current()]);
+});
+
+it('names a proposed value awaiting approval, with its year', function (): void {
+    wageVersion(ApprovalStatus::CANDIDATE);
+
+    $status = parametersStatus();
+
+    expect($status->met)->toBeFalse()
+        ->and($status->detail['state'])->toBe('proposed')
+        ->and($status->detail['year'])->toBe(app(FiscalYears::class)->current())
+        ->and($status->detail)->toHaveKey('display')
+        ->and($status->detail['display'])->toBeArray();
+});
+
+it('reports approved once the active year is approved', function (): void {
+    wageVersion(ApprovalStatus::APPROVED);
+
+    $status = parametersStatus();
+
+    expect($status->met)->toBeTrue()
+        ->and($status->detail)->toBe(['state' => 'approved']);
 });

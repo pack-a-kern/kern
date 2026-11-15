@@ -86,6 +86,15 @@ it('lets every screen through once the install is bootstrapped', function (): vo
         ->assertOk();
 });
 
+it('sends a bootstrapped person off the finished setup screen to the dashboard', function (): void {
+    bootstrapped();
+
+    // Setup has nothing left on it; a bookmark to it is not a dead end.
+    $this->actingAs(aPerson(), 'web')
+        ->get(route('setup'))
+        ->assertRedirect(route('dashboard'));
+});
+
 it('leaves a guest to the auth middleware — sent to sign in, not to setup', function (): void {
     notBootstrapped();
 

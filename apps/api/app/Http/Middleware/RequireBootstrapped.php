@@ -85,13 +85,21 @@ final readonly class RequireBootstrapped
             return $next($request);
         }
 
+        $isBootstrapped = ($this->readiness)()['is_bootstrapped'] === true;
         $route = $request->route()?->getName();
 
-        if ($route !== null && in_array($route, self::ALLOWED_ROUTES, true)) {
+        if ($isBootstrapped) {
+            // Setup is done, so the checklist has nothing left on it. A person who lands there — a
+            // bookmark, or the place the gate sent them just before the last piece went in — is sent
+            // on to the dashboard, so the screen is never a dead end once it is finished.
+            if ($route === 'setup') {
+                return redirect()->route('dashboard');
+            }
+
             return $next($request);
         }
 
-        if (($this->readiness)()['is_bootstrapped'] === true) {
+        if ($route !== null && in_array($route, self::ALLOWED_ROUTES, true)) {
             return $next($request);
         }
 

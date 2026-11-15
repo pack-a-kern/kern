@@ -9,6 +9,7 @@ use Kern\Platform\Approval\ApprovalStatus;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameter;
 use Kern\TaxRomania\FiscalParameters\Models\FiscalParameterVersion;
 use Kern\TaxRomania\FiscalParameters\ParameterCatalog;
+use Kern\TaxRomania\FiscalParameters\Queries\FiscalValueDisplay;
 use Kern\TaxRomania\TaxEngine\Services\FiscalYears;
 
 /**
@@ -51,5 +52,55 @@ final readonly class FiscalParameterReadiness
                 ->whereNull('valid_until')
                 ->orWhereDate('valid_until', '>=', $yearStart))
             ->exists();
+    }
+
+    /** The year being worked — what the setup screen names when it asks for that year's value. */
+    public function activeYear(): int
+    {
+        return $this->years->current();
+    }
+
+    /**
+     * The active year's minimum wage proposed but not yet approved — a CANDIDATE version in force for
+     * the year — as the setup screen names what a person is being asked to approve (ADR 0027): the
+     * year and the value, shown the one way the tax-rules board shows it ({@see FiscalValueDisplay}).
+     * Null when nothing is proposed: the decision has not been read yet, or the active year's has not
+     * been published. The latest such candidate, so a re-read that proposed a corrected figure is the
+     * one offered.
+     *
+     * @return array{year: int, display: array<string, mixed>}|null
+     */
+    public function proposedMinimumWageForActiveYear(): ?array
+    {
+        $definition = $this->catalog->minimumWage();
+
+        $parameterId = FiscalParameter::query()->where('code', $definition->code)->value('id');
+
+        if (! is_string($parameterId)) {
+            return null;
+        }
+
+        $year = $this->years->current();
+        $yearStart = sprintf('%04d-01-01', $year);
+        $yearEnd = sprintf('%04d-12-31', $year);
+
+        $candidate = FiscalParameterVersion::query()
+            ->where('fiscal_parameter_id', $parameterId)
+            ->where('status', ApprovalStatus::CANDIDATE->value)
+            ->whereDate('valid_from', '<=', $yearEnd)
+            ->where(static fn (Builder $version): Builder => $version
+                ->whereNull('valid_until')
+                ->orWhereDate('valid_until', '>=', $yearStart))
+            ->orderByDesc('valid_from')
+            ->first();
+
+        if (! $candidate instanceof FiscalParameterVersion) {
+            return null;
+        }
+
+        return [
+            'year' => $year,
+            'display' => FiscalValueDisplay::of($definition->type, $candidate->value_json),
+        ];
     }
 }

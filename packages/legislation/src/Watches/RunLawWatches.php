@@ -16,7 +16,7 @@ use Kern\Legislation\Models\LawWatch;
  */
 final readonly class RunLawWatches
 {
-    public function __construct(private LawWatchRunner $runner)
+    public function __construct(private LawWatchRunner $runner, private MirrorDeclaredWatch $mirrorOne)
     {
     }
 
@@ -40,17 +40,9 @@ final readonly class RunLawWatches
     /** @param list<WatchDeclaration> $declared */
     private function mirror(array $declared): void
     {
-        DB::transaction(static function () use ($declared): void {
+        DB::transaction(function () use ($declared): void {
             foreach ($declared as $declaration) {
-                $watch = LawWatch::query()->firstOrNew(['key' => $declaration->key], ['enabled' => true, 'next_run_at' => now()]);
-                $watch->fill([
-                    'declared_by' => $declaration->declaredBy,
-                    'search_words' => $declaration->search,
-                    'act_type' => $declaration->actType,
-                    'title_pattern' => $declaration->titlePattern,
-                    'first_year' => $declaration->firstYear,
-                    'every_hours' => $declaration->everyHours,
-                ])->save();
+                ($this->mirrorOne)($declaration);
             }
 
             LawWatch::query()->whereNotNull('key')->whereNotIn('key', array_map(static fn (WatchDeclaration $d): string => $d->key, $declared))->delete();

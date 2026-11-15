@@ -24,7 +24,7 @@ final readonly class ReadinessReport
     /**
      * @return array{
      *     is_bootstrapped: bool,
-     *     requirements: list<array{key: string, declared_by: string, tier: string, feature: ?string, met: bool, needs: list<array{kind: string, argument: string, met: bool}>}>,
+     *     requirements: list<array{key: string, declared_by: string, tier: string, feature: ?string, met: bool, needs: list<array{kind: string, argument: string, met: bool, detail?: array<string, mixed>}>}>,
      *     features: array<string, array{available: bool}>,
      * }
      */
@@ -36,14 +36,7 @@ final readonly class ReadinessReport
         $requirements = [];
 
         foreach ($this->requirements->all() as $requirement) {
-            $parts = array_map(
-                fn (RequirementNeed $need): array => [
-                    'kind' => $need->kind,
-                    'argument' => $need->argument,
-                    'met' => $this->resolvers->isMet($need),
-                ],
-                $requirement->needs,
-            );
+            $parts = array_map($this->resolve(...), $requirement->needs);
 
             $met = array_reduce($parts, static fn (bool $all, array $part): bool => $all && $part['met'], true);
 
@@ -73,5 +66,25 @@ final readonly class ReadinessReport
             'requirements' => $requirements,
             'features' => $features,
         ];
+    }
+
+    /**
+     * One need as the report shows it — its kind, its argument and whether it is met, plus whatever
+     * detail the resolving package attached for the screen (omitted when there is none, so a need
+     * that only answers met/unmet stays a three-field row).
+     *
+     * @return array{kind: string, argument: string, met: bool, detail?: array<string, mixed>}
+     */
+    private function resolve(RequirementNeed $need): array
+    {
+        $status = $this->resolvers->status($need);
+
+        $part = ['kind' => $need->kind, 'argument' => $need->argument, 'met' => $status->met];
+
+        if ($status->detail !== null) {
+            $part['detail'] = $status->detail;
+        }
+
+        return $part;
     }
 }

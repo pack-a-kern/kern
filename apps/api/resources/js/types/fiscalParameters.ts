@@ -168,7 +168,7 @@ function maybeNumber(value: unknown): number | null {
     return typeof value === 'number' ? value : null;
 }
 
-function display(row: Record<string, unknown>): FiscalValueDisplay {
+export function parseFiscalValueDisplay(row: Record<string, unknown>): FiscalValueDisplay {
     switch (row.kind) {
         case 'money':
             return { kind: 'money', amountMinor: num(row, 'amount_minor'), currency: nullableStr(row, 'currency') };
@@ -229,7 +229,7 @@ export function parseFiscalParameterBoard(payload: unknown): FiscalParameterBoar
                         status: status(version.status),
                         validFrom: str(version, 'valid_from'),
                         validUntil: nullableStr(version, 'valid_until'),
-                        display: display(obj(version.display)),
+                        display: parseFiscalValueDisplay(obj(version.display)),
                         source: paragraph(version.source),
                         matches: list(version.matches).flatMap((match) => {
                             const found = paragraph(match);

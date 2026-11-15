@@ -36,7 +36,6 @@ export interface Dictionary {
         adminOperations: string;
         adminJobs: string;
         adminAudit: string;
-        setup: string;
         /** The bands the sidebar groups its destinations into. */
         sections: { records: string; law: string; connections: string; system: string };
     };
@@ -44,23 +43,54 @@ export interface Dictionary {
     setup: {
         title: string;
         lede: string;
-        readyBannerTitle: string;
-        readyBannerBody: string;
-        notReadyBannerTitle: string;
-        notReadyBannerBody: string;
-        requirements: string;
-        features: string;
-        declaredBy: string;
-        inPlace: string;
-        missing: string;
-        available: string;
-        unavailable: string;
-        /** The three tiers a requirement can be declared at. */
-        tiers: { required: string; feature: string; optional: string };
-        /** A label for each kind of need the resolvers answer, and a fallback for an unknown kind. */
-        needs: { law: string; watch: string; parameters: string; unknown: string };
+        /** The status banner: its headline by state, a one-line subtitle, and `{done} / {total}`. */
+        notReady: string;
+        working: string;
+        ready: string;
+        subBothMissing: string;
+        subOneLeft: string;
+        subReady: string;
+        count: string;
+        gateNote: string;
+        readyBanner: string;
+        /** Section headings and their hints. */
+        requiredHeading: string;
+        requiredHint: string;
+        featuresHeading: string;
+        featuresHint: string;
+        /** A friendly name and one line per known requirement key; the raw key shows for an unknown one. */
+        req: Record<string, { name: string; desc: string }>;
+        /** A friendly name per known feature key; the raw key shows for an unknown one. */
+        feature: Record<string, string>;
+        /** For each kind of step: its pending status, its action, the busy line while it runs, the done label. */
+        need: {
+            law: { pending: string; import: string; importing: string; met: string };
+            watch: { pending: string; import: string; importing: string; met: string };
+            parameters: {
+                pending: string;
+                /** Busy line while the decision is read and the value proposed (`{year}`, `{value}` on `proposed`). */
+                reading: string;
+                /** Resting note when nothing is proposed for the active year yet. */
+                waiting: string;
+                /** Names what is being approved — the active year and its proposed value. */
+                proposed: string;
+                approve: string;
+                approveAt: string;
+                met: string;
+            };
+        };
+        /** The features list once the install is ready. */
+        featureAvailable: string;
+        featureNotYet: string;
+        featureReady: string;
+        featureArrives: string;
+        /** Shown in place of the actions to someone who may not run an import (no `operations.run`). */
+        noPermission: string;
         loadError: string;
         empty: string;
+        /** Toasts raised when an import is queued, or refused. */
+        importStarted: string;
+        importFailed: string;
     };
     shell: {
         appTagline: string;

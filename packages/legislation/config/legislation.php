@@ -180,4 +180,15 @@ return [
         // century; the tax law this application reads starts with the Codul fiscal of 2015.
         'min_year' => (int) env('LEGISLATION_MIN_YEAR', 2015),
     ],
+
+    // How the setup screen (ADR 0027) waits while an import it started runs: it re-asks readiness
+    // every `poll_ms`, gives up spinning on a step that has not landed after `poll_ceiling_ms`, and —
+    // once every required piece is in — pauses `ready_redirect_ms` on the "complete" banner before it
+    // sends the person to the dashboard. Served to the screen by `ShowRequirementsController`, so the
+    // cadence lives here and not as a number written into the frontend.
+    'setup' => [
+        'poll_ms' => (int) env('LEGISLATION_SETUP_POLL_MS', 3000),
+        'poll_ceiling_ms' => (int) env('LEGISLATION_SETUP_POLL_CEILING_MS', 180000),
+        'ready_redirect_ms' => (int) env('LEGISLATION_SETUP_READY_REDIRECT_MS', 1200),
+    ],
 ];
