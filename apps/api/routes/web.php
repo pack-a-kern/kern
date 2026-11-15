@@ -51,6 +51,14 @@ Route::middleware('auth')->group(function (): void {
 });
 
 Route::middleware('auth')->group(function (): void {
+    /*
+     * The install's readiness checklist (ADR 0027 step 6). `RequireBootstrapped` sends an
+     * authenticated person here until the legislation its required features rest on is in force,
+     * so this route must stay reachable from inside that gate — it is on the gate's allowed set.
+     * The screen draws itself from `GET /api/v1/setup/requirements`; no prop, no domain model.
+     */
+    Route::get('/setup', fn () => Inertia::render('setup/index'))->name('setup');
+
     Route::get('/dashboard', fn () => Inertia::render('dashboard'))->name('dashboard');
 
     Route::get('/documents', fn () => Inertia::render('documents/inbox'))->name('documents.inbox');

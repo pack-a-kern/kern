@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Middleware\BindTaxSubjectContext;
 use App\Http\Middleware\ContentSecurityPolicy;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\RequireBootstrapped;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -72,6 +73,10 @@ return Application::configure(basePath: dirname(__DIR__))
             // did not, and answered an unverified account. It passes guests through and allows the
             // verification screen by name — see its allowed set.
             RequireVerifiedEmail::class,
+            // After the address is proven, before the page renders: an authenticated person whose
+            // install is not yet bootstrapped is redirected to the setup checklist (ADR 0027 step
+            // 5). It never touches the API, so the requests that make the install ready still run.
+            RequireBootstrapped::class,
             HandleInertiaRequests::class,
         ]);
         // On every request, not the web group: an address no route matches is answered before any

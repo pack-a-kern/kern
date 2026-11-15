@@ -1,8 +1,8 @@
 # ADR 0027 — Packages declare the legislation they require, and the app gates until it is met
 
-**Status:** proposed
-**Date:** 2026-11-14
-**Concerns:** `kern/legislation` (the requirements registry and the readiness query), `kern/tax-romania` and `kern/investments` (what each declares it needs), `kern/platform` (the gate and the setup screen)
+**Status:** accepted
+**Date:** 2026-11-14 (accepted 2026-11-15, built)
+**Concerns:** `kern/legislation` (the requirements registry, the need resolvers for `law`/`watch`, the readiness query and its endpoint), `kern/tax-romania` and `kern/investments` (what each declares it needs; tax-romania also resolves `parameters`), `apps/api` (the global bootstrap gate), `kern/platform` (the setup screen)
 
 ## Context
 
@@ -39,10 +39,11 @@ that already exist: a law by the identifier the reader already uses, a parameter
 // tax-romania/config/legislation_requirements.php
 return [
     'tax-romania.cod-fiscal' => [
-        'tier'  => 'required',
+        'declared_by' => 'kern/tax-romania',               // named here as a watch is, for the message a failure prints
+        'tier'        => 'required',
         'needs' => [
             'law'        => env('FISCAL_PARAMETERS_LAW'),   // SourceDocument.external_identifier, e.g. LEGE 227/2015
-            'parameters' => 'active-year',                  // ...and its values read + approved for the active year
+            'parameters' => 'active-year',                  // ...and the minimum wage approved for the active year
         ],
     ],
 ];
@@ -50,9 +51,10 @@ return [
 // investments/config/legislation_requirements.php — the bond orders of ADR 0026
 return [
     'investments.bonds' => [
-        'tier'    => 'feature',
-        'feature' => 'investments.bonds',
-        'needs'   => ['watch' => 'investments.fidelis'],    // the Ministry's orders must be in the library
+        'declared_by' => 'kern/investments',
+        'tier'        => 'feature',
+        'feature'     => 'investments.bonds',
+        'needs'       => ['watch' => 'investments.fidelis'], // the Ministry's orders must be in the library
     ],
 ];
 ```
@@ -64,8 +66,10 @@ watch machinery but names no watch.
 
 - **required** — the application is not usable without it. Cod Fiscal present *and* the active year's
   values approved is the one baseline. Unmet ⇒ the install is not bootstrapped.
-- **feature** — one feature rests on it; the rest of the app does not. Bonds rest on the Fidelis/Tezaur
-  orders being in the library; shares do not. Unmet ⇒ that feature is unavailable, nothing else.
+- **feature** — one feature rests on it; the rest of the app does not. Bonds rest on the Fidelis *and*
+  the Tezaur orders being in the library — declared as two requirements naming the same
+  `investments.bonds` feature, ANDed by the roll-up, because a holding of either programme is priced
+  from its own order (`TreasuryOrders`); shares do not. Unmet ⇒ that feature is unavailable, nothing else.
 - **optional** — better with it, correct without it. Unmet ⇒ a note, never a block.
 
 ### A need is checked, not assumed — and its parts fail apart
@@ -74,7 +78,11 @@ A requirement is met only when every part of its `needs` is. Each part is resolv
 already exists, so the readiness query adds no new notion of "present":
 
 - `law` → a `SourceDocument` with that `external_identifier` exists and is consolidated for the active year.
-- `parameters: active-year` → a `FiscalParameterVersion` is approved for the active year.
+- `parameters: active-year` → the **minimum wage** has an approved `FiscalParameterVersion` in force
+  for the active year. It is the value every threshold is a multiple of, so nothing a tax is worked
+  out from can be computed until it is in force; the other rules gate their own features, not the
+  install. A `needs` is a map of kind → argument, so `parameters` takes one argument, `active-year`;
+  any other argument is a declaration error and fails loudly.
 - `watch` → the watch's acts are in the library (at least its first expected act read).
 
 The parts are reported one by one, so the setup screen can say *which* step a person is on — "① Add Cod
@@ -92,10 +100,23 @@ opaque "not ready."
 
 ### The gate: global only until bootstrapped, then per feature
 
-- **Until bootstrapped**, a middleware (`kern/platform`) routes the authenticated person to the setup
-  checklist and holds them out of the rest — the true first-install wall, and the only global one.
+- **Until bootstrapped**, a middleware (`RequireBootstrapped`) routes the authenticated person to the
+  setup checklist and holds them out of the rest — the true first-install wall, and the only global
+  one. It lives in the application's own HTTP layer (`apps/api`), not `kern/platform`: platform is the
+  base package and cannot depend on `kern/legislation` to read the readiness query, whereas the
+  application composes every package and already hosts cross-cutting middleware
+  (`BindTaxSubjectContext`).
+- **It holds browser navigation only; it never walls the JSON API.** The install is made ready by
+  approving the minimum wage (`/taxes/rules`) and reading Cod Fiscal into the library (`/legislation`),
+  and both act through `/api/v1/**`. A gate that answered those calls with an error until the wage was
+  approved would make the wage impossible to approve — the gate would deadlock the state it waits for.
+  So only the screens that cannot work without fiscal data are held; the requests that create it, and
+  the screens that drive them (on the gate's allowed set, matched by route name), stay open. The setup
+  *screen* is a `kern/platform` concern in the ADR; it is built in `apps/api` beside the other
+  product screens, which is where this install's React/Inertia screens live.
 - **Once bootstrapped**, the global wall is gone. A feature gates itself on its own `available` flag read
-  from the same payload: the bonds screen shows "needs setup" with a link while shares stay open.
+  from the same payload: the bonds screen shows "needs setup" with a link while shares stay open. A
+  feature may be gated by more than one requirement — availability is every one of them met.
 - **optional** never gates; it shows a note.
 
 ## Consequences
@@ -108,13 +129,18 @@ opaque "not ready."
   longer confused.
 - A package that declares a `required` law it cannot actually satisfy would wall the whole app — the
   tier is a claim the package owns, reviewed as config is.
-- One more read on each navigation while not bootstrapped (the readiness query), cached per active year.
+- The gate runs the readiness query on each held browser navigation (a handful of indexed reads); it is
+  not cached, so approving the wage lifts the wall on the very next navigation with no stale window. The
+  JSON short-circuit and the allowed-route check keep it off the API and off the bootstrap screens. If
+  the per-navigation read ever matters, caching with explicit invalidation is a localized change here.
 
 ## Not done
 
 - No requirement spans two laws with a condition between them; a `needs` is a flat list of parts, all of
   which must hold.
-- The setup screen's copy and the per-feature "needs setup" states are a `kern/platform` concern, out of
-  scope here beyond the flags they read.
+- The **global** gate and the setup checklist screen are built (`RequireBootstrapped`,
+  `resources/js/pages/setup`). The **per-feature** client gating — a bonds screen that reads its
+  `available` flag and shows "needs setup" with a link while shares stay open — is not yet wired; the
+  endpoint already carries the flags it will read.
 - Scheduling: the readiness query answers for the active year only; a requirement does not express "ready
   for next year too."

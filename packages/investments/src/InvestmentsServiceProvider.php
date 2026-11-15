@@ -56,6 +56,10 @@ final class InvestmentsServiceProvider extends ServiceProvider
             // Each programme's orders, watched for on the portal by kern/legislation — merged in whole: a
             // watch's key has a dot in it, which `set()` would read as one level deeper.
             $config->set('legislation.watches.declared', [...$config->array('legislation.watches.declared', []), ...require __DIR__ . '/../config/watches.php']);
+
+            // The legislation the bonds feature requires (ADR 0027) — merged in whole for the same
+            // reason: a requirement's key has a dot in it.
+            $config->set('legislation.requirements.declared', [...$config->array('legislation.requirements.declared', []), ...require __DIR__ . '/../config/legislation_requirements.php']);
         });
 
         // Read and checked once, at first use; a value missing fails then, naming its variable.

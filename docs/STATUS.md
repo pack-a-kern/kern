@@ -41,6 +41,14 @@ in `kern/tax-romania/src/Notices` — [054](handoff/054-device-notifications.md)
 fills, its group from GLEIF, and the Banks section of the settings screen —
 [056](handoff/056-bank-logos-and-groups.md), ADR 0023.
 
+**Legislation requirements / readiness** (outside the milestones): packages declare the legislation
+they require (Cod Fiscal + the active year's minimum wage; the Fidelis **and** Tezaur orders for
+bonds), `GET /api/v1/setup/requirements` answers `is_bootstrapped` and each feature's availability,
+and a global gate (`RequireBootstrapped`) holds an authenticated person on the `/setup` checklist
+screen until the install is bootstrapped — navigation only, never the API. Per-feature client
+gating is the one remaining follow-up —
+[057](handoff/057-legislation-requirements-readiness.md), ADR 0027.
+
 ---
 
 ## Files currently being worked on

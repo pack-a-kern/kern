@@ -10,6 +10,7 @@ use Kern\Legislation\Http\Controllers\ListLawsController;
 use Kern\Legislation\Http\Controllers\SearchLegislationController;
 use Kern\Legislation\Http\Controllers\Settings\ListUserAgentsController;
 use Kern\Legislation\Http\Controllers\Settings\ReplaceBrowserIdentityController;
+use Kern\Legislation\Http\Controllers\Setup\ShowRequirementsController;
 use Kern\Legislation\Http\Controllers\ShowLawController;
 use Kern\Legislation\Http\Controllers\ShowLawOutlineController;
 use Kern\Legislation\Http\Controllers\ShowLawTextController;
@@ -93,6 +94,12 @@ Route::prefix('v1/legislation/watches')->middleware(['auth:web', 'permission:ope
     // An act taken off the ignored list is read in by the next run that finds it: changed as a watch is.
     Route::delete('ignored/{ignored}', AllowIgnoredActController::class)->whereUuid('ignored')->middleware('verify-recent');
 });
+
+// What every package declared it needs to operate, each need resolved, with the install's
+// bootstrapped flag and each feature's availability (ADR 0027). Install state, not a tenant's data,
+// so outside the tenant group like the rest of this file; the gate sends an authenticated person
+// here, so `auth:web` and no more.
+Route::get('v1/setup/requirements', ShowRequirementsController::class)->middleware('auth:web');
 
 // Who this installation says it is, on the Browser card: the names it may pick from, by engine, and the
 // engine and name saved together — asked again for the password or code, as every change of identity.

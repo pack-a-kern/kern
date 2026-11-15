@@ -78,6 +78,7 @@ uses(RefreshDatabase::class)->in('Feature/Platform/Settings');
 uses(RefreshDatabase::class)->in('Feature/Platform/Notifications');
 uses(RefreshDatabase::class)->in('Feature/TaxRomania/Operations');
 uses(RefreshDatabase::class)->in('Feature/TaxRomania/StatementImport');
+uses(RefreshDatabase::class)->in('Feature/Setup');
 
 /**
  * Puts the database back after the one suite that is allowed to commit.

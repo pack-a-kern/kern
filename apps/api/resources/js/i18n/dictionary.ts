@@ -36,8 +36,31 @@ export interface Dictionary {
         adminOperations: string;
         adminJobs: string;
         adminAudit: string;
+        setup: string;
         /** The bands the sidebar groups its destinations into. */
         sections: { records: string; law: string; connections: string; system: string };
+    };
+    /** The install readiness checklist (ADR 0027). */
+    setup: {
+        title: string;
+        lede: string;
+        readyBannerTitle: string;
+        readyBannerBody: string;
+        notReadyBannerTitle: string;
+        notReadyBannerBody: string;
+        requirements: string;
+        features: string;
+        declaredBy: string;
+        inPlace: string;
+        missing: string;
+        available: string;
+        unavailable: string;
+        /** The three tiers a requirement can be declared at. */
+        tiers: { required: string; feature: string; optional: string };
+        /** A label for each kind of need the resolvers answer, and a fallback for an unknown kind. */
+        needs: { law: string; watch: string; parameters: string; unknown: string };
+        loadError: string;
+        empty: string;
     };
     shell: {
         appTagline: string;

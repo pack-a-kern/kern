@@ -78,3 +78,23 @@ it('writes a decimal only as a plain decimal', function (string $rate): void {
 it('indexes the name for the search', function (): void {
     expect(DB::selectOne("SELECT 1 AS found FROM pg_indexes WHERE indexname = 'ext_financial_instruments_name_trgm'"))->not->toBeNull();
 });
+
+/**
+ * ADR 0027 — the bonds feature rests on the Ministry's orders being in the library, so this package
+ * declares two feature requirements naming the same feature, one per programme. The readiness
+ * roll-up ANDs every requirement that gates a feature, so `investments.bonds` is available only once
+ * both the Fidelis and the Tezaur watch have read an order (the behaviour itself is covered in the
+ * legislation suite's two-requirement roll-up; here the declaration is pinned).
+ */
+it('declares the bonds feature against both the Fidelis and the Tezaur orders', function (): void {
+    $declared = config('legislation.requirements.declared');
+
+    expect($declared)->toHaveKey('investments.bonds-fidelis')
+        ->and($declared)->toHaveKey('investments.bonds-tezaur')
+        ->and($declared['investments.bonds-fidelis']['tier'])->toBe('feature')
+        ->and($declared['investments.bonds-fidelis']['feature'])->toBe('investments.bonds')
+        ->and($declared['investments.bonds-fidelis']['declared_by'])->toBe('kern/investments')
+        ->and($declared['investments.bonds-fidelis']['needs']['watch'])->toBe('investments.fidelis')
+        ->and($declared['investments.bonds-tezaur']['feature'])->toBe('investments.bonds')
+        ->and($declared['investments.bonds-tezaur']['needs']['watch'])->toBe('investments.tezaur');
+});

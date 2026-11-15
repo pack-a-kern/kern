@@ -19,6 +19,9 @@ use Kern\Legislation\Fetching\AllowlistedHttpFetcher;
 use Kern\Legislation\Fetching\PageFetcher;
 use Kern\Legislation\Fetching\SourcePageFetcher;
 use Kern\Legislation\Queries\LawFlags;
+use Kern\Legislation\Requirements\LegislationNeeds;
+use Kern\Legislation\Requirements\LegislationRequirements;
+use Kern\Legislation\Requirements\NeedResolvers;
 use Kern\Legislation\Retrieval\Embedding\EmbeddingProvider;
 use Kern\Legislation\Retrieval\Embedding\HttpEmbeddingProvider;
 use Kern\Legislation\Retrieval\Embedding\UnconfiguredEmbeddingProvider;
@@ -60,6 +63,12 @@ final class LegislationServiceProvider extends ServiceProvider
         $this->app->singleton(SectionDependents::class);
         $this->app->singleton(DocumentDependents::class);
         $this->app->singleton(LawFlags::class);
+
+        // What packages declare they need to operate (ADR 0027), read from the merged configuration
+        // once, and the registry of how each kind of need is decided — an accumulator the other
+        // packages add their own resolvers to, so it is one shared instance.
+        $this->app->singleton(LegislationRequirements::class);
+        $this->app->singleton(NeedResolvers::class);
 
         $this->mergeConfigFrom(__DIR__ . '/../config/legislation.php', 'legislation');
         $this->mergeConfigFrom(__DIR__ . '/../config/sources.php', 'sources');
@@ -122,6 +131,14 @@ final class LegislationServiceProvider extends ServiceProvider
         $this->loadTranslationsFrom(__DIR__ . '/../lang', 'legislation');
 
         PackageRoutes::load(__DIR__ . '/../routes/api.php');
+
+        // This package decides the needs of its own domain (ADR 0027): a required law is present
+        // when it is read and in force, a watch's acts are in the library once it has read a law.
+        // Other packages register their own kinds — the Romanian tax package resolves `parameters`.
+        $resolvers = $this->app->make(NeedResolvers::class);
+        $needs = $this->app->make(LegislationNeeds::class);
+        $resolvers->register('law', static fn (string $identifier): bool => $needs->lawInForce($identifier));
+        $resolvers->register('watch', static fn (string $key): bool => $needs->watchHasRead($key));
 
         ConfiguredRateLimit::register('legislation-search-per-user', 'legislation.rate_limits.search_per_user', ConfiguredRateLimit::perUser());
 

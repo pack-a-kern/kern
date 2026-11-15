@@ -11,6 +11,7 @@ use Kern\Investments\Events\InstrumentsWithdrawn;
 use Kern\Investments\Events\IssueOnOffer;
 use Kern\Legislation\Dependents\DocumentDependents;
 use Kern\Legislation\Dependents\SectionDependents;
+use Kern\Legislation\Requirements\NeedResolvers;
 use Kern\Notifications\Services\NoticeTypes;
 use Kern\Platform\Crypto\BlindIndex\BlindIndexReindexers;
 use Kern\Platform\Logging\Redactions;
@@ -31,6 +32,7 @@ use Kern\TaxRomania\Console\Commands\Wallet\PostHoldingPayoutsCommand;
 use Kern\TaxRomania\Console\Commands\Wallet\RemindMaturingDepositsCommand;
 use Kern\TaxRomania\Declarations\DeclarationsServiceProvider;
 use Kern\TaxRomania\FiscalParameters\FiscalParametersServiceProvider;
+use Kern\TaxRomania\FiscalParameters\Requirements\FiscalParameterReadiness;
 use Kern\TaxRomania\Fx\FxServiceProvider;
 use Kern\TaxRomania\Notices\AnnounceIssueOnOffer;
 use Kern\TaxRomania\Notices\DepositMaturityNotice;
@@ -44,6 +46,7 @@ use Kern\TaxRomania\Subjects\SubjectsServiceProvider;
 use Kern\TaxRomania\TaxEngine\Contracts\LedgerIncomeProvider;
 use Kern\TaxRomania\Wallet\Providers\EloquentLedgerIncomeProvider;
 use Kern\TaxRomania\Wallet\Queries\HoldingsOfALaw;
+use RuntimeException;
 
 /**
  * Romanian tax for an individual: the taxpayer, what the law says a tax costs, and everything a
@@ -107,6 +110,11 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
         $this->app->booting(static function (Application $app): void {
             $config = $app->make('config');
             $config->set('legislation.watches.declared', [...$config->array('legislation.watches.declared', []), ...require __DIR__ . '/../config/watches.php']);
+
+            // The legislation this package requires to operate (ADR 0027) — merged in whole for the
+            // same reason as watches: a requirement's key has a dot in it, which `set()` would read
+            // as one level deeper.
+            $config->set('legislation.requirements.declared', [...$config->array('legislation.requirements.declared', []), ...require __DIR__ . '/../config/legislation_requirements.php']);
         });
 
         /*
@@ -167,6 +175,15 @@ final class TaxRomaniaServiceProvider extends ServiceProvider
         // A person's holding of a bond keeps the order the bond was read from; nobody holding one, the
         // order goes with its bonds and their notices.
         $this->app->make(DocumentDependents::class)->declare('holdings', fn (string $law): int => $this->app->make(HoldingsOfALaw::class)($law));
+
+        // How a `parameters` need is decided (ADR 0027): resolved here, against this package's own
+        // models, so `kern/legislation` owns the readiness question but never a fiscal value. The one
+        // argument is the active year's values — the minimum wage approved for it.
+        $this->app->make(NeedResolvers::class)->register('parameters', function (string $argument): bool {
+            return $argument === 'active-year'
+                ? $this->app->make(FiscalParameterReadiness::class)->minimumWageApprovedForActiveYear()
+                : throw new RuntimeException("The legislation requirement need \"parameters\" was declared with \"{$argument}\"; the only argument is \"active-year\".");
+        });
 
         PackageRoutes::load(__DIR__ . '/../routes/api.php');
 
