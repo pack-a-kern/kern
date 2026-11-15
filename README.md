@@ -15,6 +15,40 @@ It runs as one Docker Compose stack:
 
 ---
 
+## A look inside
+
+Everything below runs against one taxpayer's own records, on your own server. These are the
+installation's own screens, filled with sample data.
+
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Kern dashboard — net worth, deposits by bank, and interest to come" width="920">
+</p>
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/deposits.png" alt="Accounts and term deposits, each with its bank"><br>
+      <sub><b>Accounts</b> — term deposits, cash and other accounts, each with its bank.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/holdings.png" alt="Investment holdings of shares and government bonds"><br>
+      <sub><b>Investments</b> — your bonds and shares: what each cost, what it is worth, what it paid.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/documents.png" alt="The document inbox for the active taxpayer"><br>
+      <sub><b>Documents</b> — every document for the active taxpayer, from any device.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/market.png" alt="The market: BVB-listed shares and bonds, and government bonds"><br>
+      <sub><b>Market</b> — government bonds and the shares and bonds listed on the Bucharest Stock Exchange.</sub>
+    </td>
+  </tr>
+</table>
+
+---
+
 ## Before you start
 
 You need:
@@ -232,6 +266,24 @@ make pins              # which pinned images have a newer upstream build
 
 CI runs all of this on every push. It also runs secret scanning, dependency audits, and a
 vulnerability scan of each image. Change requests go to this repository.
+
+---
+
+## Packages
+
+Kern is a modular monolith. Each package is self-contained — it installs on its own, carries its own
+README, tests and migrations, and reaches the others only through contracts, DTOs and events
+(`deptrac` enforces the boundaries).
+
+| Package | What it does |
+|---|---|
+| [`kern/platform`](packages/platform) | The security spine every application is built on — identity, tenancy, encryption, key management. Knows nothing about tax. |
+| [`kern/legislation`](packages/legislation) | Reads a law from the source that publishes it and keeps every version it was ever shown — "what did this article say on 14 March 2023, and who says so". |
+| [`kern/tax-romania`](packages/tax-romania) | Romanian tax for an individual (*persoană fizică*): the taxpayer, the wallet and deposits, the fiscal parameters read from the law, and the tax engine. |
+| [`kern/investments`](packages/investments) | Government bonds for people (Fidelis, Tezaur) and the shares and bonds listed on the BVB — what each pays and when, with the source of every fact. |
+| [`kern/documents`](packages/documents) | A tenant's documents from arrival to the moment a figure is read off one — upload in parts, quarantine, virus scan, encryption at rest, a text layer. |
+| [`kern/notifications`](packages/notifications) | Notices for the application: an in-app bell, and the device's own notifications over Web Push. |
+| [`kern/audit`](packages/audit) | An append-only, hash-chained audit log: each entry carries the hash of the one before it, so a tampered row is detectable. |
 
 ---
 
