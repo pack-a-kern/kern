@@ -729,8 +729,12 @@ jobs:
             *) docker tag "$NAME:ci" "$image:latest" && docker push "$image:latest" ;;
           esac
           # The digest that was pushed, for the signing step: a signature names one exact build,
-          # never a tag, which can be moved after it was signed.
-          printf 'ref=%s\n' "$(docker image inspect --format '{{index .RepoDigests 0}}' "$image:$version")" >> "$GITHUB_OUTPUT"
+          # never a tag, which can be moved after it was signed. Pick the digest for *this*
+          # registry by name — RepoDigests also carries the short local repo (which resolves to
+          # docker.io/library), and signing that unqualified ref sends cosign to Docker Hub.
+          ref="$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$image:$version" | grep -m1 "^$image@")"
+          [ -n "$ref" ] || { echo "::error::no $image digest among RepoDigests"; exit 1; }
+          printf 'ref=%s\n' "$ref" >> "$GITHUB_OUTPUT"
 
       - name: Install cosign
         if: startsWith(github.ref, 'refs/tags/v')
