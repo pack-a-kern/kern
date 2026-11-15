@@ -168,6 +168,18 @@ make tls-ca      # writes kern-ca.crt
 **Back up the key vault's volume.** It is the one thing that cannot be recovered. Lose it, and every
 encrypted field in the database stays unreadable for good.
 
+**Bank logos (optional).** A logo shows beside each bank, read from a folder you fill — none ship
+with the app. Point it at a folder on the host, served read-only, so you can add to it later without
+copying into the container:
+
+```bash
+make logos DIR=/srv/kern/bank-logos   # map the folder; make logos-off unmaps it
+```
+
+Name each file after its bank — its BIC's first eight characters (`BTRLRO22.svg`) or its LEI — in a
+country folder (`RO/`, `BG/`, …), as SVG, WebP or PNG. Add or replace files any time, then press
+**Read again** on the banks settings screen. No restart, no copy.
+
 **Every secret is in `apps/api/.env`.** That file is not in git. Don't copy it anywhere else.
 
 ---

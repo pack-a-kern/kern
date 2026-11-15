@@ -10,7 +10,7 @@
 
 SERVICE ?= app
 
-.PHONY: compose-file install tls-ca up update down logs shell reload smoke migrate
+.PHONY: compose-file install tls-ca up update down logs shell reload smoke migrate logos logos-off
 
 ## Refuse to run compose without a service list.
 ##
@@ -101,3 +101,30 @@ smoke:
 ## php artisan migrate` therefore fails with "permission denied", by design: this is the way in.
 migrate: compose-file
 	docker compose run --rm migrate
+
+## Serve bank logos from a folder on the host, read-only, no copying. Usage: make logos DIR=/abs/path
+##
+## The application reads a bank's logo from a folder — by default one inside its own storage volume,
+## which only `docker compose cp` can reach. This points it at a folder on the host instead: the path
+## is recorded in apps/api/.env as BANKS_LOGOS_HOST_PATH, compose.logos.yaml is added to that file's
+## COMPOSE_FILE, and `app` is recreated with the folder mounted read-only where it already looks. Add
+## or replace files in the folder at any time afterwards and press "Read again" on the banks settings
+## screen — no restart, no copy, no permission to change them from inside the container. Reverse it
+## with `make logos-off`. Nothing is mapped until this is run, and no path is assumed.
+logos: compose-file
+	@test -n "$(DIR)" || { echo "Usage: make logos DIR=/absolute/path/to/logos"; exit 1; }
+	@test -d "$(DIR)" || { echo "$(DIR) is not a directory."; exit 1; }
+	@abs="$$(cd "$(DIR)" && pwd)"; \
+		if grep -q '^BANKS_LOGOS_HOST_PATH=' apps/api/.env; then \
+			sed -i "s|^BANKS_LOGOS_HOST_PATH=.*|BANKS_LOGOS_HOST_PATH=$$abs|" apps/api/.env; \
+		else printf 'BANKS_LOGOS_HOST_PATH=%s\n' "$$abs" >> apps/api/.env; fi; \
+		grep -q '^COMPOSE_FILE=.*compose\.logos\.yaml' apps/api/.env || sed -i 's|^\(COMPOSE_FILE=.*\)|\1:compose.logos.yaml|' apps/api/.env
+	docker compose up -d app
+	docker compose exec -T app php artisan kern:banks:logos
+	@echo "Bank logos now served from $(DIR) (read-only). Add or replace files there and press Read again on the banks settings screen."
+
+## Stop serving bank logos from the host folder — reverse of make logos.
+logos-off: compose-file
+	@sed -i 's|:compose\.logos\.yaml||g; /^BANKS_LOGOS_HOST_PATH=/d' apps/api/.env
+	docker compose up -d app
+	@echo "Host logo folder unmapped — the app uses its own storage volume again."

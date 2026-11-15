@@ -1,0 +1,15 @@
+# Opt-in: serve bank logos from a folder on the host, so an operator can add or replace them
+# without copying anything into the container. Nothing here applies unless this file is in
+# COMPOSE_FILE and BANKS_LOGOS_HOST_PATH is set — both of which `make logos DIR=…` does, and
+# `make logos-off` undoes. Loaded without the variable, compose stops and says so, rather than
+# guessing a path: there is no default.
+#
+# The folder is mounted read-only, where the application already looks for logos, because the
+# application only ever reads them (ShowBankLogoController) and never writes them — so the folder
+# stays the operator's, with no permission to change it from inside the container. Add or replace
+# a file there at any time; a new bank's file is picked up after one index rebuild — the
+# "Read again" button on the banks settings screen, or `php artisan kern:banks:logos`.
+services:
+  app:
+    volumes:
+      - ${BANKS_LOGOS_HOST_PATH:?set the folder with `make logos DIR=/path/to/logos`, or take compose.logos.yaml out of COMPOSE_FILE}:/var/www/html/storage/app/private/bank-logos:ro

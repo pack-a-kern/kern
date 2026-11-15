@@ -24,6 +24,10 @@ WORKDIR /kern
 # never contains one.
 COPY compose.yaml ./
 COPY compose.services/ compose.services/
+# Opt-in only, never in the default COMPOSE_FILE: `make logos` adds it to serve bank logos from a
+# host folder. Shipped so that target works on a server; the bundle check does not load it, so its
+# host-path mount is not resolved against the image.
+COPY compose.logos.yaml ./
 
 # What compose mounts from the host, read-only, into the containers.
 COPY docker/postgres/init/ docker/postgres/init/
