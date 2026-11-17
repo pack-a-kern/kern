@@ -63,9 +63,7 @@ function stillRunning(current: Record<string, Run>, next: Readiness): Record<str
         // it on landing or the "read minimum wage" step read it from the laws already there.
         const progressing =
             need !== null &&
-            (need.kind === 'parameters'
-                ? need.parameters?.state === 'absent'
-                : need.kind === run.kind);
+            (need.kind === 'parameters' ? need.parameters?.state === 'absent' : need.kind === run.kind);
 
         if (progressing && Date.now() - run.since < next.poll.ceilingMs) {
             kept[key] = run;

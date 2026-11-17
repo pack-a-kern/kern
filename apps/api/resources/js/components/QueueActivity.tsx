@@ -82,14 +82,17 @@ export default function QueueActivity(): JSX.Element | null {
             return;
         }
 
-        const id = window.setInterval(() => {
-            getOperationsActivity().then(
-                (activity) => {
-                    setData(activity);
-                },
-                () => {},
-            );
-        }, Math.max(3000, pollAfterMs));
+        const id = window.setInterval(
+            () => {
+                getOperationsActivity().then(
+                    (activity) => {
+                        setData(activity);
+                    },
+                    () => {},
+                );
+            },
+            Math.max(3000, pollAfterMs),
+        );
 
         return () => {
             window.clearInterval(id);
@@ -114,7 +117,11 @@ export default function QueueActivity(): JSX.Element | null {
     const status = !data.available
         ? { text: words.unavailable, chip: 'bg-muted text-muted-foreground', chipDot: 'bg-muted-foreground/50' }
         : busy
-          ? { text: words.working, chip: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400', chipDot: 'bg-emerald-500' }
+          ? {
+                text: words.working,
+                chip: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
+                chipDot: 'bg-emerald-500',
+            }
           : data.moving
             ? { text: words.idle, chip: 'bg-muted text-muted-foreground', chipDot: 'bg-emerald-500/60' }
             : { text: words.paused, chip: 'bg-muted text-muted-foreground', chipDot: 'bg-muted-foreground/50' };
@@ -145,23 +152,33 @@ export default function QueueActivity(): JSX.Element | null {
                     {/* A corner dot: on a phone it carries waiting (amber) or failures (red), since the
                         chips are hidden there; from lg only failures show here, waiting being the chip above. */}
                     {data.failed > 0 ? (
-                        <span className="ring-card absolute -top-0.5 -right-0.5 size-2 rounded-full bg-red-500 ring-2" aria-hidden="true" />
+                        <span
+                            className="ring-card absolute -top-0.5 -right-0.5 size-2 rounded-full bg-red-500 ring-2"
+                            aria-hidden="true"
+                        />
                     ) : data.pending > 0 ? (
-                        <span className="ring-card absolute -top-0.5 -right-0.5 size-2 rounded-full bg-amber-500 ring-2 lg:hidden" aria-hidden="true" />
+                        <span
+                            className="ring-card absolute -top-0.5 -right-0.5 size-2 rounded-full bg-amber-500 ring-2 lg:hidden"
+                            aria-hidden="true"
+                        />
                     ) : null}
                 </button>
             </PopoverTrigger>
             <PopoverContent align="end" collisionPadding={12} className="shell-sheet-menu w-80 p-0">
                 <div className="border-border flex items-center justify-between border-b px-3 py-2.5">
                     <span className="text-xs font-semibold">{words.label}</span>
-                    <span className={`text-2xs inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-semibold ${status.chip}`}>
+                    <span
+                        className={`text-2xs inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-semibold ${status.chip}`}
+                    >
                         <span className={`size-1.5 rounded-full ${status.chipDot}`} aria-hidden="true" />
                         {status.text}
                     </span>
                 </div>
 
                 <div className="border-border border-b px-3 py-2.5">
-                    <p className="text-2xs text-muted-foreground mb-2 font-semibold tracking-wide uppercase">{words.runningNow}</p>
+                    <p className="text-2xs text-muted-foreground mb-2 font-semibold tracking-wide uppercase">
+                        {words.runningNow}
+                    </p>
                     {running.length === 0 ? (
                         <p className="text-muted-foreground text-xs">{words.noneRunning}</p>
                     ) : (
@@ -173,7 +190,9 @@ export default function QueueActivity(): JSX.Element | null {
                                         <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
                                     </span>
                                     <span className="truncate font-medium">{taskName(run.key)}</span>
-                                    <span className="text-2xs text-muted-foreground ml-auto tabular-nums">{since(run.since)}</span>
+                                    <span className="text-2xs text-muted-foreground ml-auto tabular-nums">
+                                        {since(run.since)}
+                                    </span>
                                 </li>
                             ))}
                         </ul>
@@ -181,7 +200,9 @@ export default function QueueActivity(): JSX.Element | null {
                 </div>
 
                 <div className="px-3 py-2.5">
-                    <p className="text-2xs text-muted-foreground mb-2 font-semibold tracking-wide uppercase">{words.queues}</p>
+                    <p className="text-2xs text-muted-foreground mb-2 font-semibold tracking-wide uppercase">
+                        {words.queues}
+                    </p>
                     <ul className="space-y-1.5">
                         {data.queues.map((queue) => (
                             <li key={queue.name} className="flex items-center justify-between gap-2 text-xs">
@@ -191,7 +212,9 @@ export default function QueueActivity(): JSX.Element | null {
                                         {queue.waiting} {words.waiting}
                                     </span>
                                 ) : (
-                                    <span className="text-2xs text-muted-foreground rounded-full px-2 py-0.5">{words.queueIdle}</span>
+                                    <span className="text-2xs text-muted-foreground rounded-full px-2 py-0.5">
+                                        {words.queueIdle}
+                                    </span>
                                 )}
                             </li>
                         ))}
@@ -206,7 +229,9 @@ export default function QueueActivity(): JSX.Element | null {
                         <span className="size-1.5 shrink-0 rounded-full bg-red-500" aria-hidden="true" />
                         <span className="font-semibold text-red-600 tabular-nums dark:text-red-400">{data.failed}</span>
                         <span>{words.failed}</span>
-                        <span className="text-accent-600 dark:text-accent-400 ml-auto font-semibold">{words.openJobs}</span>
+                        <span className="text-accent-600 dark:text-accent-400 ml-auto font-semibold">
+                            {words.openJobs}
+                        </span>
                     </Link>
                 )}
             </PopoverContent>
