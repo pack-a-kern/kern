@@ -35,6 +35,20 @@ final readonly class OperationsActivity
     }
 
     /**
+     * Whether work is actually in flight right now — waiting in a queue, or a named task running.
+     *
+     * The indicator leans on the socket while the queue is idle and only polls to watch a backlog
+     * drain, since a count that falls one job at a time emits no event per decrement. So this is not
+     * `moving`: `moving` is only "Horizon is up", true of an empty idle queue, and polling on that
+     * would never stop. A standing failure backlog is not it either, and nor is an unreachable
+     * Horizon — a task starting nudges over the socket regardless.
+     */
+    public function isBusy(): bool
+    {
+        return $this->pending > 0 || $this->running !== [];
+    }
+
+    /**
      * @return array{
      *     at: string, available: bool, moving: bool, pending: int, failed: int,
      *     queues: list<array{name: string, waiting: int, processes: int}>,

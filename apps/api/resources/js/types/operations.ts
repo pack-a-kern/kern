@@ -302,8 +302,11 @@ export interface OperationsActivity {
     moving: boolean;
     pending: number;
     failed: number;
-    /** How long to wait before asking again when no socket nudge came, in milliseconds. */
-    pollAfterMs: number;
+    /**
+     * How long to wait before asking again when no socket nudge came, in milliseconds — or null when
+     * the queue is idle, which means stop polling and let the socket alone wake the indicator.
+     */
+    pollAfterMs: number | null;
     queues: QueueActivityEntry[];
     running: RunningTask[];
 }
@@ -316,7 +319,8 @@ export function parseOperationsActivity(payload: unknown): OperationsActivity {
         moving: bool(body, 'moving'),
         pending: num(body, 'pending'),
         failed: num(body, 'failed'),
-        pollAfterMs: num(body, 'poll_after_ms'),
+        // Null (idle) is kept as null — coercing it to 0 would make the screen poll as fast as it can.
+        pollAfterMs: typeof body.poll_after_ms === 'number' ? body.poll_after_ms : null,
         queues: (Array.isArray(body.queues) ? body.queues : []).map((entry): QueueActivityEntry => {
             const row = obj(entry);
 

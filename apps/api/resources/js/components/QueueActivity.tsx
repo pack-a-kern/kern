@@ -78,7 +78,9 @@ export default function QueueActivity(): JSX.Element | null {
     const pollAfterMs = data?.pollAfterMs;
 
     useEffect(() => {
-        if (pollAfterMs === undefined) {
+        // Null or absent means the queue is idle: no interval at all, so the indicator rests on the
+        // socket nudge until the next task starts (ADR 0024). Only a positive cadence polls.
+        if (pollAfterMs === undefined || pollAfterMs === null || pollAfterMs <= 0) {
             return;
         }
 

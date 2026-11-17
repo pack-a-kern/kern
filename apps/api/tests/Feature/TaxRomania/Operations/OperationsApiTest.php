@@ -447,6 +447,20 @@ it('refuses the activity indicator to a user with no platform role, and serves i
     expect($run->status)->toBe(TaskRunStatus::RUNNING);
 });
 
+it('sends a poll cadence only while work is in flight, and none when the queue is idle', function (): void {
+    // Idle: nothing waiting or running, so the screen stops polling and waits on the socket.
+    $this->actingAs(operationsUser('ADMIN'))->getJson('/api/v1/operations/activity')
+        ->assertOk()
+        ->assertJsonPath('poll_after_ms', null);
+
+    // A named task opens → busy → the cadence rides along so the draining backlog is watched.
+    app(TaskRunRecorder::class)->start(OperationTask::LEGISLATION_INGEST, TaskRunTrigger::MANUAL, null);
+
+    $this->actingAs(operationsUser('ADMIN'))->getJson('/api/v1/operations/activity')
+        ->assertOk()
+        ->assertJsonPath('poll_after_ms', config()->integer('operations.activity.poll_after_ms'));
+});
+
 it('nudges the activity indicator when a task run opens and when it closes', function (): void {
     Event::fake([OperationsActivityChanged::class]);
 
