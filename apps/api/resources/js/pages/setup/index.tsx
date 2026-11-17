@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { getReadiness, importRequiredLaw, importWatchedActs } from '../../api/setupApi';
+import { getReadiness, importRequiredLaw, importWatchedActs, readMinimumWages } from '../../api/setupApi';
 import { useTranslation } from '../../i18n';
 import type { Dictionary } from '../../i18n/dictionary';
 import { describeApiFailure } from '../../lib/apiErrors';
@@ -56,12 +56,16 @@ function stillRunning(current: Record<string, Run>, next: Readiness): Record<str
     for (const [key, run] of Object.entries(current)) {
         const requirement = next.requirements.find((entry) => entry.key === key);
         const need = requirement === undefined ? null : nextNeed(requirement);
-        // Keep spinning while the run's own step is still next, or while the minimum wage is being
-        // read: the watch has landed its acts but the active year's value is not yet proposed, so the
-        // row waits out the reading rather than jumping to "approve" with nothing to approve.
+        // Keep spinning while the started step has not produced its visible result. A law or watch
+        // run finishes when its own need is no longer next. The minimum wage is different: its
+        // `parameters` need stays next until the value is approved, so what ends the spin is the value
+        // being proposed (`state` no longer `absent`) — a candidate to approve — whether a watch read
+        // it on landing or the "read minimum wage" step read it from the laws already there.
         const progressing =
             need !== null &&
-            (need.kind === run.kind || (need.kind === 'parameters' && need.parameters?.state === 'absent'));
+            (need.kind === 'parameters'
+                ? need.parameters?.state === 'absent'
+                : need.kind === run.kind);
 
         if (progressing && Date.now() - run.since < next.poll.ceilingMs) {
             kept[key] = run;
@@ -240,7 +244,11 @@ export default function Setup(): JSX.Element {
             setWorking((current) => ({ ...current, [requirement.key]: { kind: need.kind, since: Date.now() } }));
 
             try {
-                await (need.kind === 'law' ? importRequiredLaw(need.argument) : importWatchedActs(need.argument));
+                await (need.kind === 'law'
+                    ? importRequiredLaw(need.argument)
+                    : need.kind === 'parameters'
+                      ? readMinimumWages()
+                      : importWatchedActs(need.argument));
                 toast.success(s.importStarted);
             } catch (cause) {
                 setWorking((current) =>
@@ -540,25 +548,25 @@ function RowAside({
             );
         }
 
-        // Nothing proposed for the active year yet — the decision has not produced its value. Offer to
-        // (re-)read it by running the requirement's watch; the step waits rather than asking to approve.
-        const watchNeed = requirement.needs.find((need) => need.kind === 'watch') ?? null;
-
+        // Nothing proposed for the active year yet. The decision laws are in the library (the watch
+        // step is met before this one), so read the value out of them — on demand, not by waiting for
+        // a fresh portal read, which never comes for a decision already read. The step then waits for
+        // the candidate rather than asking to approve.
         return (
             <>
                 <Chip tone="warn">{s.need.parameters.pending}</Chip>
                 <span className="text-muted-foreground/80 text-[0.74rem]">
                     {s.need.parameters.waiting.replace('{year}', year === null ? '' : String(year))}
                 </span>
-                {canRun && watchNeed !== null ? (
+                {canRun ? (
                     <button
                         type="button"
                         onClick={() => {
-                            onImport(watchNeed);
+                            onImport(next);
                         }}
                         className={importClass}
                     >
-                        {s.need.watch.import}
+                        {s.need.parameters.read}
                         <Download className="size-3.5" aria-hidden="true" />
                     </button>
                 ) : null}

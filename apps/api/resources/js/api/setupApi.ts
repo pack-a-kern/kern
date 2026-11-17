@@ -57,3 +57,15 @@ export async function importRequiredLaw(identifier: string): Promise<void> {
 export async function importWatchedActs(key: string): Promise<void> {
     await apiRequest(`/v1/legislation/watches/declared/${encodeURIComponent(key)}/run`, { method: 'POST' });
 }
+
+/**
+ * `POST /api/v1/fiscal-parameters/minimum-wage` — read the minimum wage from the decisions already in
+ * the library, proposing a value for each. The watch (above) finds and reads the decision laws; this
+ * reads the value out of the ones already there, which is what the `parameters` step needs when the
+ * laws are present but no value is proposed (every value dropped, a re-install on a populated
+ * library). The step flips to "approve" once the candidate lands, which the screen learns by asking
+ * readiness again.
+ */
+export async function readMinimumWages(): Promise<void> {
+    await apiRequest('/v1/fiscal-parameters/minimum-wage', { method: 'POST' });
+}

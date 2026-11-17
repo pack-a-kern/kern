@@ -9,6 +9,7 @@ use Kern\TaxRomania\Http\Controllers\Banks\ShowBankLogoController;
 use Kern\TaxRomania\Http\Controllers\Banks\ShowBankLogosController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\ApproveFiscalParameterVersionController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\DropFiscalParameterValuesController;
+use Kern\TaxRomania\Http\Controllers\FiscalParameters\ReadMinimumWagesController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\RejectFiscalParameterVersionController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\ShowFiscalParameterBoardController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\StartFiscalYearController;
@@ -356,6 +357,9 @@ Route::prefix('v1/fiscal-parameters')->middleware('auth:web')->group(function ()
         Route::post('versions/{version}/approve', ApproveFiscalParameterVersionController::class)->whereUuid('version');
         Route::post('versions/{version}/reject', RejectFiscalParameterVersionController::class)->whereUuid('version');
         Route::post('years', StartFiscalYearController::class);
+        // Queues a scan of every law already read for the minimum wage — minutes of work on a worker —
+        // so it is rate-limited per person, as the other operator calls that start queue work are.
+        Route::post('minimum-wage', ReadMinimumWagesController::class)->middleware('throttle:operator-calls-per-user');
         Route::delete('values', DropFiscalParameterValuesController::class);
     });
 });
