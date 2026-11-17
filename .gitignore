@@ -59,3 +59,10 @@ docker/caddy/certs/*.crt
 
 # Helpers a person runs by hand on their own machine, and the data they build — never committed.
 tools/
+
+# graphify — a personal knowledge-graph tool, set up per machine. Its graph output, the CLAUDE.md
+# it generates, and its per-machine Claude Code config (.claude/, whose hooks point at a local venv)
+# are not part of the application and are never committed.
+/CLAUDE.md
+/graphify-out/
+/.claude/
