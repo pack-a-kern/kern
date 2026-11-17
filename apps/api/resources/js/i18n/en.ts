@@ -2354,6 +2354,24 @@ export const en = {
             checkFields: 'Check the highlighted fields.',
             checkingCnp: 'Checking…',
             continueLabel: 'Continue',
+            idCard: {
+                title: 'Scan ID card',
+                hint: 'Read an identity card to fill the form in automatically. You check every field before anything is saved.',
+                consent:
+                    'I agree to send this identity card to the configured AI provider so it can be read. The card itself is not stored.',
+                dropTitle: 'Drop the ID card photo here',
+                choose: 'Choose image',
+                enable: 'Agree above to scan a card',
+                reading: 'Reading the card…',
+                scanned: 'Valid card — the fields below are filled in; please check each one.',
+                scanAgain: 'Upload a different photo',
+                readFailed: 'That did not read as a valid ID card — upload another photo, or enter the CNP below.',
+                or: 'or enter the CNP',
+                avatarLabel: 'Photo from the card',
+                avatarFailed: 'The taxpayer was added, but its photo could not be set.',
+                adjust: 'Drag to position the photo',
+                size: 'Size',
+            },
         },
         settingsPrivacy: {
             consentNotice:

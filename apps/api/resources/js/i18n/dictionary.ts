@@ -2181,6 +2181,23 @@ export interface Dictionary {
             checkFields: string;
             checkingCnp: string;
             continueLabel: string;
+            idCard: {
+                title: string;
+                hint: string;
+                consent: string;
+                dropTitle: string;
+                choose: string;
+                enable: string;
+                reading: string;
+                scanned: string;
+                scanAgain: string;
+                readFailed: string;
+                or: string;
+                avatarLabel: string;
+                avatarFailed: string;
+                adjust: string;
+                size: string;
+            };
         };
         settingsPrivacy: {
             consentNotice: string;

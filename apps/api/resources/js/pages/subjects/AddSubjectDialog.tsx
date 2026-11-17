@@ -1,22 +1,41 @@
-import { useState, type JSX } from 'react';
+import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 import {
+    AlertTriangle,
     ArrowRight,
     Building2Icon,
     CalendarIcon,
+    CheckCircle2,
     GlobeIcon,
     IdCardIcon,
+    Loader2,
+    Lock,
     MapPinIcon,
     Plus,
+    ScanLine,
     TagIcon,
+    Upload,
     UserIcon,
     X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { type RegisterPfInput, inspectCnp, registerPfSubject } from '../../api/accountApi';
+import {
+    type IdCardFaceBox,
+    type RegisterPfInput,
+    getIdCardReading,
+    inspectCnp,
+    registerPfSubject,
+    startIdCardRead,
+    uploadSubjectAvatar,
+} from '../../api/accountApi';
+import { FileDrop } from '../../components/FileDrop';
 import { Field, FieldGrid, FieldSpan, PanelButton, PanelDialog, PanelInput, PanelSelect } from '../../components/panel';
+import { Checkbox } from '../../components/ui/checkbox';
 import { useTranslation } from '../../i18n';
 import { useFormErrors } from '../../hooks/useFormErrors';
+import { subscribeToIdCardReads } from '../../lib/echo';
+import { useSharedAuth } from '../../lib/sharedProps';
+import { IdCardAvatarCropper } from './IdCardAvatarCropper';
 import { useCounties } from './useCounties';
 
 /**
@@ -28,6 +47,8 @@ import { useCounties } from './useCounties';
  */
 const COUNTRY = 'RO';
 
+type ScanState = 'idle' | 'reading' | 'done' | 'failed';
+
 export default function AddSubjectDialog(props: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -36,6 +57,7 @@ export default function AddSubjectDialog(props: {
 }): JSX.Element {
     const { t } = useTranslation();
     const counties = useCounties();
+    const userId = useSharedAuth()?.user.id ?? '';
     const [form, setForm] = useState<RegisterPfInput>({
         displayName: '',
         firstName: '',
@@ -50,20 +72,117 @@ export default function AddSubjectDialog(props: {
     const errors = useFormErrors();
 
     /*
-     * The form is in two steps, because the CNP answers two of its own questions.
-     *
-     * A CNP carries the birth date and the county of registration inside it. Asking for those
-     * separately invites a form whose fields contradict the identifier that produced them — so the
-     * first step asks for the number alone, the server reads it, and the rest of the form opens
-     * with what it said already filled in.
-     *
-     * The check happens there rather than here on purpose: the same arithmetic in TypeScript would
-     * answer without a round trip, but it would be a second copy of the rule that decides what this
-     * application accepts — including the refusal of non-resident CNPs, which is a decision about
-     * the product rather than a calculation.
+     * Scanning an identity card to fill the form (ADR 0028). Entirely optional: the manual CNP path
+     * below is unchanged and remains the source of truth. The scan fills the CNP (and stashes the
+     * name and address for the second step), and the card image is kept in the browser only, to crop
+     * the avatar from — never uploaded to us beyond the single read.
      */
-    const [checking, setChecking] = useState(false);
-    const [details, setDetails] = useState<{ birthDate: string; countyCode: string } | null>(null);
+    const [consent, setConsent] = useState(false);
+    const [scan, setScan] = useState<ScanState>('idle');
+    const [cardUrl, setCardUrl] = useState<string | null>(null);
+    const [faceBox, setFaceBox] = useState<IdCardFaceBox | null>(null);
+    const [avatarBlob, setAvatarBlob] = useState<Blob | null>(null);
+    const [stash, setStash] = useState<{ firstName: string; lastName: string; address: string } | null>(null);
+    const awaitingToken = useRef<string | null>(null);
+    const cardUrlRef = useRef<string | null>(null);
+
+    const resolveReading = useCallback(async (token: string): Promise<void> => {
+        // Resolve once: the server deletes the result on read, so a later nudge or the fallback timer
+        // must not fetch again and find nothing.
+        if (awaitingToken.current !== token) {
+            return;
+        }
+
+        awaitingToken.current = null;
+
+        const reading = await getIdCardReading(token);
+
+        if (reading === null || reading.status === 'failed') {
+            setScan('failed');
+
+            return;
+        }
+
+        const { fields } = reading;
+
+        // A read that comes back with neither a CNP nor a name is not a usable identity card — a blurry
+        // photo, the wrong document, the back of the card. Treated as a failed read so the screen asks
+        // for another image rather than silently filling nothing.
+        if (fields.cnp === null && fields.firstName === null && fields.lastName === null) {
+            setScan('failed');
+
+            return;
+        }
+
+        setForm((current) => ({ ...current, cnp: fields.cnp ?? current.cnp }));
+        setStash({
+            firstName: fields.firstName ?? '',
+            lastName: fields.lastName ?? '',
+            address: fields.address ?? '',
+        });
+        setFaceBox(fields.faceBox);
+        setScan('done');
+    }, []);
+
+    // One private channel for the person; the nudge says a read finished, and this fetches it once.
+    useEffect(() => {
+        if (userId === '') {
+            return undefined;
+        }
+
+        return subscribeToIdCardReads(userId, (token) => {
+            if (token === awaitingToken.current) {
+                void resolveReading(token);
+            }
+        });
+    }, [userId, resolveReading]);
+
+    // The card image lives only as an object URL in this browser; let it go when the dialog does.
+    useEffect(
+        () => () => {
+            if (cardUrlRef.current !== null) {
+                URL.revokeObjectURL(cardUrlRef.current);
+            }
+        },
+        [],
+    );
+
+    const onCardChosen = async (file: File): Promise<void> => {
+        if (cardUrlRef.current !== null) {
+            URL.revokeObjectURL(cardUrlRef.current);
+        }
+
+        const url = URL.createObjectURL(file);
+        cardUrlRef.current = url;
+        setCardUrl(url);
+        setScan('reading');
+        errors.reset();
+
+        let token: string;
+
+        try {
+            token = await startIdCardRead(file, consent);
+        } catch {
+            setScan('failed');
+
+            return;
+        }
+
+        if (token === '') {
+            setScan('failed');
+
+            return;
+        }
+
+        awaitingToken.current = token;
+
+        // The socket is the normal path; this is the backstop for a nudge that never arrives.
+        window.setTimeout(() => {
+            if (awaitingToken.current === token) {
+                void resolveReading(token);
+            }
+        }, 130_000);
+    };
 
     const checkCnp = async (): Promise<void> => {
         setChecking(true);
@@ -80,7 +199,20 @@ export default function AddSubjectDialog(props: {
                 // Only a Bucharest sector arrives here; everywhere else the CNP names a county and
                 // the locality is still a question.
                 locality: read.locality ?? current.locality,
+                // What the card said, applied as the second step opens — still every field editable.
+                ...(stash === null
+                    ? {}
+                    : {
+                          firstName: stash.firstName !== '' ? stash.firstName : current.firstName,
+                          lastName: stash.lastName !== '' ? stash.lastName : current.lastName,
+                          address: stash.address !== '' ? stash.address : current.address,
+                          displayName: `${stash.firstName} ${stash.lastName}`.trim() || current.displayName,
+                      }),
             }));
+
+            if (stash !== null && (stash.firstName !== '' || stash.lastName !== '')) {
+                setDerivedName(false);
+            }
         } catch (cause: unknown) {
             // The server names what is wrong with the number — a check digit, a date that does not
             // exist, a series this application does not serve. Shown on the field, not in a toast.
@@ -89,6 +221,9 @@ export default function AddSubjectDialog(props: {
             setChecking(false);
         }
     };
+
+    const [checking, setChecking] = useState(false);
+    const [details, setDetails] = useState<{ birthDate: string; countyCode: string } | null>(null);
 
     // Whether the display name is still being derived from the person's name.
     //
@@ -121,7 +256,18 @@ export default function AddSubjectDialog(props: {
         setSaving(true);
 
         try {
-            await registerPfSubject(form);
+            const subjectId = await registerPfSubject(form);
+
+            // The avatar is a convenience, not part of the registration: if setting it fails, the
+            // taxpayer still exists and a picture can be added from its screen.
+            if (subjectId !== '' && avatarBlob !== null) {
+                try {
+                    await uploadSubjectAvatar(subjectId, new File([avatarBlob], 'avatar.png', { type: 'image/png' }));
+                } catch {
+                    toast.warning(t((d) => d.pages.settingsSubjects.idCard.avatarFailed));
+                }
+            }
+
             errors.reset();
             toast.success(t((d) => d.pages.settingsSubjects.added));
             props.onAdded();
@@ -142,6 +288,77 @@ export default function AddSubjectDialog(props: {
             setSaving(false);
         }
     };
+
+    // Let the person try a different card: forget the image, the result, and the crop, back to idle.
+    const resetScan = (): void => {
+        if (cardUrlRef.current !== null) {
+            URL.revokeObjectURL(cardUrlRef.current);
+            cardUrlRef.current = null;
+        }
+
+        awaitingToken.current = null;
+        setCardUrl(null);
+        setFaceBox(null);
+        setAvatarBlob(null);
+        setStash(null);
+        setScan('idle');
+    };
+
+    // The read's own area, by state: busy, done (with a way back), the drop area once consent is
+    // given, or a locked stand-in until it is. Kept out of the markup so the states do not nest.
+    let scanArea: JSX.Element;
+
+    if (scan === 'reading') {
+        scanArea = (
+            <p className="idcard-status idcard-status--busy">
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                {t((d) => d.pages.settingsSubjects.idCard.reading)}
+            </p>
+        );
+    } else if (scan === 'done') {
+        scanArea = (
+            <div className="idcard-done">
+                <p className="idcard-status idcard-status--ok">
+                    <CheckCircle2 className="size-4" aria-hidden="true" />
+                    <span className="flex-1">{t((d) => d.pages.settingsSubjects.idCard.scanned)}</span>
+                </p>
+                <PanelButton
+                    variant="outline"
+                    inline
+                    onClick={() => {
+                        resetScan();
+                    }}
+                >
+                    <Upload className="size-3.5" aria-hidden="true" />
+                    {t((d) => d.pages.settingsSubjects.idCard.scanAgain)}
+                </PanelButton>
+            </div>
+        );
+    } else if (consent) {
+        scanArea = (
+            <FileDrop
+                id="idcard-scan-file"
+                compact
+                accept={['.jpg', '.jpeg', '.png']}
+                title={t((d) => d.pages.settingsSubjects.idCard.dropTitle)}
+                choose={t((d) => d.pages.settingsSubjects.idCard.choose)}
+                onFiles={(files) => {
+                    const file = files[0];
+
+                    if (file !== undefined) {
+                        void onCardChosen(file);
+                    }
+                }}
+            />
+        );
+    } else {
+        scanArea = (
+            <div className="idcard-locked">
+                <Lock className="size-5" aria-hidden="true" />
+                <span>{t((d) => d.pages.settingsSubjects.idCard.enable)}</span>
+            </div>
+        );
+    }
 
     return (
         <PanelDialog
@@ -180,6 +397,43 @@ export default function AddSubjectDialog(props: {
         >
             {details === null ? (
                 <div className="space-y-3">
+                    <div className="idcard-scan">
+                        <div className="idcard-scan-head">
+                            <span className="idcard-scan-badge" aria-hidden="true">
+                                <ScanLine className="size-4" />
+                            </span>
+                            <div className="min-w-0">
+                                <p className="idcard-scan-title">{t((d) => d.pages.settingsSubjects.idCard.title)}</p>
+                                <p className="note">{t((d) => d.pages.settingsSubjects.idCard.hint)}</p>
+                            </div>
+                        </div>
+
+                        <label className="idcard-consent" data-on={consent ? '' : undefined} htmlFor="idcard-consent">
+                            <Checkbox
+                                id="idcard-consent"
+                                checked={consent}
+                                className="mt-0.5"
+                                onCheckedChange={(value) => {
+                                    setConsent(value === true);
+                                }}
+                            />
+                            <span>{t((d) => d.pages.settingsSubjects.idCard.consent)}</span>
+                        </label>
+
+                        {scanArea}
+
+                        {scan === 'failed' && (
+                            <p className="idcard-status idcard-status--bad">
+                                <AlertTriangle className="size-4" aria-hidden="true" />
+                                {t((d) => d.pages.settingsSubjects.idCard.readFailed)}
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="idcard-or">
+                        <span>{t((d) => d.pages.settingsSubjects.idCard.or)}</span>
+                    </div>
+
                     <Field
                         label={t((d) => d.pages.settingsSubjects.fields.cnp)}
                         hint={t((d) => d.pages.settingsSubjects.fields.cnpHint)}
@@ -190,11 +444,14 @@ export default function AddSubjectDialog(props: {
                             inputMode="numeric"
                             autoComplete="off"
                             value={form.cnp}
+                            // While a card is being read, the CNP it will fill is not the person's to type
+                            // over: the field waits for the answer rather than racing it.
+                            disabled={scan === 'reading'}
                             onChange={(event) => {
                                 set('cnp')(event.target.value);
                             }}
                             onKeyDown={(event) => {
-                                if (event.key === 'Enter' && form.cnp !== '') {
+                                if (event.key === 'Enter' && form.cnp !== '' && scan !== 'reading') {
                                     event.preventDefault();
                                     void checkCnp();
                                 }
@@ -205,7 +462,7 @@ export default function AddSubjectDialog(props: {
                     <PanelButton
                         primary
                         inline
-                        disabled={form.cnp === '' || checking}
+                        disabled={form.cnp === '' || checking || scan === 'reading'}
                         onClick={() => {
                             void checkCnp();
                         }}
@@ -218,6 +475,20 @@ export default function AddSubjectDialog(props: {
                 </div>
             ) : (
                 <FieldGrid>
+                    {cardUrl !== null && (
+                        <FieldSpan>
+                            <Field label={t((d) => d.pages.settingsSubjects.idCard.avatarLabel)}>
+                                <div className="idcard-crop-frame">
+                                    <IdCardAvatarCropper
+                                        imageUrl={cardUrl}
+                                        initialBox={faceBox}
+                                        onCrop={setAvatarBlob}
+                                    />
+                                </div>
+                            </Field>
+                        </FieldSpan>
+                    )}
+
                     <FieldSpan>
                         <Field
                             label={t((d) => d.pages.settingsSubjects.fields.displayName)}

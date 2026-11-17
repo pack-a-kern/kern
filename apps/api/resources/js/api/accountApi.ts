@@ -70,22 +70,29 @@ export interface RegisterPfInput {
     address: string;
 }
 
-export async function registerPfSubject(input: RegisterPfInput): Promise<void> {
-    await apiRequest('/v1/subjects/pf', {
-        method: 'POST',
-        body: {
-            display_name: input.displayName,
-            first_name: input.firstName,
-            last_name: input.lastName,
-            cnp: input.cnp,
-            birth_date: input.birthDate,
-            // Optional server-side; omitted rather than sent empty, so a blank field does not
-            // become an empty string in an encrypted column.
-            ...(input.countyCode === '' ? {} : { county_code: input.countyCode }),
-            ...(input.locality === '' ? {} : { locality: input.locality }),
-            ...(input.address === '' ? {} : { address: input.address }),
-        },
-    });
+/** Registers the taxpayer and returns its new id, so the caller can act on it — e.g. set its avatar. */
+export async function registerPfSubject(input: RegisterPfInput): Promise<string> {
+    const parsed: unknown = JSON.parse(
+        await apiRequest('/v1/subjects/pf', {
+            method: 'POST',
+            body: {
+                display_name: input.displayName,
+                first_name: input.firstName,
+                last_name: input.lastName,
+                cnp: input.cnp,
+                birth_date: input.birthDate,
+                // Optional server-side; omitted rather than sent empty, so a blank field does not
+                // become an empty string in an encrypted column.
+                ...(input.countyCode === '' ? {} : { county_code: input.countyCode }),
+                ...(input.locality === '' ? {} : { locality: input.locality }),
+                ...(input.address === '' ? {} : { address: input.address }),
+            },
+        }),
+    );
+
+    return typeof parsed === 'object' && parsed !== null && 'id' in parsed && typeof parsed.id === 'string'
+        ? parsed.id
+        : '';
 }
 
 /**
@@ -164,6 +171,100 @@ export async function inspectCnp(cnp: string): Promise<CnpDetails> {
         countyCode: typeof row.county_code === 'string' ? row.county_code : '',
         locality: typeof row.locality === 'string' ? row.locality : null,
     };
+}
+
+export interface IdCardFaceBox {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+}
+
+export interface IdCardFields {
+    cnp: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    address: string | null;
+    series: string | null;
+    number: string | null;
+    validUntil: string | null;
+    faceBox: IdCardFaceBox | null;
+}
+
+export type IdCardReading = { status: 'ready'; fields: IdCardFields } | { status: 'failed'; reason: string };
+
+/**
+ * Begins reading an identity card (ADR 0028). Returns the token the result will arrive under; the
+ * card is sent as multipart and nothing of it is kept. `consent` is the user's own decision to send
+ * it to the configured provider, required by the server.
+ */
+export async function startIdCardRead(file: File, consent: boolean): Promise<string> {
+    const body = new FormData();
+    body.append('file', file);
+    body.append('consent', consent ? '1' : '0');
+
+    const parsed: unknown = JSON.parse(await apiUpload('/v1/subjects/id-card/read', body));
+
+    return typeof parsed === 'object' && parsed !== null && 'token' in parsed && typeof parsed.token === 'string'
+        ? parsed.token
+        : '';
+}
+
+/**
+ * Fetches the result of a read once, over HTTPS, after the socket nudge. Null when it is gone —
+ * expired, already read, or never this user's — which the caller treats as "type it by hand".
+ */
+export async function getIdCardReading(token: string): Promise<IdCardReading | null> {
+    let parsed: unknown;
+
+    try {
+        parsed = JSON.parse(await apiRequest(`/v1/subjects/id-card/read/${encodeURIComponent(token)}`));
+    } catch {
+        // A 404 (gone) throws like any non-2xx; to the form it is simply "no reading".
+        return null;
+    }
+
+    if (typeof parsed !== 'object' || parsed === null) {
+        return null;
+    }
+
+    const row = parsed as Record<string, unknown>;
+
+    if (row.status === 'ready' && typeof row.reading === 'object' && row.reading !== null) {
+        return { status: 'ready', fields: parseIdCardFields(row.reading as Record<string, unknown>) };
+    }
+
+    return { status: 'failed', reason: typeof row.reason === 'string' ? row.reason : 'UNREADABLE' };
+}
+
+function parseIdCardFields(row: Record<string, unknown>): IdCardFields {
+    const text = (value: unknown): string | null => (typeof value === 'string' && value !== '' ? value : null);
+
+    return {
+        cnp: text(row.cnp),
+        firstName: text(row.first_name),
+        lastName: text(row.last_name),
+        address: text(row.address),
+        series: text(row.series),
+        number: text(row.number),
+        validUntil: text(row.valid_until),
+        faceBox: parseFaceBox(row.face_box),
+    };
+}
+
+function parseFaceBox(value: unknown): IdCardFaceBox | null {
+    if (typeof value !== 'object' || value === null) {
+        return null;
+    }
+
+    const row = value as Record<string, unknown>;
+    const n = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+    const x = n(row.x);
+    const y = n(row.y);
+    const w = n(row.w);
+    const h = n(row.h);
+
+    return x === null || y === null || w === null || h === null ? null : { x, y, w, h };
 }
 
 /**

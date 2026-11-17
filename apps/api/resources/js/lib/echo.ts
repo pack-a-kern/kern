@@ -163,6 +163,7 @@ const userListeners = {
     lawWatches: new Set<(watchId: string) => void>(),
     portalActs: new Set<(portalId: string, read: boolean) => void>(),
     lawDeletions: new Set<(lawId: string, status: string) => void>(),
+    idCardReads: new Set<(token: string, status: string) => void>(),
 };
 
 /** The `id` a socket message carries, or null when it carries none. */
@@ -237,6 +238,22 @@ function joinUserChannel(userId: string): void {
             if (id !== null && status !== null) {
                 userListeners.lawDeletions.forEach((listener) => {
                     listener(id, status);
+                });
+            }
+        })
+        .listen('.idcard.read.changed', (raw: unknown): void => {
+            const token =
+                typeof raw === 'object' && raw !== null && 'token' in raw && typeof raw.token === 'string'
+                    ? raw.token
+                    : null;
+            const status =
+                typeof raw === 'object' && raw !== null && 'status' in raw && typeof raw.status === 'string'
+                    ? raw.status
+                    : null;
+
+            if (token !== null && status !== null) {
+                userListeners.idCardReads.forEach((listener) => {
+                    listener(token, status);
                 });
             }
         });
@@ -334,6 +351,21 @@ export function subscribeToLawDeletions(userId: string, onChange: (lawId: string
 
     return () => {
         userListeners.lawDeletions.delete(onChange);
+        leaveUserChannelIfUnheard();
+    };
+}
+
+/**
+ * Calls `onChange` when an identity-card read the person started has finished (`IdCardReadChanged`,
+ * ADR 0028). A nudge only — the token it was started under and whether it is ready: the caller
+ * fetches the fields over HTTPS, so a CNP never travels on the socket.
+ */
+export function subscribeToIdCardReads(userId: string, onChange: (token: string, status: string) => void): () => void {
+    joinUserChannel(userId);
+    userListeners.idCardReads.add(onChange);
+
+    return () => {
+        userListeners.idCardReads.delete(onChange);
         leaveUserChannelIfUnheard();
     };
 }

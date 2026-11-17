@@ -51,7 +51,9 @@ use Kern\TaxRomania\Http\Controllers\StatementImport\UpdateStatementImportRowsCo
 use Kern\TaxRomania\Http\Controllers\Subjects\ChangeSubjectStatusController;
 use Kern\TaxRomania\Http\Controllers\Subjects\InspectCnpController;
 use Kern\TaxRomania\Http\Controllers\Subjects\ListSubjectsController;
+use Kern\TaxRomania\Http\Controllers\Subjects\ReadIdCardController;
 use Kern\TaxRomania\Http\Controllers\Subjects\RegisterPfSubjectController;
+use Kern\TaxRomania\Http\Controllers\Subjects\ShowIdCardReadingController;
 use Kern\TaxRomania\Http\Controllers\Subjects\ShowSubjectAvatarController;
 use Kern\TaxRomania\Http\Controllers\Subjects\ShowSubjectCountsController;
 use Kern\TaxRomania\Http\Controllers\Subjects\UpdatePfSubjectController;
@@ -114,6 +116,15 @@ Route::prefix('v1/subjects')->middleware('auth:web')->group(function (): void {
     // would be a way of testing CNPs against this installation. Registration refuses a duplicate in
     // any case, so this only changes how cheaply the same answer can be asked for.
     Route::post('cnp', InspectCnpController::class)->middleware('throttle:20,1');
+    /*
+     * Reads an identity card to pre-fill a new taxpayer (ADR 0028). A sibling of the CNP check, not
+     * an action on a subject: it runs before any taxpayer exists. The read is throttled because each
+     * call is a send to the AI provider; the result is fetched once, over HTTPS, after a socket nudge.
+     */
+    Route::post('id-card/read', ReadIdCardController::class)->middleware('throttle:10,1');
+    Route::get('id-card/read/{token}', ShowIdCardReadingController::class)
+        ->where('token', '[A-Za-z0-9]+')
+        ->middleware('throttle:60,1');
     // Outside the `tax-subject` group below: these act *on* a taxpayer rather than within one, and
     // binding a tenant context to change that tenant's own status reads the wrong way round. Both
     // check ownership themselves.

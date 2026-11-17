@@ -29,6 +29,8 @@ export function FileDrop(props: {
     choose: string;
     /** What the file should be, behind a mark beside the title — see `HelpMark`. */
     help?: string;
+    /** A shorter area, for a drop that shares a dialog with other fields rather than owning a page. */
+    compact?: boolean;
     onFiles: (files: File[]) => void;
 }): JSX.Element {
     const { t } = useTranslation();
@@ -38,7 +40,7 @@ export function FileDrop(props: {
     return (
         <label
             htmlFor={props.id}
-            className="file-drop"
+            className={props.compact === true ? 'file-drop file-drop--compact' : 'file-drop'}
             data-dragging={dragging ? '' : undefined}
             onDragOver={(event) => {
                 event.preventDefault();

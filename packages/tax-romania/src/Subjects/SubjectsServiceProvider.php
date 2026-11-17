@@ -42,6 +42,10 @@ final class SubjectsServiceProvider extends ServiceProvider
         $this->app->bind(TenantNames::class, SubjectNames::class);
         $this->app->bind(TenantMemberships::class, SubjectMemberships::class);
 
+        // Reading an identity card into a new taxpayer (ADR 0028). The provider is shared
+        // (`ai.providers`); only this read's model, prompts and limits live here.
+        $this->mergeConfigFrom(__DIR__ . '/../../config/ai/idcard.php', 'ai.idcard');
+
         // A document belongs to a taxpayer here; `kern/documents` only knows it belongs to a subject.
         DocumentFactory::resolveSubjectUsing(static fn () => TaxSubject::factory());
     }

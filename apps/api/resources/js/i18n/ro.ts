@@ -2358,6 +2358,25 @@ export const ro = {
             checkFields: 'Verifică câmpurile marcate.',
             checkingCnp: 'Se verifică…',
             continueLabel: 'Continuă',
+            idCard: {
+                title: 'Scanează actul de identitate',
+                hint: 'Citește un act de identitate pentru a completa formularul automat. Verifici fiecare câmp înainte să se salveze ceva.',
+                consent:
+                    'Sunt de acord să trimit acest act de identitate către furnizorul AI configurat pentru a fi citit. Actul în sine nu este stocat.',
+                dropTitle: 'Trage aici fotografia actului',
+                choose: 'Alege imaginea',
+                enable: 'Bifează mai sus pentru a scana un act',
+                reading: 'Se citește actul…',
+                scanned: 'Act valid — câmpurile de mai jos sunt completate; verifică fiecare.',
+                scanAgain: 'Încarcă altă fotografie',
+                readFailed:
+                    'Nu s-a citit ca un act de identitate valid — încarcă altă fotografie sau introdu CNP-ul mai jos.',
+                or: 'sau introdu CNP-ul',
+                avatarLabel: 'Fotografia din act',
+                avatarFailed: 'Contribuabilul a fost adăugat, dar fotografia nu a putut fi setată.',
+                adjust: 'Trage pentru a poziționa fotografia',
+                size: 'Dimensiune',
+            },
         },
         settingsPrivacy: {
             consentNotice:
