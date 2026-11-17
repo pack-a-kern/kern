@@ -76,6 +76,7 @@ export const ro = {
                 pending: 'De aprobat',
                 reading: 'Se citește hotărârea…',
                 waiting: 'Se așteaptă citirea hotărârii pentru {year}',
+                read: 'Citește salariul minim',
                 proposed: 'Salariul minim {year}: {value}',
                 approve: 'Aprobă',
                 approveAt: 'în panoul de reguli fiscale',
@@ -1809,7 +1810,9 @@ export const ro = {
                 removeTitle: 'Ștergi această lege?',
                 removeDetail:
                     'Dispar toate consolidările citite ({consolidations}), toate prevederile și tot ce a fost indexat din ele. Citită din nou, se reface de pe portal.',
+                removing: 'Se șterge legea…',
                 removed: 'Legea a fost ștearsă.',
+                removeFailed: 'Legea nu a putut fi ștearsă. Nu s-a șters nimic — încearcă din nou.',
                 removeRefused:
                     'Din această lege au fost citite valori fiscale care se sprijină pe paragrafele ei. Rămâne.',
                 removeReadFrom: 'Cineva deține titluri citite din această lege. Rămâne cât timp le deține.',

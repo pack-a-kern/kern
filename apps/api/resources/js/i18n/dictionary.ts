@@ -72,6 +72,8 @@ export interface Dictionary {
                 reading: string;
                 /** Resting note when nothing is proposed for the active year yet. */
                 waiting: string;
+                /** The action, when the decisions are in the library but no value is proposed: read it from them. */
+                read: string;
                 /** Names what is being approved — the active year and its proposed value. */
                 proposed: string;
                 approve: string;
@@ -1628,7 +1630,11 @@ export interface Dictionary {
                 remove: string;
                 removeTitle: string;
                 removeDetail: string;
+                /** Shown when the removal is dispatched: the law is deleted on the queue, not in the request. */
+                removing: string;
                 removed: string;
+                /** The deletion job failed; the transaction rolled back whole, so the law is untouched. */
+                removeFailed: string;
                 removeRefused: string;
                 /** Something else in the app was read from the law as a whole: a bond from the order that issued it. */
                 removeReadFrom: string;

@@ -50,6 +50,7 @@ import { useRememberedPaging, useRememberedState } from '../hooks/useRememberedS
 import { useTranslation } from '../i18n';
 import { actKind } from '../lib/actKinds';
 import { describeApiFailure } from '../lib/apiErrors';
+import { subscribeToLawDeletions } from '../lib/echo';
 import { formatDate } from '../lib/format';
 import { ApiError } from '../lib/http';
 import { useSharedAuth } from '../lib/sharedProps';
@@ -534,6 +535,33 @@ function LawList(props: {
     const [ignore, setIgnore] = useState(true);
     const date = (value: string | null): string => (value === null ? '—' : formatDate(value, locale));
     const { laws } = props;
+    const userId = useSharedAuth()?.user.id ?? null;
+    const onRemoved = props.onRemoved;
+    // The ids this screen asked to delete and is waiting on. Removing a law is minutes of work on the
+    // queue, too long to hold the request open; the socket says when each is done, and only then does
+    // the law come off the list. A ref, not state: it is read in a callback, never drawn.
+    const deleting = useRef<Set<string>>(new Set());
+
+    useEffect(
+        () =>
+            userId === null
+                ? undefined
+                : subscribeToLawDeletions(userId, (lawId, status) => {
+                      if (!deleting.current.has(lawId)) {
+                          return;
+                      }
+
+                      deleting.current.delete(lawId);
+
+                      if (status === 'deleted') {
+                          toast.success(words.removed);
+                          onRemoved();
+                      } else {
+                          toast.error(words.removeFailed);
+                      }
+                  }),
+        [userId, onRemoved, words.removed, words.removeFailed],
+    );
 
     return (
         <section>
@@ -617,9 +645,12 @@ function LawList(props: {
                     onConfirm={async () => {
                         try {
                             await deleteLaw(removing.id, removing.watchId !== null && ignore);
-                            toast.success(words.removed);
+                            // The request only starts the removal. The law stays on the list, going, until
+                            // the socket says it is done (the subscription above), so a big law does not
+                            // hold the request open until the gateway times it out.
+                            deleting.current.add(removing.id);
+                            toast(words.removing);
                             setRemoving(null);
-                            props.onRemoved();
                         } catch (cause) {
                             // A law the fiscal values rest on, or one someone holds bonds of, stays.
                             const reason = cause instanceof ApiError ? cause.reason : undefined;

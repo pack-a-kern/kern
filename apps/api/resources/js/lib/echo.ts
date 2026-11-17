@@ -162,6 +162,7 @@ const userListeners = {
     portalSearches: new Set<(searchId: string) => void>(),
     lawWatches: new Set<(watchId: string) => void>(),
     portalActs: new Set<(portalId: string, read: boolean) => void>(),
+    lawDeletions: new Set<(lawId: string, status: string) => void>(),
 };
 
 /** The `id` a socket message carries, or null when it carries none. */
@@ -223,6 +224,19 @@ function joinUserChannel(userId: string): void {
             if (id !== null) {
                 userListeners.portalActs.forEach((listener) => {
                     listener(id, read);
+                });
+            }
+        })
+        .listen('.legislation.law-deletion.changed', (raw: unknown): void => {
+            const id = idOf(raw);
+            const status =
+                typeof raw === 'object' && raw !== null && 'status' in raw && typeof raw.status === 'string'
+                    ? raw.status
+                    : null;
+
+            if (id !== null && status !== null) {
+                userListeners.lawDeletions.forEach((listener) => {
+                    listener(id, status);
                 });
             }
         });
@@ -304,6 +318,22 @@ export function subscribeToLawWatchRuns(userId: string, onRan: (watchId: string)
 
     return () => {
         userListeners.lawWatches.delete(onRan);
+        leaveUserChannelIfUnheard();
+    };
+}
+
+/**
+ * Calls `onChange` with a law's id and the word `deleted` or `failed` when a removal this person asked
+ * for ends (`Kern\Legislation\Events\LawDeletionChanged`). Removing a consolidated act is minutes of
+ * deleting, done as a job; the screen says over the socket what became of it — it takes the law off its
+ * list, or says it stays. The socket carries the id and that word only.
+ */
+export function subscribeToLawDeletions(userId: string, onChange: (lawId: string, status: string) => void): () => void {
+    joinUserChannel(userId);
+    userListeners.lawDeletions.add(onChange);
+
+    return () => {
+        userListeners.lawDeletions.delete(onChange);
         leaveUserChannelIfUnheard();
     };
 }

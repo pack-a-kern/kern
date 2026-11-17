@@ -71,8 +71,11 @@ Route::prefix('v1/legislation/laws')->middleware('auth:web')->group(function ():
     // Removing a law read in from the portal — one added to try, or the wrong act — is changing what
     // this installation holds, so it belongs to the same people who may start a reading. A law any
     // fiscal value rests on is refused rather than cascaded: see `DeleteLaw`.
-    // Removes the text figures are traced to, past undoing: asked again for the password or code.
-    Route::delete('{law}', DeleteLawController::class)->whereUuid('law')->middleware(['permission:operations.run', 'verify-recent']);
+    // Removes the text figures are traced to, past undoing: asked again for the password or code. The
+    // deleting is a job that holds the single legislation worker for minutes, so it is rate-limited per
+    // person as the other operator calls on this queue are, lest a flood of removals starve ingestion.
+    Route::delete('{law}', DeleteLawController::class)->whereUuid('law')
+        ->middleware(['permission:operations.run', 'verify-recent', 'throttle:operator-calls-per-user']);
 });
 
 // Several acts chosen from a portal search, read one after another: the same people, and the same limit on

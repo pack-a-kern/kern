@@ -107,8 +107,12 @@ final readonly class DeleteLaw
         DB::transaction(function () use ($law, $versions, $ignored, $actorId): void {
             LawDeleting::dispatch($law->id);
 
-            // Deepest first: a point belongs to its paragraph, and `parent_id` restricts deletion.
-            while (SourceSection::query()->whereIn('document_version_id', $versions)->exists()) {
+            // Deepest first: a point belongs to its paragraph, and `parent_id` restricts deletion. A
+            // law may hold hundreds of thousands of provisions, so the leaves go a bounded batch at a
+            // time — never the whole set in one array — until a pass finds none left to take.
+            $chunk = max(1, config()->integer('legislation.delete.chunk'));
+
+            do {
                 $leaves = SourceSection::query()
                     ->whereIn('document_version_id', $versions)
                     ->whereNotExists(function ($query) use ($versions): void {
@@ -117,15 +121,14 @@ final readonly class DeleteLaw
                             ->whereColumn('child.parent_id', 'ext_source_sections.id')
                             ->whereIn('child.document_version_id', $versions);
                     })
+                    ->limit($chunk)
                     ->pluck('id')
                     ->all();
 
-                if ($leaves === []) {
-                    break;
+                if ($leaves !== []) {
+                    SourceSection::query()->whereIn('id', $leaves)->delete();
                 }
-
-                SourceSection::query()->whereIn('id', $leaves)->delete();
-            }
+            } while ($leaves !== []);
 
             // A consolidation names the one it replaced, so the newest goes first.
             SourceDocumentVersion::query()->whereIn('id', $versions)->update(['supersedes_version_id' => null]);

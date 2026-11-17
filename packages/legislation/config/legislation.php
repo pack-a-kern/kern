@@ -47,6 +47,14 @@ return [
         'batch' => (int) env('LEGISLATION_EMBEDDING_BATCH', 256),
     ],
 
+    'delete' => [
+        // Provisions removed per statement when a law is deleted, deepest first (`DeleteLaw`). A
+        // consolidated act like the Codul fiscal holds hundreds of thousands of them; deleting all at
+        // once put every id in one `IN (…)` and an array that size exhausted PHP's memory, so they go
+        // in bounded batches. These are query bindings, comfortably within limits at a few thousand.
+        'chunk' => (int) env('LEGISLATION_DELETE_CHUNK', 5000),
+    ],
+
     /*
      * How "Find a provision" ranks what it finds (`HybridLegislationSearch`). No default for any of these
      * (ADR 0025 §4): the values are in .env.example, and one missing or out of range fails by name.
@@ -172,6 +180,15 @@ return [
         // The private channel a search's progress is broadcast on, `{user}` for whoever started it — the
         // application's own per-person channel. Empty to broadcast nothing; a search with no owner never is.
         'broadcast_channel' => (string) env('LEGISLATION_PORTAL_SEARCH_CHANNEL', 'users.{user}'),
+    ],
+
+    'law_deletion' => [
+        // The private channel a law's removal is announced on, `{user}` for whoever asked for it — the
+        // application's own per-person channel, as `portal_search` uses. Removing a consolidated act is
+        // minutes of deleting, too long to hold a request open, so it runs as a job on this package's
+        // `queue` and says over the socket when it is done or could not be. Empty to announce nothing;
+        // a removal asked for by no one is announced nowhere.
+        'broadcast_channel' => (string) env('LEGISLATION_LAW_DELETION_CHANNEL', 'users.{user}'),
     ],
 
     'form' => [

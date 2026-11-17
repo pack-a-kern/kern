@@ -28,7 +28,9 @@ use Kern\Legislation\Actions\SyncLegislationDocument;
 use Kern\Legislation\Database\Factories\SourceDocumentFactory;
 use Kern\Legislation\DataTransferObjects\PortalActToRead;
 use Kern\Legislation\Enums\SourceDocumentVersionStatus;
+use Kern\Legislation\Events\LawDeletionChanged;
 use Kern\Legislation\Events\PortalActRead;
+use Kern\Legislation\Jobs\DeleteLawJob;
 use Kern\Legislation\Jobs\ReadPortalAct;
 use Kern\Legislation\Legislatie\Exceptions\PortalAnswerException;
 use Kern\Legislation\Models\IgnoredAct;
@@ -623,9 +625,12 @@ it('deletes a law read in by mistake, with every consolidation and provision it 
         ->and(SourceSection::query()->whereIn('document_version_id', $versions)->count())->toBeGreaterThan(0)
         ->and(SectionHistory::query()->where('source_document_id', $law->id)->count())->toBeGreaterThan(0);
 
+    // The removal runs on the queue — `sync` in tests, so it runs within the request — and the request
+    // only answers that it started (ADR: a law of hundreds of thousands of provisions is too slow to
+    // delete while a request waits).
     $this->actingAs(settingsAdminUser())->deleteJson("/api/v1/legislation/laws/{$law->id}")
-        ->assertOk()
-        ->assertJsonPath('versions', 3);
+        ->assertStatus(202)
+        ->assertJsonPath('status', 'deleting');
 
     // The law, its consolidations, its provisions and what was assembled from them: all of it.
     expect(SourceDocument::query()->whereKey($law->id)->exists())->toBeFalse()
@@ -633,6 +638,42 @@ it('deletes a law read in by mistake, with every consolidation and provision it 
         ->and(SourceSection::query()->whereIn('document_version_id', $versions)->count())->toBe(0)
         ->and(SectionHistory::query()->where('source_document_id', $law->id)->count())->toBe(0)
         ->and(DB::table('audit_events')->where('event_type', 'LawDeleted')->count())->toBe(1);
+});
+
+it('answers at once and leaves the deleting to a job, so a large law never holds the request open', function (): void {
+    Queue::fake();
+    portal();
+    app(SyncLegislationDocument::class)('LEGE', 227, 2015);
+    $law = fiscalCode();
+    $admin = settingsAdminUser();
+
+    $this->actingAs($admin)->deleteJson("/api/v1/legislation/laws/{$law->id}", ['ignore' => true])
+        ->assertStatus(202)
+        ->assertJsonPath('status', 'deleting')
+        ->assertJsonPath('id', $law->id);
+
+    // The law is still there: the request only queued the removal, for whoever asked, with their choice.
+    expect(SourceDocument::query()->whereKey($law->id)->exists())->toBeTrue();
+    Queue::assertPushed(DeleteLawJob::class, static fn (DeleteLawJob $job): bool => $job->lawId === $law->id
+        && $job->ignore === true
+        && $job->actorId === $admin->id
+        && $job->userId === $admin->id);
+});
+
+it('says over the socket when a removal is done, for whoever asked', function (): void {
+    Event::fake([LawDeletionChanged::class]);
+    portal();
+    app(SyncLegislationDocument::class)('LEGE', 227, 2015);
+    $law = fiscalCode();
+    $admin = settingsAdminUser();
+
+    // The queue is `sync` in tests, so the job runs within the request and deletes the law now.
+    $this->actingAs($admin)->deleteJson("/api/v1/legislation/laws/{$law->id}")->assertStatus(202);
+
+    expect(SourceDocument::query()->whereKey($law->id)->exists())->toBeFalse();
+    Event::assertDispatched(LawDeletionChanged::class, static fn (LawDeletionChanged $event): bool => $event->lawId === $law->id
+        && $event->userId === $admin->id
+        && $event->status === 'deleted');
 });
 
 it('removes the pages a deleted law was read from, but not one another law was read from too', function (): void {
@@ -647,8 +688,7 @@ it('removes the pages a deleted law was read from, but not one another law was r
     SourceDocumentVersion::factory()->create(['raw_object_path' => $shared]);
 
     $this->actingAs(settingsAdminUser())->deleteJson("/api/v1/legislation/laws/{$law->id}")
-        ->assertOk()
-        ->assertJsonPath('pages', count($paths) - 1);
+        ->assertStatus(202);
 
     expect(Storage::disk('s3')->exists($shared))->toBeTrue();
     foreach (array_slice($paths, 1) as $path) {
@@ -717,7 +757,7 @@ it('deletes an order nobody holds a bond of, with its bonds, their payouts, pric
     $other = User::factory()->create();
     Notification::send($other, IssueOnOfferNotice::about('01a1bd7e-ea89-701b-afd6-9c6ad267cd04'));
 
-    $this->actingAs(settingsAdminUser())->deleteJson("/api/v1/legislation/laws/{$law->id}")->assertOk();
+    $this->actingAs(settingsAdminUser())->deleteJson("/api/v1/legislation/laws/{$law->id}")->assertStatus(202);
 
     expect(SourceDocument::query()->whereKey($law->id)->exists())->toBeFalse()
         ->and(FinancialInstrument::query()->whereKey($bond->id)->exists())->toBeFalse()
@@ -768,16 +808,19 @@ it('ignores a deleted act in the watches from then on when asked, only one a wat
         'search_words' => 'exemplul', 'act_type' => 'LEGE', 'first_year' => 2015, 'every_hours' => 24, 'enabled' => true, 'next_run_at' => now(),
     ]);
 
+    // Not a watch's find: `ignore` has nothing to act on, so no act is ignored. (The queue is `sync`
+    // in tests, so the removal and its ignoring, or not, happen within the request.)
     $this->actingAs(settingsAdminUser())->deleteJson("/api/v1/legislation/laws/{$law->id}", ['ignore' => true])
-        ->assertOk()
-        ->assertJsonPath('ignored', false);
+        ->assertStatus(202);
+
+    expect(IgnoredAct::query()->where('portal_document_id', $law->portal_document_id)->exists())->toBeFalse();
 
     app(SyncLegislationDocument::class)('LEGE', 227, 2015, null, null, $watch->id);
     $law = fiscalCode();
 
+    // A watch read this one in: `ignore` passes it over in that watch's searches from then on.
     $this->actingAs(settingsAdminUser())->deleteJson("/api/v1/legislation/laws/{$law->id}", ['ignore' => true])
-        ->assertOk()
-        ->assertJsonPath('ignored', true);
+        ->assertStatus(202);
 
     expect(IgnoredAct::query()->where('portal_document_id', $law->portal_document_id)->value('title'))->toBe($law->title);
 });

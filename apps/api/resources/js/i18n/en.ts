@@ -76,6 +76,7 @@ export const en = {
                 pending: 'To approve',
                 reading: 'Reading the decision…',
                 waiting: "Waiting for {year}'s decision to be read",
+                read: 'Read minimum wage',
                 proposed: 'Minimum wage {year}: {value}',
                 approve: 'Approve',
                 approveAt: 'on the tax-rules board',
@@ -1811,7 +1812,9 @@ export const en = {
                 removeTitle: 'Delete this law?',
                 removeDetail:
                     'Every consolidation read ({consolidations}), every provision and everything indexed from them goes. Reading it again restores it from the portal.',
+                removing: 'Deleting the law…',
                 removed: 'The law was deleted.',
+                removeFailed: 'The law could not be deleted. Nothing was removed — try again.',
                 removeRefused: 'Fiscal values were read from this law and rest on its paragraphs. It stays.',
                 removeReadFrom: 'Someone holds bonds read from this law. It stays while they do.',
                 open: 'Open',
