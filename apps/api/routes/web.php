@@ -36,9 +36,13 @@ Route::post('/csp-report', RecordCspViolationController::class)
  * question, and a shared prop would put a `settings` query on every Inertia response in the
  * application — including the ones rendered before any of it is needed.
  */
+// `guest` (Illuminate\Auth\Middleware\RedirectIfAuthenticated) sends an already-signed-in visitor
+// to the dashboard rather than showing the sign-in form — its default target is the `dashboard`
+// route when one exists, which it does. Registration is a mode of this same page, so this guards it
+// too; a guest still reaches both.
 Route::get('/login', fn (RegistrationPolicy $registration) => Inertia::render('auth/login', [
     'registrationOpen' => $registration->isOpen(),
-]))->name('login');
+]))->middleware('guest')->name('login');
 
 /*
  * The verification screen is on `RequireVerifiedEmail`'s allowed list, which is the whole point: it is
