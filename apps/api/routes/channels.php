@@ -65,3 +65,18 @@ Broadcast::channel(
     SystemHealthChanged::CHANNEL,
     fn (User $user): bool => $user->can('system.settings.view'),
 );
+
+/*
+ * `Kern\TaxRomania\Operations\Events\OperationsActivityChanged` — a nudge that the queue activity
+ * changed, for the topbar indicator. For the people who may read the operations screen
+ * (`operations.view`), the same permission its endpoint checks. The channel name is read from config
+ * so it matches the event's; empty there means it is broadcast nowhere and this authorizes nothing.
+ */
+$operationsChannel = config('operations.activity.broadcast_channel');
+
+if (is_string($operationsChannel) && $operationsChannel !== '') {
+    Broadcast::channel(
+        $operationsChannel,
+        fn (User $user): bool => $user->can('operations.view'),
+    );
+}

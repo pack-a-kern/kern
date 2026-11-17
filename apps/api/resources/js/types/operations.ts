@@ -283,6 +283,53 @@ export function parseQueueJobsPage(payload: unknown): QueueJobsPage {
     };
 }
 
+/** One queue as the activity indicator shows it — the name Horizon knows it by, and its counts. */
+export interface QueueActivityEntry {
+    name: string;
+    waiting: number;
+    processes: number;
+}
+
+/** A named task open in the run ledger right now. */
+export interface RunningTask {
+    key: string;
+    since: string;
+}
+
+/** The live picture behind the topbar's queue-activity indicator (`GET /v1/operations/activity`). */
+export interface OperationsActivity {
+    available: boolean;
+    moving: boolean;
+    pending: number;
+    failed: number;
+    /** How long to wait before asking again when no socket nudge came, in milliseconds. */
+    pollAfterMs: number;
+    queues: QueueActivityEntry[];
+    running: RunningTask[];
+}
+
+export function parseOperationsActivity(payload: unknown): OperationsActivity {
+    const body = obj(payload);
+
+    return {
+        available: bool(body, 'available'),
+        moving: bool(body, 'moving'),
+        pending: num(body, 'pending'),
+        failed: num(body, 'failed'),
+        pollAfterMs: num(body, 'poll_after_ms'),
+        queues: (Array.isArray(body.queues) ? body.queues : []).map((entry): QueueActivityEntry => {
+            const row = obj(entry);
+
+            return { name: str(row, 'name'), waiting: num(row, 'waiting'), processes: num(row, 'processes') };
+        }),
+        running: (Array.isArray(body.running) ? body.running : []).map((entry): RunningTask => {
+            const row = obj(entry);
+
+            return { key: str(row, 'key'), since: str(row, 'since') };
+        }),
+    };
+}
+
 export function parseTaskRunsPage(payload: unknown): TaskRunsPage {
     const body = obj(payload);
 

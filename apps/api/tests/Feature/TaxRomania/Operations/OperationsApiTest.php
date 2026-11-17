@@ -6,15 +6,18 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Kern\Platform\Identity\Models\User;
 use Kern\TaxRomania\Operations\Enums\OperationTask;
 use Kern\TaxRomania\Operations\Enums\TaskRunStatus;
 use Kern\TaxRomania\Operations\Enums\TaskRunTrigger;
+use Kern\TaxRomania\Operations\Events\OperationsActivityChanged;
 use Kern\TaxRomania\Operations\Jobs\RunOperationTask;
 use Kern\TaxRomania\Operations\Models\ScheduledTask;
 use Kern\TaxRomania\Operations\Models\TaskRun;
+use Kern\TaxRomania\Operations\Services\TaskRunRecorder;
 use Laravel\Horizon\Contracts\JobRepository;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -427,4 +430,30 @@ it('runs a law found on the portal through the same task, by its portal id', fun
         ->postJson("/api/v1/operations/tasks/{$task->value}/run", ['act_type' => 'HOTARARE', 'act_number' => 4, 'act_year' => 2021, 'portal_id' => 236118])
         ->assertStatus(202)
         ->assertJsonPath('arguments.portal_id', 236118);
+});
+
+it('refuses the activity indicator to a user with no platform role, and serves it to an operator', function (): void {
+    $this->actingAs(operationsUser())->getJson('/api/v1/operations/activity')->assertForbidden();
+
+    $run = app(TaskRunRecorder::class)->start(OperationTask::LEGISLATION_INGEST, TaskRunTrigger::MANUAL, null);
+
+    $this->actingAs(operationsUser('ADMIN'))->getJson('/api/v1/operations/activity')
+        ->assertOk()
+        // The shape the topbar reads: the queues, the tasks running now, the totals and the poll hint.
+        ->assertJsonStructure(['available', 'moving', 'pending', 'failed', 'poll_after_ms', 'queues', 'running'])
+        // The run opened above is named among those running now — by its key, never a job payload.
+        ->assertJsonPath('running.0.key', OperationTask::LEGISLATION_INGEST->value);
+
+    expect($run->status)->toBe(TaskRunStatus::RUNNING);
+});
+
+it('nudges the activity indicator when a task run opens and when it closes', function (): void {
+    Event::fake([OperationsActivityChanged::class]);
+
+    $recorder = app(TaskRunRecorder::class);
+    $run = $recorder->start(OperationTask::ACCESS_SYNC, TaskRunTrigger::MANUAL, null);
+    $recorder->finish($run, 0, 'done');
+
+    // One when it started, one when it ended — the two moments an open screen should hear at once.
+    Event::assertDispatchedTimes(OperationsActivityChanged::class, 2);
 });

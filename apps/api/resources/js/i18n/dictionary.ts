@@ -116,6 +116,22 @@ export interface Dictionary {
         notificationsEmptyHint: string;
         openNotice: string;
         notificationsFailed: string;
+        queueActivity: {
+            label: string;
+            idle: string;
+            processing: string;
+            working: string;
+            attention: string;
+            paused: string;
+            unavailable: string;
+            runningNow: string;
+            noneRunning: string;
+            queues: string;
+            waiting: string;
+            queueIdle: string;
+            failed: string;
+            openJobs: string;
+        };
         /** Keyed by `resources/js/lib/palette.ts`'s registry — add a palette, `tsc` asks for these. */
         paletteNames: Record<PaletteName, string>;
         paletteDescriptions: Record<PaletteName, string>;

@@ -27,6 +27,19 @@ return [
         'timeout_seconds' => (int) env('OPERATIONS_LONG_QUEUE_TIMEOUT_SECONDS', 1800),
     ],
 
+    /*
+     * The topbar's queue-activity indicator (`ShowOperationsActivityController`,
+     * `OperationsActivityChanged`). The private channel a "look again" nudge is broadcast on — the
+     * same one `routes/channels.php` authorizes for `operations.view`; empty broadcasts nowhere, and
+     * the indicator falls back to polling only. How long the indicator waits before asking again when
+     * no nudge came, in milliseconds — the socket may be down, or a backlog may be draining with no
+     * task opening or closing to nudge it.
+     */
+    'activity' => [
+        'broadcast_channel' => (string) env('OPERATIONS_ACTIVITY_CHANNEL', 'operations'),
+        'poll_after_ms' => (int) env('OPERATIONS_ACTIVITY_POLL_AFTER_MS', 8000),
+    ],
+
     // The scheduler beats twice a minute into two different places, because two audiences ask the
     // question for different reasons and must fail independently.
     'scheduler' => [

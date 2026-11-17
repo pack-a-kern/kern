@@ -1,12 +1,23 @@
 import { apiRequest } from '../lib/http';
 import {
+    type OperationsActivity,
     type OperationsOverview,
     type QueueJobsPage,
     type TaskRunsPage,
+    parseOperationsActivity,
     parseOperationsOverview,
     parseQueueJobsPage,
     parseTaskRunsPage,
 } from '../types/operations';
+
+/**
+ * `GET /api/v1/operations/activity` — the live picture behind the topbar's queue-activity indicator:
+ * the queues and their waiting counts, the tasks running now, and whether the queue is moving. Polled
+ * while on screen, and asked again on each `operations.activity.changed` nudge.
+ */
+export async function getOperationsActivity(): Promise<OperationsActivity> {
+    return parseOperationsActivity(JSON.parse(await apiRequest('/v1/operations/activity')));
+}
 
 function pageQuery(page: number | undefined, perPage: number | undefined): URLSearchParams {
     const params = new URLSearchParams();

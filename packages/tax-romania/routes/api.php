@@ -18,6 +18,7 @@ use Kern\TaxRomania\Http\Controllers\Fx\ShowFxRateHistoryController;
 use Kern\TaxRomania\Http\Controllers\Operations\ForgetFailedJobController;
 use Kern\TaxRomania\Http\Controllers\Operations\RetryFailedJobController;
 use Kern\TaxRomania\Http\Controllers\Operations\RunOperationTaskController;
+use Kern\TaxRomania\Http\Controllers\Operations\ShowOperationsActivityController;
 use Kern\TaxRomania\Http\Controllers\Operations\ShowOperationsOverviewController;
 use Kern\TaxRomania\Http\Controllers\Operations\ShowQueueJobsController;
 use Kern\TaxRomania\Http\Controllers\Operations\ShowTaskRunsController;
@@ -398,6 +399,9 @@ Route::prefix('v1/operations')->middleware(['auth:web'])->group(function (): voi
         Route::get('/', ShowOperationsOverviewController::class);
         Route::get('tasks/{task}/runs', ShowTaskRunsController::class)->where('task', '[a-z_.]+');
         Route::get('jobs', ShowQueueJobsController::class);
+        // The topbar's live indicator: the queues and the tasks running now. Light and polled, so it
+        // is a read of its own rather than part of the heavier overview.
+        Route::get('activity', ShowOperationsActivityController::class);
     });
 
     Route::middleware('permission:operations.run')->group(function (): void {

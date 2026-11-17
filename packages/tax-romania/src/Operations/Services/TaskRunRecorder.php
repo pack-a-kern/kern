@@ -9,6 +9,7 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Kern\TaxRomania\Operations\Enums\OperationTask;
 use Kern\TaxRomania\Operations\Enums\TaskRunStatus;
 use Kern\TaxRomania\Operations\Enums\TaskRunTrigger;
+use Kern\TaxRomania\Operations\Events\OperationsActivityChanged;
 use Kern\TaxRomania\Operations\Models\TaskRun;
 
 /**
@@ -18,6 +19,9 @@ use Kern\TaxRomania\Operations\Models\TaskRun;
  * an OOM-killed worker, a container restart mid-import — still leaves evidence that it started.
  * A row stuck in `RUNNING` is itself the diagnostic; a ledger that only records completions would
  * show nothing at all for exactly the failure an operator most needs to see.
+ *
+ * Opening or closing a run nudges the topbar's activity indicator ({@see OperationsActivityChanged}),
+ * so "a task started" and "a task ended" reach an open screen at once rather than on its next poll.
  */
 final readonly class TaskRunRecorder
 {
@@ -39,6 +43,8 @@ final readonly class TaskRunRecorder
         $run->started_at = CarbonImmutable::now('UTC');
         $run->save();
 
+        OperationsActivityChanged::dispatch();
+
         return $run;
     }
 
@@ -55,6 +61,8 @@ final readonly class TaskRunRecorder
         $run->output = $this->truncate($output);
         $run->finished_at = CarbonImmutable::now('UTC');
         $run->save();
+
+        OperationsActivityChanged::dispatch();
     }
 
     /** The command threw rather than returning. There is no exit code to record, only the cause. */
@@ -65,6 +73,8 @@ final readonly class TaskRunRecorder
         $run->output = $this->truncate($reason);
         $run->finished_at = CarbonImmutable::now('UTC');
         $run->save();
+
+        OperationsActivityChanged::dispatch();
     }
 
     /**

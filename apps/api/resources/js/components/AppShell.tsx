@@ -51,6 +51,7 @@ import { formatDate, formatDateTime } from '../lib/format';
 import { parseFilingDeadline } from '../types/fiscalParameters';
 import { refreshSharedAuth, useAppName, useSharedAuth } from '../lib/sharedProps';
 import type { Notice } from '../types/notifications';
+import QueueActivity from './QueueActivity';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import SubjectSwitcher, { SubjectChooser } from './SubjectSwitcher';
@@ -1156,6 +1157,7 @@ export default function AppShell({ children }: { children: ReactNode }): JSX.Ele
                         <div className="lg:hidden">
                             <ThemeToggle className="bar-icon" />
                         </div>
+                        {auth !== null && auth.user.id !== '' && <QueueActivity />}
                         {auth !== null && auth.user.id !== '' && <NotificationsMenu userId={auth.user.id} />}
                     </header>
 

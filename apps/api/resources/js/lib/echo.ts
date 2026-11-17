@@ -339,6 +339,27 @@ export function subscribeToLawDeletions(userId: string, onChange: (lawId: string
 }
 
 /**
+ * Subscribes to `operations` (`OperationsActivityChanged`, authorized for `operations.view` in
+ * `routes/channels.php`) and calls `onChange` when a background task started or ended. A nudge only:
+ * the caller asks `GET /v1/operations/activity` for the current picture over HTTPS. The channel name
+ * matches `operations.activity.broadcast_channel`'s default; an installation that renames it also
+ * updates this literal.
+ */
+export function subscribeToOperationsActivity(onChange: () => void): () => void {
+    const channelName = 'operations';
+
+    getEcho()
+        .private(channelName)
+        .listen('.operations.activity.changed', (): void => {
+            onChange();
+        });
+
+    return () => {
+        getEcho().leave(channelName);
+    };
+}
+
+/**
  * Subscribes to `system.health` (`SystemHealthChanged`, authorized for `system.settings.view` in
  * `routes/channels.php`) and calls `onChange` with the services now down — the whole list each time,
  * so a missed message is corrected by the next one.

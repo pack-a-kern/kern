@@ -59,4 +59,23 @@ final readonly class TaskRunRepository
             ->where('status', TaskRunStatus::RUNNING->value)
             ->exists();
     }
+
+    /**
+     * Every task-run open right now — started and not yet closed — oldest first, for the activity
+     * indicator. A run stuck RUNNING because its worker died shows here too, which is correct: from
+     * the queue's side it is still an open run until something closes it.
+     *
+     * @return list<TaskRun>
+     */
+    public function running(): array
+    {
+        /** @var list<TaskRun> $runs */
+        $runs = TaskRun::query()
+            ->where('status', TaskRunStatus::RUNNING->value)
+            ->orderBy('started_at')
+            ->get()
+            ->all();
+
+        return $runs;
+    }
 }
