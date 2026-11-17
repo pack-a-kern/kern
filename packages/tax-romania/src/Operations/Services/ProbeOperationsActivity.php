@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kern\TaxRomania\Operations\Services;
 
+use Illuminate\Support\Facades\Cache;
 use Kern\TaxRomania\Operations\DataTransferObjects\OperationsActivity;
 use Kern\TaxRomania\Operations\Models\TaskRun;
 use Kern\TaxRomania\Operations\Repositories\TaskRunRepository;
@@ -25,6 +26,14 @@ use Throwable;
  */
 final readonly class ProbeOperationsActivity
 {
+    /**
+     * How long the walked failure total is cached. This endpoint is polled by every operator's
+     * browser, and the walk reads Horizon's whole failed-jobs index; a few seconds keeps repeated
+     * polls — and several operators at once — from each re-walking it, while staying live enough that
+     * a cleared backlog shows through almost at once.
+     */
+    private const FAILED_TOTAL_TTL_SECONDS = 5;
+
     public function __construct(
         private WorkloadRepository $workload,
         private ProbeQueueStatus $queueStatus,
@@ -84,7 +93,11 @@ final readonly class ProbeOperationsActivity
     private function failedTotal(): int
     {
         try {
-            return $this->jobs->retrievableTotal('failed');
+            return Cache::remember(
+                'operations.activity.failed-total',
+                self::FAILED_TOTAL_TTL_SECONDS,
+                fn (): int => $this->jobs->retrievableTotal('failed'),
+            );
         } catch (Throwable $exception) {
             report($exception);
 

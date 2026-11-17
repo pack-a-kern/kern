@@ -11,6 +11,7 @@ use Kern\TaxRomania\Operations\Enums\TaskRunStatus;
 use Kern\TaxRomania\Operations\Enums\TaskRunTrigger;
 use Kern\TaxRomania\Operations\Events\OperationsActivityChanged;
 use Kern\TaxRomania\Operations\Models\TaskRun;
+use Throwable;
 
 /**
  * Opens and closes rows in the run ledger.
@@ -43,7 +44,7 @@ final readonly class TaskRunRecorder
         $run->started_at = CarbonImmutable::now('UTC');
         $run->save();
 
-        OperationsActivityChanged::dispatch();
+        $this->nudge();
 
         return $run;
     }
@@ -62,7 +63,7 @@ final readonly class TaskRunRecorder
         $run->finished_at = CarbonImmutable::now('UTC');
         $run->save();
 
-        OperationsActivityChanged::dispatch();
+        $this->nudge();
     }
 
     /** The command threw rather than returning. There is no exit code to record, only the cause. */
@@ -74,7 +75,22 @@ final readonly class TaskRunRecorder
         $run->finished_at = CarbonImmutable::now('UTC');
         $run->save();
 
-        OperationsActivityChanged::dispatch();
+        $this->nudge();
+    }
+
+    /**
+     * Nudge the activity indicator, best-effort. The run row is saved before this is called, so a
+     * broadcast that cannot be dispatched — a queue or Reverb hiccup — must never fail the recording
+     * the ledger exists to keep; a failure here is reported and swallowed, not thrown back into the
+     * task that just ran.
+     */
+    private function nudge(): void
+    {
+        try {
+            OperationsActivityChanged::dispatch();
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 
     /**
