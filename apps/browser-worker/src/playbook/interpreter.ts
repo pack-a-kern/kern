@@ -41,6 +41,19 @@ export class SourceTooLargeError extends Error {
 }
 
 /**
+ * A step named a `frame` that never appeared within its timeout: the page does not hold the embedded
+ * view the playbook expects — a chart that only some instruments draw, a login form only some flows
+ * render. Its own class, apart from a step that failed for any other reason, so a caller can tell "this
+ * page simply has no such frame" from "the run broke" and answer each in its own way.
+ */
+export class FrameAbsentError extends Error {
+  public constructor(public readonly frame: string) {
+    super(`The page has no frame matching ${frame}`);
+    this.name = "FrameAbsentError";
+  }
+}
+
+/**
  * Runs one sequence of a playbook against an open page.
  *
  * ## What it will not do
@@ -139,7 +152,9 @@ export class Interpreter {
         this.tainted = true;
       }
 
-      await this.locator(step.fill.selector, step.fill).fill(this.secrets.fill(step.fill.value), {
+      const field = await this.locator(step.fill.selector, step.fill, step.fill.timeout ?? DEFAULT_TIMEOUT_MS);
+
+      await field.fill(this.secrets.fill(step.fill.value), {
         timeout: step.fill.timeout ?? DEFAULT_TIMEOUT_MS,
       });
 
@@ -157,10 +172,14 @@ export class Interpreter {
         assertAllowed(capture.url, this.playbook.allow);
       }
 
+      // The target resolved first — which waits for its frame, where it names one — so the response
+      // listener's clock starts at the click and not before the frame it clicks in even exists.
+      const target = await this.locator(step.click.selector, step.click, timeout);
+
       // Listening before the click, so a response that answers at once is not missed.
       const [captured] = await Promise.all([
         capture === undefined ? null : this.page.waitForResponse((response) => matches(response.url(), capture), { timeout }),
-        this.locator(step.click.selector, step.click).click({ timeout }),
+        target.click({ timeout }),
       ]);
 
       this.lastResponse = captured;
@@ -170,7 +189,9 @@ export class Interpreter {
     }
 
     if ("select" in step) {
-      await this.locator(step.select.selector, step.select).selectOption(this.secrets.fill(step.select.value), {
+      const menu = await this.locator(step.select.selector, step.select, step.select.timeout ?? DEFAULT_TIMEOUT_MS);
+
+      await menu.selectOption(this.secrets.fill(step.select.value), {
         timeout: step.select.timeout ?? DEFAULT_TIMEOUT_MS,
       });
 
@@ -211,9 +232,11 @@ export class Interpreter {
     }
 
     if ("download" in step) {
+      const trigger = await this.locator(step.download.selector, step.download, step.download.timeout ?? DEFAULT_TIMEOUT_MS);
+
       const [download] = await Promise.all([
         this.page.waitForEvent("download", { timeout: step.download.timeout ?? DEFAULT_TIMEOUT_MS }),
-        this.locator(step.download.selector, step.download).click(),
+        trigger.click(),
       ]);
 
       data[step.download.into ?? "download"] = {
@@ -224,7 +247,9 @@ export class Interpreter {
       return null;
     }
 
-    await this.locator(step.upload.selector, step.upload).setInputFiles([...step.upload.files], {
+    const input = await this.locator(step.upload.selector, step.upload, step.upload.timeout ?? DEFAULT_TIMEOUT_MS);
+
+    await input.setInputFiles([...step.upload.files], {
       timeout: step.upload.timeout ?? DEFAULT_TIMEOUT_MS,
     });
 
@@ -248,7 +273,7 @@ export class Interpreter {
       // `hidden` rather than `detached` for `absent`: an element removed from the DOM and one left in
       // it but no longer shown are both "gone" to somebody reading the page, and a portal is free to
       // choose either.
-      await this.locator(branch.selector, wait)
+      await (await this.locator(branch.selector, wait, timeout))
         .first()
         .waitFor({ state: branch.state === "absent" ? "hidden" : "visible", timeout });
 
@@ -260,7 +285,7 @@ export class Interpreter {
 
       // `exactOptionalPropertyTypes`: an absent explanation is a key that is not there, not a key
       // holding undefined — the two are different to a caller reading the JSON.
-      const text = (await this.locator(branch.message, wait).first().textContent())?.trim();
+      const text = (await (await this.locator(branch.message, wait, timeout)).first().textContent())?.trim();
 
       return text === undefined || text === ""
         ? { outcome: branch.outcome, ...carryOn }
@@ -280,7 +305,7 @@ export class Interpreter {
   private async extract(
     extract: Extract<Step, { extract: unknown }>["extract"],
   ): Promise<readonly Record<string, string | null>[]> {
-    const rows = await this.locator(extract.rows, extract).all();
+    const rows = await (await this.locator(extract.rows, extract)).all();
     const out: Record<string, string | null>[] = [];
 
     for (const row of rows) {
@@ -353,19 +378,39 @@ export class Interpreter {
     return this.kept === undefined ? {} : { source: this.kept };
   }
 
-  /** A locator in the main frame, or in the named one. */
-  private locator(selector: string, scope: Scope): Locator {
+  /** A locator in the main frame, or in the named one — once that frame has appeared. */
+  private async locator(selector: string, scope: Scope, timeout: number = DEFAULT_TIMEOUT_MS): Promise<Locator> {
     if (scope.frame === undefined) {
       return this.page.locator(selector);
     }
 
-    const frame: Frame | null =
-      this.page.frame({ name: scope.frame }) ?? this.page.frame({ url: (url) => url.href.includes(scope.frame ?? "") });
+    return (await this.frame(scope.frame, timeout)).locator(selector);
+  }
 
-    if (frame === null) {
-      throw new Error(`The page has no frame matching ${scope.frame}`);
+  /**
+   * The frame named — by name, or by a fragment of its URL — waited for rather than demanded at once: a
+   * frame a page builds after it loads (a charting widget, an embedded form) is not there the instant
+   * the step before it returned.
+   *
+   * Polled, not raced on `frameattached`: a `blob:` or `about:blank` frame is attached before it carries
+   * the URL this matches on, so the event fires too early and the frame is found only on a later look.
+   */
+  private async frame(hint: string, timeout: number): Promise<Frame> {
+    const deadline = Date.now() + timeout;
+
+    for (;;) {
+      const frame: Frame | null =
+        this.page.frame({ name: hint }) ?? this.page.frame({ url: (url) => url.href.includes(hint) });
+
+      if (frame !== null) {
+        return frame;
+      }
+
+      if (Date.now() >= deadline) {
+        throw new FrameAbsentError(hint);
+      }
+
+      await this.page.waitForTimeout(100);
     }
-
-    return frame.locator(selector);
   }
 }

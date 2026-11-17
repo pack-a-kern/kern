@@ -110,3 +110,22 @@ it('reads an instrument’s past prices once and its page each time, keeping a d
         && $request['secrets'] === ['url' => 'https://www.bvb.ro/instrument?s=R3608A']
         && $request['playbook']['context'] === ['engine' => 'chromium', 'userAgent' => 'Mozilla/5.0 (Test) Chrome/128.0.0.0']);
 });
+
+it('marks an instrument read with no prices when its page draws no chart', function (): void {
+    // A bond that does not chart: the worker says the chart frame never appeared. Not a failure to
+    // report — the instrument is marked read, with no prices, and so is not queued again every import.
+    $instrument = bond('R9901A');
+    Http::fake([
+        'https://browser-worker.test/*' => Http::response(
+            (string) json_encode(['error' => 'frame_absent', 'frame' => 'blob:https://www.bvb.ro']),
+            422,
+            ['Content-Type' => 'application/json'],
+        ),
+    ]);
+
+    $days = app(\Kern\Investments\Services\InstrumentHistory::class)->read($instrument);
+
+    expect($days)->toBe(0)
+        ->and($instrument->refresh()->history_read_at)->not->toBeNull()
+        ->and(InstrumentPrice::query()->where('instrument_id', $instrument->id)->count())->toBe(0);
+});

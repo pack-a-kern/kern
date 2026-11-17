@@ -82,6 +82,19 @@ return [
             'after_commit' => false,
         ],
 
+        // The same, for reading one BVB instrument's page in a browser: its chart's history the first
+        // time, then its issuer profile. One at a time (`supervisor-investments-bvb`), and the
+        // reservation a minute past that supervisor's own timeout so a slow read — a page whose chart
+        // the browser waits out — is never handed to a second worker while it is still running.
+        'redis-investments-bvb' => [
+            'driver' => 'redis',
+            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+            'queue' => env('REDIS_QUEUE', 'default'),
+            'retry_after' => (int) env('HORIZON_INVESTMENTS_BVB_TIMEOUT_SECONDS', 180) + 60,
+            'block_for' => null,
+            'after_commit' => false,
+        ],
+
     ],
 
     /*

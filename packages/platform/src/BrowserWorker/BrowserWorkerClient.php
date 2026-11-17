@@ -8,6 +8,7 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Response;
 use Kern\Platform\BrowserWorker\Exceptions\BrowserActionNotBuiltException;
+use Kern\Platform\BrowserWorker\Exceptions\BrowserFrameAbsentException;
 use Kern\Platform\BrowserWorker\Exceptions\BrowserPageRefusedException;
 use Kern\Platform\BrowserWorker\Exceptions\BrowserRunFailedException;
 use Kern\Platform\BrowserWorker\Exceptions\BrowserSessionGoneException;
@@ -199,6 +200,14 @@ final readonly class BrowserWorkerClient
 
         if ($response->status() === 503 && $response->json('error') === 'at_capacity') {
             throw BrowserWorkerAtCapacityException::create();
+        }
+
+        // A frame the sequence named that the page never showed — the page's own shape, told apart from
+        // a run that broke so a caller can treat it as "nothing of that kind was there to read".
+        if ($response->status() === 422 && $response->json('error') === 'frame_absent') {
+            $frame = $response->json('frame');
+
+            throw BrowserFrameAbsentException::for(is_string($frame) ? $frame : '');
         }
 
         if ($response->failed()) {

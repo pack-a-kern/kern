@@ -17,6 +17,7 @@ use Kern\Legislation\Fetching\Exceptions\HostNotAllowedException;
 use Kern\Legislation\Fetching\FetchedDocument;
 use Kern\Legislation\Services\SourceIngestionService;
 use Kern\Platform\BrowserWorker\BrowserWorkerClient;
+use Kern\Platform\BrowserWorker\Exceptions\BrowserFrameAbsentException;
 use LogicException;
 use RuntimeException;
 
@@ -55,7 +56,16 @@ final readonly class InstrumentHistory
         }
 
         /** @var array<string, mixed> $playbook */
-        $page = $this->worker->page($playbook, self::SEQUENCE, ['url' => $url], $this->settings->integer('sources.fetch.max_response_bytes'));
+        try {
+            $page = $this->worker->page($playbook, self::SEQUENCE, ['url' => $url], $this->settings->integer('sources.fetch.max_response_bytes'));
+        } catch (BrowserFrameAbsentException) {
+            // The page drew no price chart — a bond that does not trade on a chart, most often. There is
+            // nothing to read, so it is marked read and left alone rather than queued again by every
+            // import: its daily close still arrives from the listing (`BvbImport`), a day at a time.
+            $instrument->forceFill(['history_read_at' => now()])->save();
+
+            return 0;
+        }
 
         // Where the chart's prices came from — checked against this source's own list, as every page is.
         if (! $this->sources->find(BvbSource::CODE)->allowsUrl($page->url)) {

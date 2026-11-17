@@ -296,6 +296,28 @@ return [
             'nice' => 0,
         ],
 
+        /*
+         * Reading one BVB instrument's page in a browser (`Kern\Investments\Jobs\ReadBvbInstrument`):
+         * its chart's history the first time, then its issuer profile. One process: the reads open a
+         * real browser on BVB's site, and more than one at a time only piles sessions onto the browser
+         * worker — each read then takes longer than it does alone, past the default queue's sixty
+         * seconds. One at a time, spaced by `INVESTMENTS_BVB_SPACING_SECONDS`, is both gentler on BVB
+         * and faster per read. Its own timeout, generous enough for a page whose chart never draws and
+         * the browser waits out, then the profile on top.
+         */
+        'supervisor-investments-bvb' => [
+            'connection' => 'redis-investments-bvb',
+            'queue' => [env('INVESTMENTS_QUEUE', 'investments-bvb')],
+            'balance' => 'simple',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 256,
+            'tries' => 1,
+            'timeout' => (int) env('HORIZON_INVESTMENTS_BVB_TIMEOUT_SECONDS', 180),
+            'nice' => 0,
+        ],
+
         'supervisor-1' => [
             'connection' => 'redis',
             'queue' => ['default'],
@@ -327,6 +349,9 @@ return [
             'supervisor-operations-long' => [
                 'maxProcesses' => 1,
             ],
+            'supervisor-investments-bvb' => [
+                'maxProcesses' => 1,
+            ],
             'supervisor-1' => [
                 'maxProcesses' => 10,
                 'balanceMaxShift' => 1,
@@ -345,6 +370,9 @@ return [
                 'maxProcesses' => 1,
             ],
             'supervisor-operations-long' => [
+                'maxProcesses' => 1,
+            ],
+            'supervisor-investments-bvb' => [
                 'maxProcesses' => 1,
             ],
             'supervisor-1' => [

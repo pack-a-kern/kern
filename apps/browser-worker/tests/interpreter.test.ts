@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import { chromium, type Browser, type Page } from "playwright";
 
-import { Interpreter, SourceTooLargeError, StepFailedError } from "../src/playbook/interpreter.js";
+import { FrameAbsentError, Interpreter, SourceTooLargeError, StepFailedError } from "../src/playbook/interpreter.js";
 import { Secrets } from "../src/playbook/secrets.js";
 import type { Playbook } from "../src/playbook/types.js";
 
@@ -174,6 +174,50 @@ describe("Interpreter", () => {
       /awaiting_challenge/,
     );
   });
+
+  it("waits for a named frame the page builds late, then acts inside it", async () => {
+    // The shape a charting widget (BVB's) has: the page loads, then a script drops an iframe in a
+    // moment later. The step names that frame and must wait for it rather than miss it by a hair.
+    const page = await pageShowing(`
+      <p id="done" hidden>done</p>
+      <script>
+        setTimeout(function () {
+          var f = document.createElement('iframe');
+          f.name = 'widget';
+          f.srcdoc = '<button id="go" type="button">Go</button>'
+            + '<scr' + 'ipt>document.getElementById("go").addEventListener("click", function () {'
+            + ' parent.document.getElementById("done").hidden = false; });</scr' + 'ipt>';
+          document.body.appendChild(f);
+        }, 300);
+      </script>
+    `);
+
+    const book = playbook({
+      seq: [
+        { goto: "https://example.test/" },
+        { click: { selector: "#go", frame: "widget", timeout: 3000 } },
+        { waitFor: { any: [{ selector: "#done", outcome: "done" }], timeout: 3000 } },
+      ],
+    });
+
+    const result = await new Interpreter(page, book, new Secrets({})).run(book.sequences.seq ?? []);
+
+    assert.equal(result.outcome, "done");
+  });
+
+  it("reports a named frame that never appears as absent, not as a broken run", async () => {
+    const page = await pageShowing("<p>no frames here</p>");
+
+    const book = playbook({
+      seq: [{ goto: "https://example.test/" }, { click: { selector: "#x", frame: "ghost", timeout: 300 } }],
+    });
+
+    await assert.rejects(
+      () => new Interpreter(page, book, new Secrets({})).run(book.sequences.seq ?? []),
+      FrameAbsentError,
+    );
+  });
+
   it("carries on past a waitFor branch marked continue, so a guard can precede what it guards", async () => {
     // The shape a signed-in check needs: make sure the page is the one we think it is, *then* read it.
     // Without `continue` the guard has to be its own sequence and the caller joins two round-trips back

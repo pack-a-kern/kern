@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
 
 import { logger } from "../logger.js";
 import { DestinationRefusedError } from "../playbook/allowList.js";
-import { Interpreter, SourceTooLargeError, StepFailedError } from "../playbook/interpreter.js";
+import { FrameAbsentError, Interpreter, SourceTooLargeError, StepFailedError } from "../playbook/interpreter.js";
 import { MissingSecretError, Secrets } from "../playbook/secrets.js";
 import type { Playbook, RunResult } from "../playbook/types.js";
 import { PlaybookInvalidError, sequenceOf, validatePlaybook } from "../playbook/validate.js";
@@ -310,6 +310,16 @@ function respondToFailure(error: unknown, res: Response, secrets: Secrets | null
   // The address is a URL on a host the playbook already named, so it reveals nothing the caller did not
   // send — but it is redacted anyway, because a portal is free to put anything in a query string.
   const at = url === undefined ? {} : { url: say(url) };
+
+  // A frame the playbook named that never appeared: the page's own shape, not a broken run. Its own
+  // code so the caller can answer it — a chart only some instruments draw is a fact about the page, not
+  // a failure to report.
+  if (error instanceof FrameAbsentError) {
+    logger.info("frame_absent", { event: "frame_absent", failure: say(error.frame), ...at });
+    res.status(422).json({ error: "frame_absent", frame: say(error.frame), ...at });
+
+    return;
+  }
 
   if (error instanceof StepFailedError) {
     logger.error("step_failed", { event: "step_failed", failure: say(error.message), ...at });
