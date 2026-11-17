@@ -51,8 +51,16 @@ that terminates TLS.
 ## 5. Audit gates in CI
 
 These run on every PR and **fail** the build — they are not advisory:
-`composer audit` · `npm audit --audit-level=high` · Python dependency audit ·
+`composer audit` · the npm audit gate (`scripts/ci/npm-audit-gate.mjs`) · Python dependency audit ·
 container image vulnerability scan · secret scan · SBOM generation.
+
+The npm gate wraps `npm audit` and fails on any **high or critical** advisory — the same bar as
+`npm audit --audit-level=high` — but allows a small, explicit allowlist of advisories that are
+**dev-tooling only, unreachable from any shipped runtime, and unpatched upstream**. Each allowlist
+entry names the package, says why it is tolerable and records that no fixed release exists; it is
+removed the moment upstream patches. A new high/critical advisory that is not listed still fails the
+build. An advisory qualifies for the allowlist only when all three hold — a production-runtime
+dependency, or one with an available fix, is bumped or pinned instead, never allowlisted.
 
 ## 6. Updates
 

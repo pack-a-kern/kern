@@ -440,7 +440,8 @@ jobs:
 
       - name: npm audit
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        run: npm audit --audit-level=high
+        # Fails on high/critical advisories, bar a documented dev-only allowlist — see the script.
+        run: node ../../scripts/ci/npm-audit-gate.mjs
 
       # Consumed by the `containers` job to build the edge (Caddy) image
       # without re-running Vite on a second runner.
@@ -492,7 +493,8 @@ jobs:
         run: npm test
 
       - name: npm audit
-        run: npm audit --audit-level=high
+        # Fails on high/critical advisories, bar a documented dev-only allowlist — see the script.
+        run: node ../../scripts/ci/npm-audit-gate.mjs
 
   # ---------------------------------------------------------------------
   # Python — apps/processing.
