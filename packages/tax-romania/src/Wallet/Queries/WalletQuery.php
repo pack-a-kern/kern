@@ -828,16 +828,23 @@ final readonly class WalletQuery
     }
 
     /**
-     * What left a tracked account as the taxpayer's own transfer and landed nowhere this knows.
+     * What left the taxpayer's tracked accounts by transfer and has not come back — money now sitting
+     * in an account this installation does not hold, which is still theirs.
      *
-     * Only the out-leg is counted, never the in-leg: money arriving from an account not described
-     * here is already in the account it arrived in, and adding its counterpart would hold the same
-     * sum twice.
+     * The figure is the transfers out, less the transfers back in, per currency. Both legs are
+     * written as plain transactions, so a transfer in has *already* raised the balance of the account
+     * it landed in; counting the full out on top of that would hold the returned money twice, once in
+     * the balance and once here. Netting the two leaves only what genuinely left and stayed out. A
+     * currency where more came in than went out contributes nothing — the surplus is in a balance, not
+     * out of reach — so each currency is floored at zero rather than allowed to go negative and eat
+     * into the real holdings. Reports drop every transfer outright for the same reason a transfer is
+     * neither income nor spending (`WalletReports::base()`); a balance keeps the net that left.
      *
-     * A deposit's own funding is excluded by the link the deposit keeps to it. That money is in the
-     * deposits group as the deposit's principal, so counting it here as well would double it — which
-     * is the whole reason the exclusion is the link and not the category: a funding transfer and a
-     * transfer to another bank are written identically, and only the link tells them apart.
+     * A deposit's own funding is excluded from the out side by the link the deposit keeps to it. That
+     * money is in the deposits group as the deposit's principal, so counting it here as well would
+     * double it — which is the whole reason the exclusion is the link and not the category: a funding
+     * transfer and a transfer to another bank are written identically, and only the link tells them
+     * apart.
      *
      * Not `TransactionSplit` and `DepositTerms` models but their tables, like every other aggregate
      * in this class: these are sums over rows, and hydrating them would buy nothing.
@@ -846,28 +853,45 @@ final readonly class WalletQuery
      */
     private function movedOutOfReach(): array
     {
-        $rows = DB::table('financial_transactions')
+        $isTransfer = static function ($splits): void {
+            $splits->from('transaction_splits')
+                ->whereColumn('transaction_splits.transaction_id', 'financial_transactions.id')
+                ->where('transaction_splits.category_code', DepositMovements::TRANSFER);
+        };
+
+        $outs = DB::table('financial_transactions')
             ->where('financial_transactions.tax_subject_id', $this->tenant->currentTenantId())
             ->where('financial_transactions.amount_minor', '<', 0)
-            ->whereExists(static function ($splits): void {
-                $splits->from('transaction_splits')
-                    ->whereColumn('transaction_splits.transaction_id', 'financial_transactions.id')
-                    ->where('transaction_splits.category_code', DepositMovements::TRANSFER);
-            })
+            ->whereExists($isTransfer)
             ->whereNotExists(static function ($terms): void {
                 $terms->from('deposit_terms')
                     ->whereColumn('deposit_terms.funding_transaction_id', 'financial_transactions.id');
             })
             ->groupBy('financial_transactions.currency_code')
-            ->get([
-                'financial_transactions.currency_code',
-                DB::raw('sum(-amount_minor) as total'),
-            ]);
+            ->get(['financial_transactions.currency_code', DB::raw('sum(-amount_minor) as total')]);
+
+        $ins = DB::table('financial_transactions')
+            ->where('financial_transactions.tax_subject_id', $this->tenant->currentTenantId())
+            ->where('financial_transactions.amount_minor', '>', 0)
+            ->whereExists($isTransfer)
+            ->groupBy('financial_transactions.currency_code')
+            ->get(['financial_transactions.currency_code', DB::raw('sum(amount_minor) as total')]);
+
+        $backIn = [];
+
+        foreach ($ins as $row) {
+            $backIn[self::str($row->currency_code)] = (int) $row->total;
+        }
 
         $held = [];
 
-        foreach ($rows as $row) {
-            $held[self::str($row->currency_code)] = (int) $row->total;
+        foreach ($outs as $row) {
+            $currency = self::str($row->currency_code);
+            $net = (int) $row->total - ($backIn[$currency] ?? 0);
+
+            if ($net > 0) {
+                $held[$currency] = $net;
+            }
         }
 
         return $held;

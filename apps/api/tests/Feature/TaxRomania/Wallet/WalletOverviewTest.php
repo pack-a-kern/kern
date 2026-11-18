@@ -98,6 +98,19 @@ function transferOut(TestCase $case, User $user, string $subjectId, string $gene
     ])->assertCreated();
 }
 
+/** The matching in-leg of a transfer, landing in another account this installation also holds. */
+function transferIn(TestCase $case, User $user, string $subjectId, string $accountId, int $amount, string $bookedAt): void
+{
+    $case->actingAs($user)->postJson("/api/v1/subjects/{$subjectId}/wallet/transactions", [
+        'account_id' => $accountId,
+        'amount_minor' => $amount,
+        'currency_code' => 'RON',
+        'booked_at' => $bookedAt,
+        'description' => 'Transfer',
+        'category_code' => 'TRANSFER',
+    ])->assertCreated();
+}
+
 it('counts a deposit funded from General as money already had, not as General going negative', function (): void {
     [$user, $subjectId, $generalId] = startingFromNothing();
     openDeposit($this, $user, $subjectId, $generalId, 15_000_000);
@@ -267,6 +280,39 @@ it('keeps money transferred to an account it does not hold', function (): void {
         ->assertJsonPath('totals.breakdown.1.share', '1.0000')
         ->assertJsonPath('totals.breakdown.0.group', 'deposits')
         ->assertJsonPath('totals.breakdown.0.share', '0.0000');
+});
+
+it('nets transfers back in against transfers out, holding only what stayed away', function (): void {
+    [$user, $subjectId, $generalId] = startingFromNothing();
+
+    // 300 000 in, 200 000 moved out to an untracked account, 120 000 of it moved back — so 80 000 is
+    // still away. Both legs are plain transfers on the same account, as an imported statement writes
+    // them; the in-leg already lifted the balance, so only the net 80 000 is "out of reach".
+    recordInGeneral($this, $user, $subjectId, $generalId, 30_000_000, '2026-01-10');
+    transferOut($this, $user, $subjectId, $generalId, 20_000_000, '2026-01-20');
+    transferIn($this, $user, $subjectId, $generalId, 12_000_000, '2026-02-05');
+
+    // Balance is 220 000 (300 − 200 + 120); 80 000 sits elsewhere; the whole is still 300 000, never
+    // 420 000 as counting the gross out-leg on top of the returned money would make it.
+    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/overview")->assertOk()
+        ->assertJsonPath('totals.holdings.general.amounts.RON', 22_000_000)
+        ->assertJsonPath('totals.holdings.internal.amounts.RON', 8_000_000)
+        ->assertJsonPath('totals.holdings.available.amounts.RON', 30_000_000)
+        ->assertJsonPath('totals.net_worth.amount_minor', 30_000_000);
+});
+
+it('holds nothing out of reach when every transfer out comes back', function (): void {
+    [$user, $subjectId, $generalId] = startingFromNothing();
+
+    // Money moved out and fully returned — churn, not a change in what is held.
+    recordInGeneral($this, $user, $subjectId, $generalId, 30_000_000, '2026-01-10');
+    transferOut($this, $user, $subjectId, $generalId, 20_000_000, '2026-01-20');
+    transferIn($this, $user, $subjectId, $generalId, 20_000_000, '2026-02-05');
+
+    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/overview")->assertOk()
+        ->assertJsonPath('totals.holdings.general.amounts.RON', 30_000_000)
+        ->assertJsonPath('totals.holdings.internal.amounts', [])
+        ->assertJsonPath('totals.net_worth.amount_minor', 30_000_000);
 });
 
 it('does not count a deposit’s own funding as money held elsewhere', function (): void {
