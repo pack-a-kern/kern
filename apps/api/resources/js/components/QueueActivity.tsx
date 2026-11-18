@@ -39,6 +39,10 @@ export default function QueueActivity(): JSX.Element | null {
     const words = t((d) => d.shell.queueActivity);
     const taskNames = t((d) => d.pages.adminOperations.tasks.names);
     const [data, setData] = useState<OperationsActivity | null>(null);
+    // Controlled so the panel can close itself on navigation: the "open jobs" link is an Inertia
+    // soft navigation that never unmounts this card, so an uncontrolled popover would stay open on
+    // the page it sent you to. A DropdownMenu (the bell) closes on select for free; a Popover does not.
+    const [open, setOpen] = useState(false);
 
     useEffect(() => {
         let active = true;
@@ -129,7 +133,7 @@ export default function QueueActivity(): JSX.Element | null {
             : { text: words.paused, chip: 'bg-muted text-muted-foreground', chipDot: 'bg-muted-foreground/50' };
 
     return (
-        <Popover>
+        <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
                 <button
                     type="button"
@@ -226,6 +230,9 @@ export default function QueueActivity(): JSX.Element | null {
                 {data.failed > 0 && (
                     <Link
                         href="/admin/jobs"
+                        onClick={() => {
+                            setOpen(false);
+                        }}
                         className="border-border bg-muted/40 text-muted-foreground hover:text-foreground flex items-center gap-2 border-t px-3 py-2 text-xs"
                     >
                         <span className="size-1.5 shrink-0 rounded-full bg-red-500" aria-hidden="true" />
