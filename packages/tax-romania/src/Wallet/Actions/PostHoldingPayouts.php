@@ -189,7 +189,7 @@ final readonly class PostHoldingPayouts
                 bookedAt: $payout->paymentDate->format('Y-m-d'),
                 amountMinor: $net,
                 currencyCode: $lot->currency,
-                description: $instrument->name,
+                description: self::payoutDescription($instrument, $payout->kind),
                 // The face value repaid is the person's own money coming back; a coupon or a dividend is income,
                 // filed by what the instrument is (`HoldingIncome`).
                 category: HoldingIncome::ofPayout($instrument->kind, $payout->kind),
@@ -242,6 +242,29 @@ final readonly class PostHoldingPayouts
 
     /**
      * What one unit is paid: the source's amount, or — for a Tezaur coupon, which states only its rate —
+     * How the posted transaction names itself: the instrument on one line, the kind of payment on the
+     * next — "H2O / share" then "dividend", "R30203 / bond" then "coupon". The instrument is named by
+     * its ticker where it has one and its issue code otherwise (a bond's "R30203"), falling back to its
+     * ISIN and then its full name, so the line is always something a person recognises. The two lines
+     * are one field, split on the newline where the row is drawn; the category pill already carries the
+     * same payment kind for filtering, this is the human label beside the money.
+     */
+    private static function payoutDescription(InstrumentTerms $instrument, PayoutKind $kind): string
+    {
+        $identifier = $instrument->symbol ?? $instrument->issueCode ?? $instrument->isin ?? $instrument->name;
+
+        $type = $instrument->kind === InstrumentKind::SHARE ? 'share' : 'bond';
+
+        $payment = match ($kind) {
+            PayoutKind::DIVIDEND => 'dividend',
+            PayoutKind::COUPON => 'coupon',
+            PayoutKind::PRINCIPAL => 'principal',
+        };
+
+        return "{$identifier} / {$type}\n{$payment}";
+    }
+
+    /**
      * face value × rate × ACT/ACT over the period, whose last day the period includes.
      *
      * @return numeric-string|null

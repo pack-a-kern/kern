@@ -154,7 +154,10 @@ it('credits a dividend to the units held the day before its ex-date and not sold
         ->and($rows)->not->toHaveKey($soldBefore->id)
         ->and($transactions->pluck('amount_minor')->all())->toBe([1_680, 8_400])
         ->and($transactions->first()?->booked_at->toDateString())->toBe('2026-06-25')
-        ->and(TransactionSplit::query()->withoutGlobalScope(TenantScope::class)->whereIn('transaction_id', $transactions->modelKeys())->pluck('category_code')->unique()->all())->toBe(['DIVIDENDS']);
+        ->and(TransactionSplit::query()->withoutGlobalScope(TenantScope::class)->whereIn('transaction_id', $transactions->modelKeys())->pluck('category_code')->unique()->all())->toBe(['DIVIDENDS'])
+        // Named by ticker and kind on one line, the payment on the next (EXMPL is a share). The
+        // decrypted plaintext is read through the `description_ciphertext` attribute the cast holds.
+        ->and($transactions->pluck('description_ciphertext')->unique()->values()->all())->toBe(["EXMPL / share\ndividend"]);
 });
 
 it('credits no dividend while no rate is approved, says so, and credits it once one is', function (): void {
@@ -197,8 +200,14 @@ it('computes a Tezaur coupon as its prospectus does: face value × rate × days 
     expect(InvestmentLotPayout::query()->withoutGlobalScope(TenantScope::class)->orderBy('paid_on')->get(['gross_minor', 'withheld_minor'])->toArray())
         ->toBe([['gross_minor' => 86_415, 'withheld_minor' => null], ['gross_minor' => 86_415, 'withheld_minor' => null]]);
 
+    // A Tezaur bond has no ticker, so it is named by its issue code; its coupons read as coupons.
+    expect(FinancialTransaction::query()->withoutGlobalScope(TenantScope::class)->where('account_id', $account->id)->get()->pluck('description_ciphertext')->unique()->values()->all())
+        ->toBe(["9999 / bond\ncoupon"]);
+
     expect(post('2029-11-12')->posted)->toBe(1)
-        ->and(FinancialTransaction::query()->withoutGlobalScope(TenantScope::class)->where('account_id', $account->id)->sum('amount_minor'))->toEqual(86_415 * 2 + 1_234_500);
+        ->and(FinancialTransaction::query()->withoutGlobalScope(TenantScope::class)->where('account_id', $account->id)->sum('amount_minor'))->toEqual(86_415 * 2 + 1_234_500)
+        // The face value repaid names itself a principal, on the same issue-code line.
+        ->and(FinancialTransaction::query()->withoutGlobalScope(TenantScope::class)->where('account_id', $account->id)->where('amount_minor', 1_234_500)->first()?->description_ciphertext)->toBe("9999 / bond\nprincipal");
 });
 
 it('credits no coupon to a corporate or a municipal bond, whose payment dates BVB does not publish', function (): void {

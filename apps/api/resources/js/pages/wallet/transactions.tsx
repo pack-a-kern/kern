@@ -1282,7 +1282,16 @@ export default function WalletTransactions(): JSX.Element {
                                         `col-primary` with it, because that is what reserves the
                                         corner the actions are pinned into. */}
                                     <td className="row-name col-primary col-wide">
-                                        <div>{transaction.description}</div>
+                                        {/* A posted payout names itself over two lines — "H2O / share"
+                                            then "dividend" — carried as one field split on the newline;
+                                            the lines below the first read as a muted note, like the
+                                            payee under the date. A hand-typed description has no
+                                            newline and renders as the single line it always was. */}
+                                        {transaction.description.split('\n').map((line, index) => (
+                                            <div key={index} className={index === 0 ? undefined : 'note'}>
+                                                {line}
+                                            </div>
+                                        ))}
                                         {/* The person's own labels stay here: a tag describes the
                                             payment, not who was paid, and "how much on food" is a
                                             question about this text rather than about the payee. */}
