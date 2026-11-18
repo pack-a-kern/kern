@@ -19,6 +19,7 @@ export interface Dictionary {
         walletCounterparties: string;
         walletImports: string;
         walletReports: string;
+        walletBanks: string;
         holdings: string;
         investments: string;
         market: string;
@@ -1000,6 +1001,29 @@ export interface Dictionary {
             untagged: string;
             moneyIn: string;
             moneyOut: string;
+            empty: string;
+            loadFailed: string;
+        };
+        walletBanks: {
+            title: string;
+            description: string;
+            panelHint: string;
+            banksTile: string;
+            transactionsTile: string;
+            linkedTile: string;
+            /** `{count}` is the number of transactions with no bank. */
+            linkedSub: string;
+            currenciesTile: string;
+            bank: string;
+            colTxs: string;
+            accounts: string;
+            firstSeen: string;
+            lastSeen: string;
+            activity: string;
+            noBank: string;
+            noBankHint: string;
+            /** `{share}` is substituted. */
+            ofTransactions: string;
             empty: string;
             loadFailed: string;
         };

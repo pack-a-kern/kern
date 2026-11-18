@@ -102,6 +102,9 @@ Route::middleware('auth')->group(function (): void {
     ]))->name('wallet.imports.new');
 
     Route::get('/wallet/reports', fn () => Inertia::render('wallet/reports'))->name('wallet.reports');
+    // Who the taxpayer banks with, read off their own transactions. A page of the analysis group, like
+    // the reports beside it; the figures come from `wallet/banks/activity`.
+    Route::get('/wallet/banks', fn () => Inertia::render('wallet/banks'))->name('wallet.banks');
     // Bonds and shares held, and the market they are chosen from (ADR 0025 §11). Public market data: the
     // pages ask the API, which needs a sign-in. Holdings were under the wallet once.
     Route::redirect('/wallet/holdings', '/investments/holdings');

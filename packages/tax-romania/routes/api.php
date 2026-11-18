@@ -80,6 +80,7 @@ use Kern\TaxRomania\Http\Controllers\Wallet\ReadDepositCsvController;
 use Kern\TaxRomania\Http\Controllers\Wallet\RecordTransactionController;
 use Kern\TaxRomania\Http\Controllers\Wallet\SellHoldingController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowAccountsController;
+use Kern\TaxRomania\Http\Controllers\Wallet\ShowBankActivityController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowBanksController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowCounterpartiesController;
 use Kern\TaxRomania\Http\Controllers\Wallet\ShowCounterpartySuggestionsController;
@@ -218,6 +219,9 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
     Route::post('wallet/tags/{tag}/merge', MergeTagsController::class)->where('tag', '[0-9a-f-]{36}');
     Route::delete('wallet/tags/{tag}', DeleteTagController::class)->where('tag', '[0-9a-f-]{36}');
     Route::get('wallet/banks', ShowBanksController::class);
+    // The subset of those banks the ledger actually names, as a rundown — counts, span and accounts
+    // per bank. A literal segment under `wallet/banks`, which has no parameter to lose to.
+    Route::get('wallet/banks/activity', ShowBankActivityController::class);
     /*
      * Importing a bank's own statement (`docs/handoff/045-statement-import.md`).
      *

@@ -159,6 +159,7 @@ const ANALYSIS_GROUP: NavLink = {
     children: [
         { href: TAXES_HREF, label: (d) => d.nav.taxes, icon: Calculator },
         { href: '/wallet/reports', label: (d) => d.nav.walletReports, icon: ChartColumn },
+        { href: '/wallet/banks', label: (d) => d.nav.walletBanks, icon: Landmark },
     ],
 };
 
