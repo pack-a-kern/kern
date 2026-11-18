@@ -48,6 +48,14 @@ final readonly class IdCardReading
 
     private static function text(mixed $value): ?string
     {
+        // A model that does not honour the JSON schema (many self-hosted ones do not) returns an
+        // all-digit field — a CNP, a document number — as a JSON number, which arrives here as an
+        // int. Keep it as its digits rather than drop it. A float is refused: a CNP is not a float,
+        // and casting one risks precision or exponent notation.
+        if (is_int($value)) {
+            return (string) $value;
+        }
+
         if (! is_string($value)) {
             return null;
         }

@@ -181,6 +181,58 @@ it('reads the fields and the face box, clamping a box that runs off the card', f
     expect($result->reading?->faceBox?->w)->toEqualWithDelta(0.2, 1e-9);
 });
 
+it('keeps a CNP the model returned as a number, not only as a string', function (): void {
+    configureIdCardProvider();
+    // A provider that does not honour the schema returns the all-digit CNP as a JSON number.
+    idCardReply(['cnp' => 1960101223344, 'last_name' => 'POPESCU', 'face_box' => null]);
+
+    $result = app(IdCardReader::class)->read('bytes', 'image/jpeg');
+
+    expect($result->succeeded())->toBeTrue();
+    expect($result->reading?->cnp)->toBe('1960101223344');
+});
+
+it('sends the system prompt and the instruction, never the image alone', function (): void {
+    // The regression this guards: an empty ID_CARD_PROMPT_* override (as a fresh .env carries) must
+    // not reach the model as an empty prompt — the model would then get the image with no
+    // instructions and read a name but no structured CNP. The prompts must always be present.
+    configureIdCardProvider();
+    idCardReply(['cnp' => '1960101223344', 'face_box' => null]);
+
+    app(IdCardReader::class)->read('bytes', 'image/jpeg');
+
+    Http::assertSent(function (Illuminate\Http\Client\Request $request): bool {
+        $data = $request->data();
+        $messages = is_array($data['messages'] ?? null) ? $data['messages'] : [];
+
+        $system = null;
+        $instruction = null;
+        foreach ($messages as $message) {
+            if (! is_array($message)) {
+                continue;
+            }
+            if (($message['role'] ?? null) === 'system' && is_string($message['content'] ?? null)) {
+                $system = $message['content'];
+            }
+            if (($message['role'] ?? null) === 'user') {
+                $content = $message['content'] ?? null;
+                if (is_string($content)) {
+                    $instruction = $content;
+                } elseif (is_array($content)) {
+                    foreach ($content as $part) {
+                        if (is_array($part) && ($part['type'] ?? null) === 'text' && is_string($part['text'] ?? null)) {
+                            $instruction = $part['text'];
+                        }
+                    }
+                }
+            }
+        }
+
+        return $system !== null && $system !== '' && str_contains($system, 'Romanian identity card')
+            && $instruction !== null && $instruction !== '' && str_contains($instruction, 'return JSON');
+    });
+});
+
 it('says it could not read the card when the provider refuses', function (): void {
     configureIdCardProvider();
     Http::fake(['ai.test/*' => Http::response('', 502)]);

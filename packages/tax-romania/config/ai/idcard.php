@@ -43,14 +43,18 @@ return [
          */
         'max_image_bytes' => (int) env('ID_CARD_MAX_IMAGE_BYTES', 10_485_760), // 10 MiB
 
-        'system' => env('ID_CARD_PROMPT_SYSTEM', implode(' ', [
+        // `?:`, not env()'s default argument: an operator who leaves the override set to an empty
+        // value in .env must still get the built-in prompt, not an empty string. The default
+        // argument applies only when the variable is unset, not when it is set-but-empty, and an
+        // empty system prompt would send the model the image with no instructions at all.
+        'system' => env('ID_CARD_PROMPT_SYSTEM') ?: implode(' ', [
             'You read a single Romanian identity card (carte de identitate, CI) from an image and',
             'return only what is printed on it. You never guess, infer, or complete a value that is',
             'not clearly legible: a field you cannot read confidently is null, not a best effort.',
             'You return strictly the requested JSON and nothing else.',
-        ])),
+        ]),
 
-        'instruction' => env('ID_CARD_PROMPT_INSTRUCTION', implode(' ', [
+        'instruction' => env('ID_CARD_PROMPT_INSTRUCTION') ?: implode(' ', [
             'Read this Romanian identity card and return JSON with these fields, each null if not',
             'clearly legible: cnp (the 13-digit personal numeric code, CNP); last_name (nume);',
             'first_name (prenume); address (domiciliu, as printed on one line); series (seria);',
@@ -58,6 +62,6 @@ return [
             'Also return face_box: the rectangle around the cardholder\'s photograph, as fractions of',
             'the image in [0,1] with keys x, y, w, h (x,y the top-left corner), or null if no',
             'photograph is visible.',
-        ])),
+        ]),
     ],
 ];
