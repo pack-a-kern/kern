@@ -308,7 +308,7 @@ export interface HoldingGroup extends Holding {
     share: string;
 }
 
-const HOLDING_GROUPS = ['deposits', 'general', 'cash', 'other'] as const;
+const HOLDING_GROUPS = ['deposits', 'general', 'cash', 'other', 'investments'] as const;
 
 /** Amounts per currency, and the same amounts in the display currency. */
 export interface Holding {
@@ -333,6 +333,8 @@ export interface WalletTotals {
         cash: Holding;
         /** Broker, crypto and other accounts, recorded the same way as General. */
         other: Holding;
+        /** The live value of bonds and shares held — valued on read, never a balance. */
+        investments: Holding;
         /** What can be spent today: General, cash and the accounts held elsewhere. */
         available: Holding;
     };
@@ -801,6 +803,7 @@ export function parseWalletOverview(payload: unknown): WalletOverview {
                 deposits: parseHolding(holdings.deposits),
                 cash: parseHolding(holdings.cash),
                 other: parseHolding(holdings.other),
+                investments: parseHolding(holdings.investments),
                 available: parseHolding(holdings.available),
             },
             breakdown: (Array.isArray(totals.breakdown) ? totals.breakdown : []).map((entry): HoldingGroup => {

@@ -871,11 +871,12 @@ export const en = {
             available: 'Available',
             general: 'General',
             generalNote:
-                'General is the sum of what was recorded in it, so it is below zero while earlier statements are not imported. Money that went into a deposit never takes it below zero: the deposit shows it was there.',
+                'General is the sum of what was recorded in it, so it can read below zero while earlier statements are not imported. Deposits and investments are counted on their own, once, so net worth is never dragged below what they are worth.',
             deposits: 'In deposits',
             depositCount: '{count} active',
             cash: 'Cash',
             other: 'Other accounts',
+            investments: 'Investments',
             interestAtMaturity: 'Interest at maturity',
             interestAtMaturityHint: 'gross, active deposits',
             interestReceived: 'Interest received',

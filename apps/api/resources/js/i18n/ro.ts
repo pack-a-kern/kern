@@ -859,11 +859,12 @@ export const ro = {
             available: 'Disponibil',
             general: 'General',
             generalNote:
-                'General este suma a ce s-a înregistrat în el, deci e sub zero cât timp extrasele mai vechi nu sunt importate. Banii puși într-un depozit nu îl duc sub zero: depozitul arată că existau.',
+                'General este suma a ce s-a înregistrat în el, deci poate fi sub zero cât timp extrasele mai vechi nu sunt importate. Depozitele și investițiile se numără separat, o singură dată, așa că averea nu scade niciodată sub cât valorează ele.',
             deposits: 'În depozite',
             depositCount: '{count} active',
             cash: 'Numerar',
             other: 'Alte conturi',
+            investments: 'Investiții',
             interestAtMaturity: 'Dobândă la scadență',
             interestAtMaturityHint: 'brut, depozite active',
             interestReceived: 'Dobândă încasată',

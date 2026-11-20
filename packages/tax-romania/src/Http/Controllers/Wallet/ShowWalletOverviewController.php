@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Kern\TaxRomania\Banks\Queries\BankDirectory;
 use Kern\TaxRomania\Wallet\Queries\BankDeposits;
 use Kern\TaxRomania\Wallet\Queries\DepositSummary;
+use Kern\TaxRomania\Wallet\Queries\HoldingsValue;
 use Kern\TaxRomania\Wallet\Queries\WalletQuery;
 
 /**
@@ -22,7 +23,7 @@ final class ShowWalletOverviewController
     /** Enough to see what matures next; the accounts screen lists them all. */
     private const int PREVIEW_LIMIT = 5;
 
-    public function __invoke(WalletQuery $wallet, BankDirectory $directory): JsonResponse
+    public function __invoke(WalletQuery $wallet, BankDirectory $directory, HoldingsValue $holdings): JsonResponse
     {
         $running = $wallet->deposits(includeClosed: false);
         $byBank = $wallet->depositsByBank($running);
@@ -31,7 +32,7 @@ final class ShowWalletOverviewController
         $banks = $directory->findMany(array_values(array_filter(array_map(static fn (BankDeposits $bank): ?string => $bank->bankId, $byBank), is_string(...))));
 
         return response()->json([
-            'totals' => $wallet->totals($running),
+            'totals' => $wallet->totals($running, $holdings->byCurrency()),
             'banks' => array_map(
                 static fn (BankDeposits $bank): array => [
                     ...$bank->toArray(),

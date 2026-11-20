@@ -70,3 +70,6 @@ tools/
 # The local object-storage host (MinIO): its compose file, menu script and .env live on the machine
 # that runs it and are set up per install — not part of the application, never committed.
 /minio/
+
+# Local diagnostic script, kept out of version control
+/deposit-balance-debug.php

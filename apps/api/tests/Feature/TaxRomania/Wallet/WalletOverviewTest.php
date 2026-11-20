@@ -329,6 +329,57 @@ it('does not count a deposit’s own funding as money held elsewhere', function 
         ->assertJsonPath('totals.net_worth.amount_minor', 30_000_000);
 });
 
+it('counts a transfer out as money still kept, even with no income recorded before it', function (): void {
+    [$user, $subjectId, $generalId] = startingFromNothing();
+    // Nothing recorded first. An account can't send money it never had, so the transfer is itself proof
+    // the money was there — it landed in the taxpayer's other bank, not nowhere. Lift General back up by
+    // what the transfer took, and hold the money out of reach, instead of letting the two cancel to
+    // nothing and losing it (the same reasoning as a deposit funded from an empty account).
+    transferOut($this, $user, $subjectId, $generalId, 20_000_000, '2026-01-20');
+
+    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/overview")->assertOk()
+        ->assertJsonPath('totals.holdings.general.amounts.RON', 0)
+        ->assertJsonPath('totals.holdings.internal.amounts.RON', 20_000_000)
+        ->assertJsonPath('totals.net_worth.amount_minor', 20_000_000)
+        // The money is accounted for now, so it is no longer flagged as records starting short.
+        ->assertJsonPath('totals.records_short_from', null);
+});
+
+it('does not count money moved to another bank twice when a deposit is later funded from nothing recorded', function (): void {
+    [$user, $subjectId, $generalId] = startingFromNothing();
+    // 10M comes in and is moved to the taxpayer's other bank — that 10M is "out of reach". Later two
+    // 10M deposits are funded though the records show nothing arriving to fund them, so each is lifted as
+    // money that must have been there. But the records can't show the out-of-reach money coming back to
+    // fund a deposit, so the same 10M could be both "in the other bank" and "a deposit's principal".
+    // The funding lift draws the out-of-reach pile down so it is never counted on both sides.
+    recordInGeneral($this, $user, $subjectId, $generalId, 10_000_000, '2026-01-10');
+    transferOut($this, $user, $subjectId, $generalId, 10_000_000, '2026-01-20');
+    openDeposit($this, $user, $subjectId, $generalId, 10_000_000);
+    openDeposit($this, $user, $subjectId, $generalId, 10_000_000);
+
+    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/overview")->assertOk()
+        ->assertJsonPath('totals.holdings.deposits.amounts.RON', 20_000_000)
+        ->assertJsonPath('totals.holdings.internal.amounts.RON', 0)
+        ->assertJsonPath('totals.net_worth.amount_minor', 20_000_000);
+});
+
+it('counts deposits funded through another bank without doubling, even with no income at all', function (): void {
+    [$user, $subjectId, $generalId] = startingFromNothing();
+    // No income ever: money is moved out to another bank twice (building the out-of-reach pile) and two
+    // deposits are funded from money the records never show arriving. Transfers and fundings alike are
+    // lifted as money that was there, and the funding lift draws the out-of-reach pile down — so the
+    // whole is the two deposits, not the deposits plus a phantom copy of the transferred money.
+    transferOut($this, $user, $subjectId, $generalId, 10_000_000, '2026-01-10');
+    openDeposit($this, $user, $subjectId, $generalId, 10_000_000);
+    transferOut($this, $user, $subjectId, $generalId, 10_000_000, '2026-03-10');
+    openDeposit($this, $user, $subjectId, $generalId, 10_000_000);
+
+    $this->actingAs($user)->getJson("/api/v1/subjects/{$subjectId}/wallet/overview")->assertOk()
+        ->assertJsonPath('totals.holdings.deposits.amounts.RON', 20_000_000)
+        ->assertJsonPath('totals.holdings.internal.amounts.RON', 0)
+        ->assertJsonPath('totals.net_worth.amount_minor', 20_000_000);
+});
+
 it('leaves an account below zero when its records start after money was already there', function (): void {
     [$user, $subjectId, $generalId] = startingFromNothing();
     // A statement that spends more than it brings in: nothing proves what paid for the difference,

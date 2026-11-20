@@ -667,6 +667,8 @@ export interface Dictionary {
             depositCount: string;
             cash: string;
             other: string;
+            /** The live value of bonds and shares held. */
+            investments: string;
             /** Forecast, not earned yet: what the running deposits will have produced by maturity. */
             interestAtMaturity: string;
             interestAtMaturityHint: string;

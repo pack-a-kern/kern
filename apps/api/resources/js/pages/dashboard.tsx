@@ -74,6 +74,7 @@ const SWATCHES: Record<HoldingGroup['group'], string> = {
     general: 'bg-[var(--brand-300)]',
     cash: 'bg-success',
     other: 'bg-amber-500',
+    investments: 'bg-violet-500',
 };
 
 /**

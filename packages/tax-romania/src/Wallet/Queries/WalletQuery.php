@@ -50,6 +50,9 @@ final readonly class WalletQuery
 
     private const string OTHER = 'other';
 
+    /** The live value of bonds and shares held, passed into {@see totals()} — a holding, never a balance. */
+    private const string INVESTMENTS = 'investments';
+
     /**
      * Money moved out of a tracked account to somewhere this application does not hold.
      *
@@ -614,11 +617,15 @@ final readonly class WalletQuery
      * from (`BLUEPRINT.md` §7.4).
      *
      * @param  list<DepositSummary>  $running  the running deposits, as {@see deposits()} returns them
+     * @param  array<string, int>  $holdings  the live value of bonds and shares per currency, in minor units
      * @return array<string, mixed>
      */
-    public function totals(array $running): array
+    public function totals(array $running, array $holdings = []): array
     {
         ['held' => $held, 'short_from' => $shortFrom] = $this->heldInAccounts();
+        // The live value of bonds and shares, read by the caller and handed in — money that moved into
+        // an asset and is still the taxpayer's, like a deposit's principal. Valued, never a balance.
+        $held[self::INVESTMENTS] = $holdings;
         $expected = [];
 
         foreach ($running as $deposit) {
@@ -698,6 +705,11 @@ final readonly class WalletQuery
         // Most taxpayers have no broker or exchange account: a permanent zero would answer nothing asked.
         if ($held[self::OTHER] !== []) {
             $groups[self::OTHER] = $held[self::OTHER];
+        }
+
+        // Bonds and shares, once there are any — their live value, the same way deposits show.
+        if (($held[self::INVESTMENTS] ?? []) !== []) {
+            $groups[self::INVESTMENTS] = $held[self::INVESTMENTS];
         }
 
         /** @var array<string, array{amounts: array<string, int>, total: ConvertedTotal}> $parts */
@@ -821,6 +833,20 @@ final readonly class WalletQuery
 
             foreach ($byCurrency as $currency => $amount) {
                 $held[$group][$currency] = ($held[$group][$currency] ?? 0) + $amount;
+            }
+        }
+
+        // A deposit funded past what the account recorded was lifted back as money that must have been
+        // there ({@see balancesByAccount()}). Where that same currency also shows money moved to the
+        // taxpayer's other bank, the two can be one and the same — the records cannot show the money
+        // coming back to fund the deposit — so counting the lift and the full transfer-out would double
+        // it. Draw the funded lift down from the money out of reach, never below zero: what the transfer
+        // out can no longer account for is already the deposit's principal.
+        foreach ($derived['funding_lift'] as $currency => $lifted) {
+            $outOfReach = $held[self::INTERNAL][$currency] ?? 0;
+
+            if ($outOfReach > 0) {
+                $held[self::INTERNAL][$currency] = $outOfReach - min($lifted, $outOfReach);
             }
         }
 
@@ -1089,35 +1115,43 @@ final readonly class WalletQuery
      * cancel to zero is kept — "this source had dollars and they are gone" is a different statement
      * from "this source never had dollars".
      *
-     * ## A deposit's funding proves the money was there
+     * ## Money sent out proves the money was there
      *
-     * A plain sum, with one exception. A deposit opened from an account records the money leaving it
-     * ({@see \Kern\TaxRomania\Wallet\Actions\OpenFinancialAccount}), and the deposit itself is the
-     * proof that the money existed: opening a 100 000 lei deposit with no income recorded must not
-     * leave the account at minus 100 000 and the total at nothing. So, read day by day, a day whose
-     * funding takes the account below zero is lifted back — by what funded deposits that day at
-     * most, and never by anything else that left. Ordinary spending beyond the records stays below
-     * zero, because nothing proves what paid for it.
+     * A plain sum, with one exception. Money that leaves an account but stays the taxpayer's — a
+     * deposit opened from it ({@see \Kern\TaxRomania\Wallet\Actions\OpenFinancialAccount}), or a
+     * transfer to their own account at another bank ({@see movedOutOfReach()}) — is itself the proof
+     * the money existed: opening a 100 000 lei deposit, or sending 100 000 lei to another bank, with
+     * no income recorded must not leave the account at minus 100 000 and the total at nothing. So,
+     * read day by day, a day whose funding or own-transfer takes the account below zero is lifted
+     * back — by what left that way that day at most, and never by anything else. Ordinary spending
+     * beyond the records stays below zero, because nothing proves what paid for it.
+     *
+     * The funding share of the lift is reported back as `funding_lift` so the caller can net it
+     * against {@see movedOutOfReach()}: that money is now a deposit's principal, and the same balance
+     * cannot also still be sitting in the other bank. The transfer share needs no such netting — it
+     * is exactly what put the money in the other bank, which that aggregate already counts.
      *
      * The lift is part of the running balance, so the money proven there is spent from afterwards
      * like any other — a deposit funded, settled back and 15 000 lei spent leaves 85 000 lei — and it
-     * is worked out again on every read, so recording the income that really paid for the deposit
-     * makes it vanish by itself. By day rather than by row, because the order of one day's movements
-     * is not known — a statement lists them in no particular order.
+     * is worked out again on every read, so recording the income that really paid for it makes it
+     * vanish by itself. By day rather than by row, because the order of one day's movements is not
+     * known — a statement lists them in no particular order.
      *
      * `short_from` is the first day recorded in a stream account that ends below zero, the earliest
      * if several do; null when none does.
      *
      * @param  array<string, AccountKind>  $kinds  every account to report, keyed by id
-     * @return array{balances: array<string, array<string, int>>, short_from: string|null}
+     * @return array{balances: array<string, array<string, int>>, short_from: string|null, funding_lift: array<string, int>}
      */
     private function balancesByAccount(array $kinds): array
     {
         if ($kinds === []) {
-            return ['balances' => [], 'short_from' => null];
+            return ['balances' => [], 'short_from' => null, 'funding_lift' => []];
         }
 
-        // A transaction funds one deposit at most, so the join never repeats a row it sums.
+        // A transaction funds one deposit at most, so the join never repeats a row it sums. `transferred`
+        // is the day's outbound own-transfers — a transfer split that is not a deposit's funding, the same
+        // rows {@see movedOutOfReach()} counts — kept apart from `funded` so each lifts for the right reason.
         $days = DB::table('financial_transactions')
             ->leftJoin('deposit_terms', 'deposit_terms.funding_transaction_id', '=', 'financial_transactions.id')
             ->where('financial_transactions.tax_subject_id', $this->tenant->currentTenantId())
@@ -1127,10 +1161,20 @@ final readonly class WalletQuery
             ->select(['financial_transactions.account_id', 'financial_transactions.currency_code', 'financial_transactions.booked_at'])
             ->selectRaw('sum(financial_transactions.amount_minor) as total')
             ->selectRaw('sum(case when deposit_terms.funding_transaction_id is null then 0 else -financial_transactions.amount_minor end) as funded')
+            ->selectRaw(
+                'sum(case when financial_transactions.amount_minor < 0'
+                .' and deposit_terms.funding_transaction_id is null'
+                .' and exists (select 1 from transaction_splits'
+                .' where transaction_splits.transaction_id = financial_transactions.id'
+                .' and transaction_splits.category_code = ?)'
+                .' then -financial_transactions.amount_minor else 0 end) as transferred',
+                [DepositMovements::TRANSFER],
+            )
             ->get();
 
         $balances = [];
         $firstDay = [];
+        $fundingLift = [];
 
         foreach ($days as $day) {
             $accountId = self::str($day->account_id);
@@ -1139,7 +1183,16 @@ final readonly class WalletQuery
             $firstDay[$accountId] ??= self::str($day->booked_at);
 
             if ($kinds[$accountId]->isStream() && $balance < 0) {
-                $balance += min(-$balance, (int) $day->funded);
+                // What left that day but is still the taxpayer's: a deposit's funding and an own-transfer
+                // to another bank. An account can't hold less than nothing, so where one of these drove it
+                // below zero the money was there, just never imported — lift back up by that much, no more.
+                $stillOwned = (int) $day->funded + (int) $day->transferred;
+                $lift = min(-$balance, $stillOwned);
+                $balance += $lift;
+                // Only the funding share is netted against `movedOutOfReach()` later: that money is now a
+                // deposit's principal and cannot also still be sitting in the other bank. Funding first, so
+                // the netted share is never overstated on a day that both funds and transfers.
+                $fundingLift[$currency] = ($fundingLift[$currency] ?? 0) + min($lift, (int) $day->funded);
             }
 
             $balances[$accountId][$currency] = $balance;
@@ -1161,6 +1214,7 @@ final readonly class WalletQuery
                 return $byCurrency;
             }, $balances),
             'short_from' => $shortFrom,
+            'funding_lift' => $fundingLift,
         ];
     }
 
