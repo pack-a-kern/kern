@@ -9,7 +9,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Kern\TaxRomania\FiscalParameters\Actions\ReadFiscalParameters;
-use Kern\TaxRomania\Operations\Events\OperationsActivityChanged;
 
 /**
  * A minimum-wage decision was just read in: its value proposed, beside the others, for a person to
@@ -30,13 +29,6 @@ final class ReadMinimumWages implements ShouldQueue
 
     public function handle(ReadFiscalParameters $read): void
     {
-        // Not an operation task, so it nudges the topbar indicator itself — see ReadFiscalYear.
-        OperationsActivityChanged::dispatch();
-
-        try {
-            $read();
-        } finally {
-            OperationsActivityChanged::dispatch();
-        }
+        $read();
     }
 }

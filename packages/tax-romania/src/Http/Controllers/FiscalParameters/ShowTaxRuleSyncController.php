@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Http\Controllers\FiscalParameters;
 
 use Illuminate\Http\JsonResponse;
-use Kern\TaxRomania\TaxEngine\Registration\TaxRuleRegistrar;
+use Kern\TaxRomania\FiscalParameters\Registration\TaxRuleRegistrar;
 
 /**
  * `GET /api/v1/fiscal-parameters/rules/sync` — are the engine's rule classes recorded in the database?

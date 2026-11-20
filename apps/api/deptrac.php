@@ -95,7 +95,17 @@ return static function (DeptracConfig $config): void {
             // Subjects -> Audit: Kern\TaxRomania\Subjects\Actions\RegisterPfSubject calls
             // AuditChainService::record() (docs/handoff/006-audit-chain.md's sanctioned
             // "application service" cross-module traffic shape) to record TaxSubjectRegistered.
-            Ruleset::forLayer($subjects),
+            //
+            // Subjects -> Spv, StatementImport: Kern\TaxRomania\Subjects\Actions\ResetTaxSubject is the
+            // one cross-cutting teardown — it empties a taxpayer back to a husk. It drives each module's
+            // own delete *action* (Kern\TaxRomania\Spv\Actions\DeleteSpvConnection,
+            // Kern\TaxRomania\StatementImport\Actions\DeleteStatementImport) to tear down the external
+            // state — SPV sessions, uploaded files — a bare row-delete would orphan, and refuses up front
+            // while an import is still being written. The application-service crossing docs/AGENTS.md §6
+            // sanctions, for the one operation that must reach every module a subject owns. (Documents and
+            // the avatar are torn down the same way, through `kern/documents` and `kern/platform`, which
+            // Composer governs rather than this file.)
+            Ruleset::forLayer($subjects)->accesses($spv, $statementImport),
             // FiscalParameters -> TaxEngine: Kern\TaxRomania\FiscalParameters\Providers\
             // {EloquentTaxRuleVersionProvider,EloquentFiscalParameterProvider} implement
             // Kern\TaxRomania\TaxEngine\Contracts\{TaxRuleVersionProvider,FiscalParameterProvider} —

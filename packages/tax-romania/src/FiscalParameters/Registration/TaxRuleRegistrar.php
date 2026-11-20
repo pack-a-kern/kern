@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kern\TaxRomania\TaxEngine\Registration;
+namespace Kern\TaxRomania\FiscalParameters\Registration;
 
 use Illuminate\Support\Facades\DB;
 use Kern\Legislation\Enums\SourceRelation;
@@ -23,6 +23,14 @@ use ReflectionClass;
  * / {@see \Kern\TaxRomania\Http\Controllers\FiscalParameters\ImportTaxRulesController} (the screen's
  * sync panel and its Import button).
  *
+ * ## Why it lives in FiscalParameters, not TaxEngine
+ *
+ * Registering a rule reads the fiscal parameter versions it cites — for the start date it derives and
+ * the source sections it anchors to. The module boundary runs one way: FiscalParameters may depend on
+ * TaxEngine's rule classes and contracts, never the reverse (ADR 0010). So the one place that needs
+ * both the rules and the parameters belongs on this side of that line, where reaching the parameters
+ * is not a boundary breach.
+ *
  * A rule that exists in code and not in the table is a rule the engine cannot find: `#[TaxRule]` is
  * "a descriptive label on the class only", and `RuleResolver` reads a row to decide which version
  * applies on a date. Registering copies that label onto a row — always as a `CANDIDATE`, never
@@ -42,7 +50,7 @@ final class TaxRuleRegistrar
      */
     public function discover(): array
     {
-        $directory = dirname(__DIR__) . '/Rules';
+        $directory = dirname(__DIR__, 2) . '/TaxEngine/Rules';
         $found = [];
 
         foreach (glob($directory . '/*.php') ?: [] as $file) {

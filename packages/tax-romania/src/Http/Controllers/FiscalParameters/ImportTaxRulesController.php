@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\Http\Controllers\FiscalParameters;
 
 use Illuminate\Http\JsonResponse;
-use Kern\TaxRomania\TaxEngine\Registration\TaxRuleRegistrar;
+use Kern\TaxRomania\FiscalParameters\Registration\TaxRuleRegistrar;
 
 /**
  * `POST /api/v1/fiscal-parameters/rules/import` — record a candidate version for every rule class the

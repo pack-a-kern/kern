@@ -11,7 +11,6 @@ use Kern\Documents\Actions\DeleteDocument;
 use Kern\Documents\Models\Document;
 use Kern\Platform\Identity\Avatars\RemoveAvatar;
 use Kern\TaxRomania\Spv\Actions\DeleteSpvConnection;
-use Kern\TaxRomania\Spv\Models\SpvConnection;
 use Kern\TaxRomania\StatementImport\Actions\DeleteStatementImport;
 use Kern\TaxRomania\StatementImport\Enums\StatementImportStatus;
 use Kern\TaxRomania\StatementImport\Exceptions\ImportNotOpenException;
@@ -93,8 +92,12 @@ final readonly class ResetTaxSubject
             ($this->deleteDocument)($document, $actorId);
         }
 
-        foreach (SpvConnection::query()->where('tax_subject_id', $subjectId)->get() as $connection) {
-            ($this->deleteSpvConnection)($connection->id, $actorId);
+        // Enumerated through the query builder, not the Spv model: this module drives Spv's own delete
+        // action but does not import its Eloquent model to do it.
+        foreach (DB::table('spv_connections')->where('tax_subject_id', $subjectId)->pluck('id') as $connectionId) {
+            if (is_string($connectionId)) {
+                ($this->deleteSpvConnection)($connectionId, $actorId);
+            }
         }
 
         foreach (StatementImport::query()->where('tax_subject_id', $subjectId)->get() as $import) {

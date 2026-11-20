@@ -9,7 +9,7 @@ use Kern\TaxRomania\TaxRules\TaxRuleVersion;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
- * The screen's "rules in sync?" panel and its Import button — the same {@see \Kern\TaxRomania\TaxEngine\Registration\TaxRuleRegistrar}
+ * The screen's "rules in sync?" panel and its Import button — the same {@see \Kern\TaxRomania\FiscalParameters\Registration\TaxRuleRegistrar}
  * the CLI uses, reached over HTTP. Reading the figures needs `fiscal.parameters.view`; importing needs
  * `fiscal.parameters.approve`, so an accountant can see the state without being able to change what the
  * installation computes.
