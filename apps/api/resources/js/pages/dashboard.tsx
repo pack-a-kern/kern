@@ -13,6 +13,7 @@ import {
     Percent,
     PiggyBank,
     TrendingUp,
+    UserRoundPlus,
     Wallet,
     Zap,
 } from 'lucide-react';
@@ -37,6 +38,7 @@ import {
 import { Skeleton } from '../components/ui/skeleton';
 import { useRememberedState } from '../hooks/useRememberedState';
 import { useTranslation } from '../i18n';
+import type { Dictionary } from '../i18n/dictionary';
 import { formatDate, formatMinor, formatPercent } from '../lib/format';
 import { Money } from '../components/Money';
 import { useActiveSubjectId } from '../hooks/useActiveSubjectId';
@@ -128,12 +130,50 @@ export default function Dashboard(): JSX.Element {
     }, [subjectId]);
 
     if (subjectId === null) {
+        // No taxpayer yet — the dashboard has nothing to add up, so it leads with the one thing to
+        // do first rather than an empty shell. The taxpayer-scoped menus are hidden to match
+        // ({@link AppShell}'s `requiresSubject`).
         return (
             <>
-                <Page title={t((d) => d.dashboard.title)}>
-                    <Panel title={t((d) => d.dashboard.title)}>
-                        <p className="note">{t((d) => d.pages.wallet.noSubject)}</p>
-                    </Panel>
+                <Head title={t((d) => d.dashboard.title)} />
+                <Page title={t((d) => d.dashboard.title)} lede={t((d) => d.dashboard.lede)}>
+                    <div className="bg-card mx-auto mt-2 flex w-full max-w-md flex-col items-center rounded-2xl border px-8 py-10 text-center shadow-sm">
+                        <div className="bg-primary/10 text-primary grid size-14 place-items-center rounded-2xl">
+                            <UserRoundPlus className="size-7" aria-hidden="true" />
+                        </div>
+                        <h2 className="mt-5 text-lg font-semibold tracking-tight text-balance">
+                            {t((d) => d.dashboard.emptyTitle)}
+                        </h2>
+                        <p className="text-muted-foreground mt-2 max-w-sm text-sm leading-6">
+                            {t((d) => d.dashboard.emptyBody)}
+                        </p>
+                        <PanelButton
+                            primary
+                            className="mt-6"
+                            onClick={() => {
+                                router.visit('/taxpayers');
+                            }}
+                        >
+                            <CirclePlus className="size-3.5" aria-hidden="true" />
+                            {t((d) => d.dashboard.emptyAction)}
+                        </PanelButton>
+                        <ul className="mt-8 grid w-full gap-3 border-t pt-6 text-left">
+                            {(
+                                [
+                                    [Wallet, (d: Dictionary) => d.dashboard.emptyWallet],
+                                    [PiggyBank, (d: Dictionary) => d.dashboard.emptyDeposits],
+                                    [Calculator, (d: Dictionary) => d.dashboard.emptyTax],
+                                ] as const
+                            ).map(([Icon, label], index) => (
+                                <li key={index} className="text-muted-foreground flex items-center gap-3 text-sm">
+                                    <span className="bg-muted text-foreground grid size-8 shrink-0 place-items-center rounded-lg">
+                                        <Icon className="size-4" aria-hidden="true" />
+                                    </span>
+                                    {t(label)}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
                 </Page>
             </>
         );

@@ -7,13 +7,14 @@ import {
     PlayCircle,
     RotateCcw,
     Plus,
+    Trash2,
     Users,
     UsersIcon,
     XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { listSubjects, setDocumentAiConsent, setSubjectStatus } from '../../api/accountApi';
+import { listSubjects, resetSubject, setDocumentAiConsent, setSubjectStatus } from '../../api/accountApi';
 import { setDisplayCurrency } from '../../api/walletApi';
 import {
     DataTable,
@@ -76,6 +77,7 @@ export default function SubjectsPage(): JSX.Element {
     const [adding, setAdding] = useState(false);
     const [editing, setEditing] = useState<TaxSubject | null>(null);
     const [closing, setClosing] = useState<TaxSubject | null>(null);
+    const [resetting, setResetting] = useState<TaxSubject | null>(null);
 
     const describeFailure = useCallback((cause: unknown): string => describeApiFailure(cause, t), [t]);
 
@@ -189,6 +191,29 @@ export default function SubjectsPage(): JSX.Element {
         } finally {
             setBusy(null);
             setClosing(null);
+        }
+    };
+
+    const reset = async (subject: TaxSubject): Promise<void> => {
+        setBusy(subject.id);
+
+        try {
+            await resetSubject(subject.id);
+            toast.success(t((d) => d.pages.settingsSubjects.resetDone));
+
+            // Reload rather than patch: the reset revoked this account's membership, so the taxpayer
+            // is gone from the list entirely — the same event every other device hears.
+            setReloadToken((token) => token + 1);
+
+            return;
+        } catch (cause: unknown) {
+            toast.error(
+                t((d) => d.pages.settingsSubjects.resetFailed),
+                { description: describeFailure(cause) },
+            );
+        } finally {
+            setBusy(null);
+            setResetting(null);
         }
     };
 
@@ -424,6 +449,16 @@ export default function SubjectsPage(): JSX.Element {
                                                             <XCircle className="size-4" />
                                                             {t((d) => d.pages.settingsSubjects.close)}
                                                         </DropdownMenuItem>
+
+                                                        <DropdownMenuItem
+                                                            variant="destructive"
+                                                            onSelect={() => {
+                                                                setResetting(subject);
+                                                            }}
+                                                        >
+                                                            <Trash2 className="size-4" />
+                                                            {t((d) => d.pages.settingsSubjects.reset)}
+                                                        </DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             )}
@@ -486,6 +521,28 @@ export default function SubjectsPage(): JSX.Element {
                     cancelLabel={t((d) => d.pages.settingsSubjects.cancel)}
                     onConfirm={async () => {
                         await changeStatus(closing, 'CLOSED');
+                    }}
+                />
+            )}
+
+            {/* Reset is the one irreversible action here — it wipes the taxpayer's data, not just its
+                status — so it asks for the word to be typed, not merely a click. */}
+            {resetting !== null && (
+                <ConfirmDialog
+                    open
+                    onOpenChange={(next) => {
+                        if (!next) {
+                            setResetting(null);
+                        }
+                    }}
+                    title={t((d) => d.pages.settingsSubjects.resetTitle)}
+                    description={t((d) => d.pages.settingsSubjects.resetHint)}
+                    confirmLabel={t((d) => d.pages.settingsSubjects.reset)}
+                    cancelLabel={t((d) => d.pages.settingsSubjects.cancel)}
+                    requireText={t((d) => d.pages.settingsSubjects.resetConfirmWord)}
+                    requireTextLabel={t((d) => d.pages.settingsSubjects.resetConfirmHint)}
+                    onConfirm={async () => {
+                        await reset(resetting);
                     }}
                 />
             )}

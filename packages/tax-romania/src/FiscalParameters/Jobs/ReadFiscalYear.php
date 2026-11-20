@@ -11,6 +11,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Kern\TaxRomania\FiscalParameters\Actions\StartFiscalYear;
 use Kern\TaxRomania\FiscalParameters\FiscalParameterDecisionException;
+use Kern\TaxRomania\Operations\Events\OperationsActivityChanged;
 
 /**
  * One year's law read, on the queue.
@@ -55,10 +56,17 @@ final class ReadFiscalYear implements ShouldBeUnique, ShouldQueue
 
     public function handle(StartFiscalYear $start): void
     {
+        // This job is not an operation task, so it records no run in the ledger the topbar reads. It
+        // nudges the indicator itself instead — once as it begins and once as it ends — so a reading
+        // that takes minutes shows as work in flight the whole time rather than leaving the bar idle.
+        OperationsActivityChanged::dispatch();
+
         try {
             $start($this->year);
         } catch (FiscalParameterDecisionException) {
             // The law of that year says none of the values: nothing to propose, nothing to retry.
+        } finally {
+            OperationsActivityChanged::dispatch();
         }
     }
 }

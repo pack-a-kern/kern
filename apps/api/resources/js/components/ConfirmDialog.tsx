@@ -1,7 +1,7 @@
 import { Check, X } from 'lucide-react';
 import { useState, type JSX, type ReactNode } from 'react';
 
-import { PanelButton, PanelDialog } from './panel';
+import { PanelButton, PanelDialog, PanelInput } from './panel';
 
 /**
  * A confirmation before something irreversible.
@@ -13,6 +13,10 @@ import { PanelButton, PanelDialog } from './panel';
  *
  * `detail` is where a caller says what will actually be lost — how many rows, what stops working.
  * A confirmation that only asks "are you sure?" teaches people to click through it.
+ *
+ * `requireText` is for the gravest actions: the confirm button unlocks only once the person has
+ * typed that exact phrase, so a wipe that cannot be undone needs a deliberate keystroke, not one
+ * stray click on a focused button.
  */
 export default function ConfirmDialog({
     open,
@@ -22,6 +26,8 @@ export default function ConfirmDialog({
     detail,
     confirmLabel,
     cancelLabel,
+    requireText,
+    requireTextLabel,
     onConfirm,
 }: {
     open: boolean;
@@ -31,10 +37,17 @@ export default function ConfirmDialog({
     detail?: ReactNode;
     confirmLabel: string;
     cancelLabel: string;
+    /** When set, the confirm button stays locked until the person types this exact phrase. */
+    requireText?: string;
+    /** The instruction shown above that field — name the word to type. */
+    requireTextLabel?: string;
     /** Resolves when the action succeeded; the dialog closes itself only then. */
     onConfirm: () => Promise<void>;
 }): JSX.Element {
     const [working, setWorking] = useState(false);
+    const [typed, setTyped] = useState('');
+
+    const locked = requireText !== undefined && typed !== requireText;
 
     const confirm = async (): Promise<void> => {
         setWorking(true);
@@ -68,7 +81,7 @@ export default function ConfirmDialog({
                     </PanelButton>
                     <PanelButton
                         primary
-                        disabled={working}
+                        disabled={working || locked}
                         onClick={() => {
                             void confirm();
                         }}
@@ -80,6 +93,24 @@ export default function ConfirmDialog({
             }
         >
             {detail}
+            {requireText === undefined ? null : (
+                <label className="mt-3 flex flex-col gap-1.5">
+                    {requireTextLabel === undefined ? null : (
+                        <span className="text-sm text-muted-foreground">{requireTextLabel}</span>
+                    )}
+                    <PanelInput
+                        icon={null}
+                        value={typed}
+                        autoComplete="off"
+                        autoCapitalize="off"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        onChange={(event) => {
+                            setTyped(event.target.value);
+                        }}
+                    />
+                </label>
+            )}
         </PanelDialog>
     );
 }

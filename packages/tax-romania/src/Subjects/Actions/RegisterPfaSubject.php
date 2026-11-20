@@ -27,9 +27,10 @@ use Kern\TaxRomania\Subjects\Services\SubjectAllowance;
  * or `Kern\Platform\KeyManagement`.
  *
  * Deliberately structured identically to `RegisterPfSubject` — same two-write `TaxSubject`
- * creation (see that class's own docblock for exactly why), same duplicate-identifier check
- * before the transaction, same membership + audit event shape — because the whole point is that
- * a second subject type needs a second *action*, not a change to any shared mechanism.
+ * creation (see that class's own docblock for exactly why), same duplicate-identifier handling
+ * (an owned number refused, a reset husk reconnected — ADR 0029, {@see reattach()}), same
+ * membership + audit event shape — because the whole point is that a second subject type needs a
+ * second *action*, not a change to any shared mechanism.
  *
  * This is the only place in this codebase that constructs `SubjectType::PFA`.
  *
@@ -81,8 +82,14 @@ final readonly class RegisterPfaSubject
             FiscalIdentifierKind::CUI->keyedValue($input->registrationNumber),
         );
 
-        if (TaxSubject::query()->where('fiscal_identifier_blind_index', $registrationNumberBlindIndex)->exists()) {
-            throw DuplicateRegistrationNumberException::alreadyRegistered();
+        $existingId = TaxSubject::query()
+            ->where('fiscal_identifier_blind_index', $registrationNumberBlindIndex)->value('id');
+
+        // Owned already → refused; a reset husk (identity scrubbed, hash kept) → reconnected, exactly
+        // as RegisterPfSubject handles a freed CNP. ADR 0029; ownership decided under a lock in
+        // {@see reattach()}.
+        if (is_string($existingId)) {
+            return $this->reattach($existingId, $input);
         }
 
         return DB::transaction(function () use ($input, $registrationNumberBlindIndex): TaxSubject {
@@ -106,14 +113,7 @@ final readonly class RegisterPfaSubject
             $subject->fiscal_identifier_kind = FiscalIdentifierKind::CUI;
             $subject->save();
 
-            PfaProfile::create([
-                'tax_subject_id' => $subject->id,
-                'trade_name_ciphertext' => $input->tradeName,
-                'caen_code' => $input->caenCode,
-                'county_code' => $input->countyCode,
-                'locality_ciphertext' => $input->locality,
-                'address_ciphertext' => $input->address,
-            ]);
+            $this->createPfaProfile($subject->id, $input);
 
             SubjectMembership::grantOwnership($subject->id, $input->registeringUserId);
 
@@ -128,5 +128,62 @@ final readonly class RegisterPfaSubject
 
             return $subject;
         });
+    }
+
+    /**
+     * Reconnects a reset PFA to whoever registers its number again — the PFA counterpart of
+     * {@see RegisterPfSubject::reattach()}, on the same row-locked, owner-guarded terms (ADR 0029).
+     */
+    private function reattach(string $subjectId, RegisterPfaSubjectInput $input): TaxSubject
+    {
+        return DB::transaction(function () use ($subjectId, $input): TaxSubject {
+            $subject = TaxSubject::query()->whereKey($subjectId)->lockForUpdate()->firstOrFail();
+
+            if (SubjectMembership::query()->where('subject_id', $subjectId)->whereNull('revoked_at')->exists()) {
+                throw DuplicateRegistrationNumberException::alreadyRegistered();
+            }
+
+            // Reattach only ever revives a husk a reset left behind — closed, its identity scrubbed to
+            // the kept hash. A subject that still holds an identity is not one, even with no active
+            // membership; reviving it would hand its old accounts and documents to whoever knows the CUI.
+            if ($subject->status !== SubjectStatus::CLOSED || $subject->fiscal_identifier_ciphertext !== null) {
+                throw DuplicateRegistrationNumberException::alreadyRegistered();
+            }
+
+            $this->allowance->ensureActiveRoom($input->registeringUserId);
+
+            $subject->status = SubjectStatus::ACTIVE;
+            $subject->display_name_ciphertext = $input->displayName;
+            $subject->fiscal_identifier_ciphertext = $input->registrationNumber;
+            $subject->fiscal_identifier_kind = FiscalIdentifierKind::CUI;
+            $subject->save();
+
+            $this->createPfaProfile($subjectId, $input);
+
+            SubjectMembership::grantOwnership($subjectId, $input->registeringUserId);
+
+            $this->audit->record(AuditEventInput::occurringNow(
+                subjectId: $subjectId,
+                actorId: $input->registeringUserId,
+                eventType: 'TaxSubjectReattached',
+                resourceType: 'TaxSubject',
+                resourceId: $subjectId,
+                payloadHash: $this->audit->hashPayload(['type' => SubjectType::PFA->value]),
+            ));
+
+            return $subject;
+        });
+    }
+
+    private function createPfaProfile(string $subjectId, RegisterPfaSubjectInput $input): void
+    {
+        PfaProfile::create([
+            'tax_subject_id' => $subjectId,
+            'trade_name_ciphertext' => $input->tradeName,
+            'caen_code' => $input->caenCode,
+            'county_code' => $input->countyCode,
+            'locality_ciphertext' => $input->locality,
+            'address_ciphertext' => $input->address,
+        ]);
     }
 }

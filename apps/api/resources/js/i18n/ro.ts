@@ -313,6 +313,13 @@ export const ro = {
     dashboard: {
         title: 'Panou',
         lede: 'Ce ai, unde sunt banii și cât aduc depozitele.',
+        emptyTitle: 'Adaugă primul contribuabil',
+        emptyBody:
+            'Un contribuabil este persoana sau firma ale cărei conturi, venituri și taxe le ține această aplicație. Creează unul, iar panoul, portofelul și rapoartele apar aici.',
+        emptyAction: 'Creează un contribuabil',
+        emptyWallet: 'Urmărește conturi, venituri și cheltuieli',
+        emptyDeposits: 'Vezi cât aduc depozitele',
+        emptyTax: 'Vezi taxa pe măsură ce anul avansează',
     },
     documentsCapture: {
         uploadFailedRetrying: 'Încărcarea a eșuat. Se va reîncerca automat.',
@@ -2326,6 +2333,14 @@ export const ro = {
                 'Nu va mai apărea în lista de alegere. Nu se șterge nimic: documentele, tranzacțiile și jurnalul de audit rămân, iar proprietarul îl poate reactiva oricând.',
             statusChanged: 'Stare actualizată.',
             statusFailed: 'Starea nu a putut fi modificată.',
+            reset: 'Resetează contribuabilul',
+            resetTitle: 'Resetezi acest contribuabil?',
+            resetHint:
+                'Șterge tot ce ține de contribuabil — conturi, depozite, investiții, documente, importuri și fiecare valoare calculată — și nu poate fi anulat. Contribuabilul dispare din listă; același CNP poate fi adăugat din nou mai târziu, pornind gol. Jurnalul de audit se păstrează.',
+            resetConfirmWord: 'RESET',
+            resetConfirmHint: 'Tastează RESET pentru a confirma.',
+            resetDone: 'Contribuabil resetat.',
+            resetFailed: 'Contribuabilul nu a putut fi resetat.',
             types: {
                 PF: 'Persoană fizică',
                 PFA: 'PFA',
@@ -2811,6 +2826,16 @@ export const ro = {
             close: 'Închide',
             approved: 'Aprobat.',
             rejected: 'Respins.',
+            sync: {
+                title: 'Înregistrarea regulilor',
+                help: 'Formulele fiscale se află în codul motorului. Importul înregistrează fiecare formulă în baza de date ca propunere, ca să poată calcula — aprobarea unei propuneri este un pas separat, mai jos.',
+                counts: '{registered} / {defined} înregistrate',
+                syncedBody: 'Toate cele {count} reguli definite de motor sunt înregistrate. Nu este nimic de importat.',
+                missingBody:
+                    '{missing} din {defined} reguli nu sunt încă înregistrate, deci motorul nu le poate calcula. Importul înregistrează o propunere pentru fiecare.',
+                import: 'Importă regulile',
+                imported: 'S-au înregistrat {count} reguli ca propuneri.',
+            },
         },
         adminUsers: {
             title: 'Utilizatori și roluri',

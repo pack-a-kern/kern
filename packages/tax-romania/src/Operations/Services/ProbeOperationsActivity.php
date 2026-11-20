@@ -84,6 +84,10 @@ final readonly class ProbeOperationsActivity
             available: $available,
             moving: $available && $snapshot->masterStatus === 'running',
             pending: $pending,
+            // Jobs a worker has in hand right now. A plain queued job — a year being read — leaves the
+            // backlog the moment it is picked up and records no run in the task ledger, so without this
+            // the topbar went idle for the minutes it ran. Reserved jobs fill that gap.
+            active: $this->jobs->activeTotal(),
             failed: $this->failedTotal(),
             queues: $queues,
             running: $running,

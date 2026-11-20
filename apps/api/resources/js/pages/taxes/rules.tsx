@@ -2,6 +2,7 @@ import {
     CalendarPlus,
     CalendarRange,
     Check,
+    Download,
     Hourglass,
     ListChecks,
     Scale,
@@ -16,7 +17,10 @@ import {
     approveFiscalParameter,
     dropFiscalParameterValues,
     getFiscalParameterBoard,
+    getTaxRuleSync,
+    importTaxRules,
     readFiscalYear,
+    type TaxRuleSyncStatus,
 } from '../../api/fiscalParametersApi';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import {
@@ -72,6 +76,8 @@ export default function AdminParameters(): JSX.Element {
     const [startingYear, setStartingYear] = useState(false);
     const [dropping, setDropping] = useState(false);
     const [approving, setApproving] = useState<FiscalParameter | null>(null);
+    const [sync, setSync] = useState<TaxRuleSyncStatus | null>(null);
+    const [importing, setImporting] = useState(false);
 
     const load = useCallback((): void => {
         getFiscalParameterBoard().then(
@@ -85,13 +91,78 @@ export default function AdminParameters(): JSX.Element {
         );
     }, []);
 
+    // Separate from the board: the rule classes are registered independently of the values, and a reader
+    // who may not see the board (or sees it empty) still needs to know whether the formulas are recorded.
+    const loadSync = useCallback((): void => {
+        getTaxRuleSync().then(
+            (loaded) => {
+                setSync(loaded);
+            },
+            () => {
+                setSync(null);
+            },
+        );
+    }, []);
+
     useEffect(load, [load]);
+    useEffect(loadSync, [loadSync]);
+
+    const runImport = (): void => {
+        setImporting(true);
+        importTaxRules()
+            .then(
+                (result) => {
+                    setSync(result);
+                    toast.success(t((d) => d.pages.taxRules.sync.imported).replace('{count}', String(result.recorded)));
+                },
+                (cause: unknown) => {
+                    toast.error(describeApiFailure(cause, t));
+                },
+            )
+            .finally(() => {
+                setImporting(false);
+            });
+    };
 
     const name = (code: string): string => t((d) => d.pages.taxRules.names)[code] ?? code;
 
     return (
         <>
             <Page title={t((d) => d.pages.taxRules.title)} lede={t((d) => d.pages.taxRules.description)}>
+                {sync !== null ? (
+                    <Panel
+                        className="mb-3"
+                        title={t((d) => d.pages.taxRules.sync.title)}
+                        icon={<ListChecks className="size-4" />}
+                        help={t((d) => d.pages.taxRules.sync.help)}
+                        aside={
+                            <Status tone={sync.inSync ? 'ok' : 'warn'}>
+                                {t((d) => d.pages.taxRules.sync.counts)
+                                    .replace('{registered}', String(sync.registered))
+                                    .replace('{defined}', String(sync.definedInCode))}
+                            </Status>
+                        }
+                    >
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <p className="note max-w-prose">
+                                {sync.inSync
+                                    ? t((d) => d.pages.taxRules.sync.syncedBody).replace(
+                                          '{count}',
+                                          String(sync.definedInCode),
+                                      )
+                                    : t((d) => d.pages.taxRules.sync.missingBody)
+                                          .replace('{missing}', String(sync.definedInCode - sync.registered))
+                                          .replace('{defined}', String(sync.definedInCode))}
+                            </p>
+                            {!sync.inSync && canApprove ? (
+                                <PanelButton primary onClick={runImport} disabled={importing}>
+                                    <Download className="size-3.5" />
+                                    {t((d) => d.pages.taxRules.sync.import)}
+                                </PanelButton>
+                            ) : null}
+                        </div>
+                    </Panel>
+                ) : null}
                 {failed !== null ? (
                     <Panel title={t((d) => d.pages.taxRules.valuesTitle)} icon={<Scale className="size-4" />}>
                         <p className="note">
@@ -720,48 +791,67 @@ function WageHistory({
     return (
         <div className="border-border mt-5 border-t pt-4">
             <p className="eyebrow">{t((d) => d.pages.taxRules.wageHistory)}</p>
-            <div className="mt-4 flex h-28 items-stretch gap-1.5">
-                {periods.map((period, index) => (
-                    <button
-                        key={period.id}
-                        type="button"
-                        className="group flex flex-1 flex-col justify-end gap-1"
-                        onClick={() => {
-                            onOpen(period);
-                        }}
-                    >
-                        <span className="note text-center tabular-nums">
-                            {period.display.kind === 'money'
-                                ? formatNumber(period.display.amountMinor / 100, locale)
-                                : ''}
+            {/* Each bar keeps a floor width and never shrinks, so on a phone the row scrolls sideways
+                in its own box rather than crushing a dozen years into illegible slivers; on a wide
+                screen they grow to fill it and nothing scrolls. */}
+            <div className="overflow-x-auto pb-1">
+                <div className="mt-4 flex h-28 items-stretch gap-1.5">
+                    {periods.map((period, index) => (
+                        <button
+                            key={period.id}
+                            type="button"
+                            className="group flex flex-[1_0_2.75rem] flex-col justify-end gap-1"
+                            onClick={() => {
+                                onOpen(period);
+                            }}
+                        >
+                            <span className="note text-center tabular-nums whitespace-nowrap">
+                                {period.display.kind === 'money'
+                                    ? formatNumber(period.display.amountMinor / 100, locale)
+                                    : ''}
+                            </span>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span
+                                        style={{
+                                            height: `calc(${bars.find((entry) => entry.id === period.id)?.bar ?? '0'} * 100%)`,
+                                        }}
+                                        className={cn(
+                                            'w-full rounded-t-sm',
+                                            period.status === 'APPROVED'
+                                                ? cn(
+                                                      'group-hover:bg-info/60 group-focus-visible:bg-info/60',
+                                                      index === periods.length - 1 ? 'bg-info/50' : 'bg-info/35',
+                                                  )
+                                                : // Not yet approved — a proposed value nobody has decided on, so a pale
+                                                  // wash of the same blue: present but visibly provisional beside the rest.
+                                                  'bg-info/15 group-hover:bg-info/30 group-focus-visible:bg-info/30',
+                                        )}
+                                    />
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                    {describeFiscalValue(period.display, t, locale)} ·{' '}
+                                    {describePeriod(period, t, locale)}
+                                    {period.status === 'APPROVED'
+                                        ? ''
+                                        : ` · ${t((d) => d.pages.taxRules.statuses)[period.status]}`}
+                                </TooltipContent>
+                            </Tooltip>
+                        </button>
+                    ))}
+                </div>
+                <div className="mt-1 flex gap-1.5">
+                    {periods.map((period, index) => (
+                        <span
+                            key={period.id}
+                            className="note flex-[1_0_2.75rem] text-center tabular-nums whitespace-nowrap"
+                        >
+                            {period.validFrom.slice(0, 4) === periods[index - 1]?.validFrom.slice(0, 4)
+                                ? describeFrom(period, locale)
+                                : period.validFrom.slice(0, 4)}
                         </span>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <span
-                                    style={{
-                                        height: `calc(${bars.find((entry) => entry.id === period.id)?.bar ?? '0'} * 100%)`,
-                                    }}
-                                    className={cn(
-                                        'group-hover:bg-info/60 group-focus-visible:bg-info/60 w-full rounded-t-sm',
-                                        index === periods.length - 1 ? 'bg-info/45' : 'bg-info/20',
-                                    )}
-                                />
-                            </TooltipTrigger>
-                            <TooltipContent side="top">
-                                {describeFiscalValue(period.display, t, locale)} · {describePeriod(period, t, locale)}
-                            </TooltipContent>
-                        </Tooltip>
-                    </button>
-                ))}
-            </div>
-            <div className="mt-1 flex gap-1.5">
-                {periods.map((period, index) => (
-                    <span key={period.id} className="note flex-1 text-center tabular-nums">
-                        {period.validFrom.slice(0, 4) === periods[index - 1]?.validFrom.slice(0, 4)
-                            ? describeFrom(period, locale)
-                            : period.validFrom.slice(0, 4)}
-                    </span>
-                ))}
+                    ))}
+                </div>
             </div>
         </div>
     );

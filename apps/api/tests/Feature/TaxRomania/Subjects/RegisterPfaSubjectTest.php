@@ -8,10 +8,13 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Kern\Audit\Services\ChainVerifier;
 use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Tenancy\TenantContext;
 use Kern\TaxRomania\Subjects\Actions\RegisterPfaSubject;
+use Kern\TaxRomania\Subjects\Actions\ResetTaxSubject;
 use Kern\TaxRomania\Subjects\DataTransferObjects\RegisterPfaSubjectInput;
 use Kern\TaxRomania\Subjects\Enums\FiscalIdentifierKind;
 use Kern\TaxRomania\Subjects\Enums\MembershipRole;
+use Kern\TaxRomania\Subjects\Enums\SubjectStatus;
 use Kern\TaxRomania\Subjects\Enums\SubjectType;
 use Kern\TaxRomania\Subjects\Exceptions\DuplicateRegistrationNumberException;
 use Kern\TaxRomania\Subjects\Models\SubjectMembership;
@@ -93,6 +96,31 @@ it('allows two different subjects to register with genuinely different registrat
     $second = app(RegisterPfaSubject::class)(pfaRegistrationInput($secondUser->id, 'J40/5678/2020'));
 
     expect($first->id)->not->toBe($second->id);
+});
+
+it('reconnects a reset PFA to whoever registers its number again, the same row cleaned', function (): void {
+    $first = User::factory()->create();
+    $second = User::factory()->create();
+
+    $subject = app(RegisterPfaSubject::class)(pfaRegistrationInput($first->id, 'J40/1234/2020'));
+    $originalId = $subject->id;
+
+    app(TenantContext::class)->authorizeAndActivate($first->id, $originalId);
+    app(ResetTaxSubject::class)($subject, $first->id);
+
+    $reattached = app(RegisterPfaSubject::class)(pfaRegistrationInput($second->id, '  J40/1234/2020  '));
+
+    expect($reattached->id)->toBe($originalId)
+        ->and($reattached->status)->toBe(SubjectStatus::ACTIVE);
+
+    $ownedBySecond = SubjectMembership::query()->where('subject_id', $originalId)
+        ->where('user_id', $second->id)->whereNull('revoked_at')->exists();
+    $ownedByFirst = SubjectMembership::query()->where('subject_id', $originalId)
+        ->where('user_id', $first->id)->whereNull('revoked_at')->exists();
+
+    expect($ownedBySecond)->toBeTrue()->and($ownedByFirst)->toBeFalse();
+    expect(DB::table('tax_subjects')->where('id', $originalId)->value('fiscal_identifier_kind'))
+        ->toBe(FiscalIdentifierKind::CUI->value);
 });
 
 it('populates the canonical fiscal_identifier column on tax_subjects, tagged CUI, for a PFA registration', function (): void {

@@ -28,6 +28,7 @@ final readonly class OperationsActivity
         public bool $available,
         public bool $moving,
         public int $pending,
+        public int $active,
         public int $failed,
         public array $queues,
         public array $running,
@@ -35,7 +36,8 @@ final readonly class OperationsActivity
     }
 
     /**
-     * Whether work is actually in flight right now — waiting in a queue, or a named task running.
+     * Whether work is actually in flight right now — waiting in a queue, a job a worker has in hand,
+     * or a named task running.
      *
      * The indicator leans on the socket while the queue is idle and only polls to watch a backlog
      * drain, since a count that falls one job at a time emits no event per decrement. So this is not
@@ -45,12 +47,12 @@ final readonly class OperationsActivity
      */
     public function isBusy(): bool
     {
-        return $this->pending > 0 || $this->running !== [];
+        return $this->pending > 0 || $this->active > 0 || $this->running !== [];
     }
 
     /**
      * @return array{
-     *     at: string, available: bool, moving: bool, pending: int, failed: int,
+     *     at: string, available: bool, moving: bool, pending: int, active: int, failed: int,
      *     queues: list<array{name: string, waiting: int, processes: int}>,
      *     running: list<array{key: string, since: string}>
      * }
@@ -62,6 +64,7 @@ final readonly class OperationsActivity
             'available' => $this->available,
             'moving' => $this->moving,
             'pending' => $this->pending,
+            'active' => $this->active,
             'failed' => $this->failed,
             'queues' => $this->queues,
             'running' => $this->running,

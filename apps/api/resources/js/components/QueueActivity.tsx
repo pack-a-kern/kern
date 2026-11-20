@@ -112,8 +112,11 @@ export default function QueueActivity(): JSX.Element | null {
     const taskName = (key: string): string => taskNames[key] ?? key;
     const { running } = data;
     const first = running[0];
-    const busy = running.length > 0 || data.pending > 0;
-    const lead = first !== undefined ? taskName(first.key) : data.pending > 0 ? words.processing : words.idle;
+    // "Working" covers a job a worker has in hand (active) as well as a named task and a backlog —
+    // a year being read is active with nothing waiting and no ledger run, and must still read as busy.
+    const busy = running.length > 0 || data.pending > 0 || data.active > 0;
+    const lead =
+        first !== undefined ? taskName(first.key) : data.pending > 0 || data.active > 0 ? words.processing : words.idle;
     const more = running.length - 1;
 
     // The card's dot is about activity, never failures: emerald while working, dim while merely up,

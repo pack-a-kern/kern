@@ -17,6 +17,7 @@ use Kern\TaxRomania\Operations\Events\OperationsActivityChanged;
 use Kern\TaxRomania\Operations\Jobs\RunOperationTask;
 use Kern\TaxRomania\Operations\Models\ScheduledTask;
 use Kern\TaxRomania\Operations\Models\TaskRun;
+use Kern\TaxRomania\Operations\Services\ReadQueueJobs;
 use Kern\TaxRomania\Operations\Services\TaskRunRecorder;
 use Laravel\Horizon\Contracts\JobRepository;
 use Spatie\Permission\PermissionRegistrar;
@@ -440,7 +441,7 @@ it('refuses the activity indicator to a user with no platform role, and serves i
     $this->actingAs(operationsUser('ADMIN'))->getJson('/api/v1/operations/activity')
         ->assertOk()
         // The shape the topbar reads: the queues, the tasks running now, the totals and the poll hint.
-        ->assertJsonStructure(['available', 'moving', 'pending', 'failed', 'poll_after_ms', 'queues', 'running'])
+        ->assertJsonStructure(['available', 'moving', 'pending', 'active', 'failed', 'poll_after_ms', 'queues', 'running'])
         // The run opened above is named among those running now — by its key, never a job payload.
         ->assertJsonPath('running.0.key', OperationTask::LEGISLATION_INGEST->value);
 
@@ -470,4 +471,20 @@ it('nudges the activity indicator when a task run opens and when it closes', fun
 
     // One when it started, one when it ended — the two moments an open screen should hear at once.
     Event::assertDispatchedTimes(OperationsActivityChanged::class, 2);
+});
+
+it('counts a job a worker has in hand as active, not one merely waiting', function (): void {
+    // Horizon's pending set holds every unfinished job — waiting ones as `pending`, the one being
+    // worked as `reserved`. Only the reserved ones are work in flight; the waiting ones are the
+    // backlog already counted elsewhere.
+    $horizon = Mockery::mock(JobRepository::class);
+    $horizon->shouldReceive('countPending')->andReturn(3);
+    $horizon->shouldReceive('getPending')->andReturn(collect([
+        (object) ['status' => 'reserved'],
+        (object) ['status' => 'pending'],
+        (object) ['status' => 'reserved'],
+    ]));
+    app()->instance(JobRepository::class, $horizon);
+
+    expect(app(ReadQueueJobs::class)->activeTotal())->toBe(2);
 });

@@ -49,7 +49,7 @@ import { BOTTOM_BAR } from '../lib/bottomBar';
 import { subscribeToTaxpayerChanges, subscribeToUserNotifications } from '../lib/echo';
 import { formatDate, formatDateTime } from '../lib/format';
 import { parseFilingDeadline } from '../types/fiscalParameters';
-import { refreshSharedAuth, useAppName, useSharedAuth } from '../lib/sharedProps';
+import { refreshSharedAuth, useAppName, useSharedAuth, useSharedSubjects } from '../lib/sharedProps';
 import type { Notice } from '../types/notifications';
 import QueueActivity from './QueueActivity';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
@@ -80,6 +80,13 @@ interface NavLink {
      * whether it sits under Legislation or beside it.
      */
     permission?: string;
+    /**
+     * Hidden until this account has at least one taxpayer. Wallet, investments, analysis and the SPV
+     * connection all read or write within a taxpayer — with none created there is nothing for them
+     * to open, so they are left out of the menu rather than offered as dead ends. The dashboard,
+     * the law, and the account group (where a taxpayer is created) stay, whatever the count.
+     */
+    requiresSubject?: boolean;
     children?: { href: string; label: (d: Dictionary) => string; icon: typeof LayoutDashboard; permission?: string }[];
 }
 
@@ -116,6 +123,7 @@ const RECORDS_GROUP: NavLink = {
     id: 'wallet',
     label: (d) => d.nav.wallet,
     icon: Wallet,
+    requiresSubject: true,
     children: [
         { href: '/wallet/accounts', label: (d) => d.nav.walletAccounts, icon: Landmark },
         { href: '/wallet/transactions', label: (d) => d.nav.walletTransactions, icon: ArrowLeftRight },
@@ -135,6 +143,7 @@ const INVESTMENTS_GROUP: NavLink = {
     id: 'investments',
     label: (d) => d.nav.investments,
     icon: TrendingUp,
+    requiresSubject: true,
     children: [
         { href: '/investments', label: (d) => d.nav.market, icon: ChartCandlestick },
         { href: '/investments/holdings', label: (d) => d.nav.holdings, icon: Briefcase },
@@ -156,6 +165,7 @@ const ANALYSIS_GROUP: NavLink = {
     id: 'analysis',
     label: (d) => d.nav.analysis,
     icon: ChartColumn,
+    requiresSubject: true,
     children: [
         { href: TAXES_HREF, label: (d) => d.nav.taxes, icon: Calculator },
         { href: '/wallet/reports', label: (d) => d.nav.walletReports, icon: ChartColumn },
@@ -183,7 +193,7 @@ const LAW_ITEMS: NavLink[] = [
 
 /* Everything the installation talks to on the taxpayer's behalf. SPV is the only one today, and the
    page's own words are already these: it speaks of a connection, of revoking one, of its sync runs. */
-const CONNECTION_ITEMS: NavLink[] = [{ href: '/spv', label: (d) => d.nav.spv, icon: Landmark }];
+const CONNECTION_ITEMS: NavLink[] = [{ href: '/spv', label: (d) => d.nav.spv, icon: Landmark, requiresSubject: true }];
 
 /* The account has a page of its own *and* a child, the way `Impozite` does: taxpayers belong to an
    account, so the row navigates and the chevron folds the child in. */
@@ -677,6 +687,7 @@ function groupKey(item: NavLink): string {
  */
 function useVisibleSections(): typeof NAV_SECTIONS {
     const permissions = useSharedAuth()?.user.permissions ?? [];
+    const hasSubject = useSharedSubjects().length > 0;
 
     function allowed(entry: { permission?: string }): boolean {
         return entry.permission === undefined || permissions.includes(entry.permission);
@@ -686,6 +697,8 @@ function useVisibleSections(): typeof NAV_SECTIONS {
         ...section,
         items: section.items
             .filter(allowed)
+            // Taxpayer-scoped destinations are left out until a taxpayer exists to open them in.
+            .filter((item) => hasSubject || item.requiresSubject !== true)
             .map((item) => (item.children === undefined ? item : { ...item, children: item.children.filter(allowed) }))
             // A group whose every row is refused is not offered empty.
             .filter((item) => item.children === undefined || item.children.length > 0),

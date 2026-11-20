@@ -159,6 +159,36 @@ final readonly class ReadQueueJobs
         }
     }
 
+    /**
+     * How many jobs a worker has in hand right now — reserved, not merely waiting.
+     *
+     * Horizon's `pending_jobs` set holds every job pushed and not yet finished, each either `pending`
+     * (waiting in its queue) or `reserved` (a worker is running it). The waiting ones are already the
+     * per-queue backlog the topbar shows; the reserved ones are the work in flight it was missing for
+     * jobs that are not operation tasks — a year being read, say. Walked and filtered by status rather
+     * than taken from the index counter, for the reason {@see retrievableTotal()} gives: a stale id
+     * must not read as a worker busy on nothing. The set is small by construction — it is only the
+     * unfinished jobs — so the walk is cheap.
+     */
+    public function activeTotal(): int
+    {
+        try {
+            $active = 0;
+
+            foreach ($this->scan(self::PENDING, PHP_INT_MAX)['jobs'] as $job) {
+                if ($this->nullableStr($job, 'status') === 'reserved') {
+                    $active++;
+                }
+            }
+
+            return $active;
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return 0;
+        }
+    }
+
     private function declaredTotal(string $status): int
     {
         return (int) match ($status) {

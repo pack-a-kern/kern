@@ -287,6 +287,14 @@ export interface Dictionary {
     dashboard: {
         title: string;
         lede: string;
+        /** Shown on the dashboard when the account has no taxpayer yet — the first thing to create. */
+        emptyTitle: string;
+        emptyBody: string;
+        emptyAction: string;
+        /** Three things creating a taxpayer unlocks, listed on the welcome card. */
+        emptyWallet: string;
+        emptyDeposits: string;
+        emptyTax: string;
     };
     documentsCapture: {
         /** Shown for a queued upload that failed without the server sending its own message. */
@@ -2173,6 +2181,15 @@ export interface Dictionary {
             closeHint: string;
             statusChanged: string;
             statusFailed: string;
+            /** Reset — the real wipe, as against {@link close} which only archives (ADR 0029). */
+            reset: string;
+            resetTitle: string;
+            resetHint: string;
+            /** The exact word the person types to unlock the wipe; the same in every language. */
+            resetConfirmWord: string;
+            resetConfirmHint: string;
+            resetDone: string;
+            resetFailed: string;
             types: Record<string, string | undefined>;
             roles: Record<string, string | undefined>;
             statuses: Record<string, string | undefined>;
@@ -2513,6 +2530,20 @@ export interface Dictionary {
             close: string;
             approved: string;
             rejected: string;
+            /** Whether the engine's rule classes (the formulas) are recorded in the database. */
+            sync: {
+                title: string;
+                help: string;
+                /** `{registered}` / `{defined}` — the badge. */
+                counts: string;
+                /** `{count}` rules defined, all registered. */
+                syncedBody: string;
+                /** `{missing}` of `{defined}` rules not registered yet. */
+                missingBody: string;
+                import: string;
+                /** `{count}` rule(s) just registered. */
+                imported: string;
+            };
         };
         adminUsers: {
             title: string;

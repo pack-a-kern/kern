@@ -144,6 +144,17 @@ export async function setSubjectStatus(subjectId: string, status: 'ACTIVE' | 'CL
 }
 
 /**
+ * `POST /api/v1/subjects/{id}/reset` — empty a taxpayer back to nothing.
+ *
+ * Not the status change above: this strips every account, deposit, holding, document, import and
+ * figure the taxpayer owns and leaves an anonymous husk, so the same CNP can later be added afresh.
+ * The subject row and its audit chain survive by law (see ADR 0029); nothing a person can read does.
+ */
+export async function resetSubject(subjectId: string): Promise<void> {
+    await apiRequest(`/v1/subjects/${encodeURIComponent(subjectId)}/reset`, { method: 'POST' });
+}
+
+/**
  * `POST /api/v1/subjects/cnp` — what a CNP contains, before anything is registered.
  *
  * The birth date and the county live inside the number, so the form asks for the CNP first and

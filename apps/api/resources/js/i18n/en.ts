@@ -309,6 +309,13 @@ export const en = {
     dashboard: {
         title: 'Dashboard',
         lede: 'What you have, where it is, and what your deposits will earn.',
+        emptyTitle: 'Add your first taxpayer',
+        emptyBody:
+            'A taxpayer is the person or business whose accounts, income and tax this app keeps. Create one and your dashboard, wallet and reports appear here.',
+        emptyAction: 'Create a taxpayer',
+        emptyWallet: 'Track accounts, income and spending',
+        emptyDeposits: 'See what your deposits will earn',
+        emptyTax: 'Watch the tax as the year builds',
     },
     documentsCapture: {
         uploadFailedRetrying: 'The upload failed. It will be retried automatically.',
@@ -2323,6 +2330,14 @@ export const en = {
                 'It no longer appears in the taxpayer list. Nothing is deleted: documents, transactions and the audit log stay, and an owner can reactivate it any time.',
             statusChanged: 'Status updated.',
             statusFailed: 'The status could not be changed.',
+            reset: 'Reset taxpayer',
+            resetTitle: 'Reset this taxpayer?',
+            resetHint:
+                'This erases everything under the taxpayer — accounts, deposits, investments, documents, imports and every computed figure — and cannot be undone. The taxpayer leaves your list; the same CNP can be added again later, starting empty. The audit log is kept.',
+            resetConfirmWord: 'RESET',
+            resetConfirmHint: 'Type RESET to confirm.',
+            resetDone: 'Taxpayer reset.',
+            resetFailed: 'The taxpayer could not be reset.',
             types: {
                 PF: 'Individual',
                 PFA: 'Sole trader',
@@ -2800,6 +2815,16 @@ export const en = {
             close: 'Close',
             approved: 'Approved.',
             rejected: 'Rejected.',
+            sync: {
+                title: 'Rule registration',
+                help: 'The tax formulas live in the engine’s code. Importing records each one in the database as a candidate so it can compute — approving a candidate is a separate step below.',
+                counts: '{registered} / {defined} registered',
+                syncedBody: 'All {count} rules the engine defines are registered. Nothing to import.',
+                missingBody:
+                    '{missing} of {defined} rules aren’t registered yet, so the engine can’t compute them. Import records a candidate for each.',
+                import: 'Import rules',
+                imported: 'Registered {count} rule(s) as candidates.',
+            },
         },
         adminUsers: {
             title: 'Users & roles',

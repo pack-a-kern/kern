@@ -21,11 +21,16 @@ use Kern\TaxRomania\Subjects\Services\SubjectAllowance;
 use RuntimeException;
 
 /**
- * Registers a new PF `TaxSubject`: checks for a duplicate CNP across the whole system
+ * Registers a PF `TaxSubject`: checks for a duplicate CNP across the whole system
  * (`BLUEPRINT.md` §4.1), creates the subject, its `PfProfile`, and an `OWNER` membership for the
  * registering user, and records one audit event — the worked example
  * `docs/handoff/011-identity-tenancy.md` points to for "how to append an audit event from your
  * module" (`docs/handoff/006-audit-chain.md`).
+ *
+ * A CNP that already belongs to an *owned* subject is still refused. One left behind by
+ * {@see ResetTaxSubject} — an unowned husk keeping only the CNP hash — is instead reconnected to the
+ * registering user (same row, same audit chain), rather than refused or duplicated; see
+ * {@see reattach()}.
  *
  * This is the only place in this task's code that constructs `SubjectType::PF` — per `BLUEPRINT.md`
  * §2.2, no other subject type has any registration logic yet.
@@ -85,8 +90,17 @@ final readonly class RegisterPfSubject
 
         $cnpBlindIndex = $this->blindIndex->compute(FiscalIdentifierKind::CNP->keyedValue($input->cnp));
 
-        if (TaxSubject::query()->where('fiscal_identifier_blind_index', $cnpBlindIndex)->exists()) {
-            throw DuplicateCnpException::alreadyRegistered();
+        $existingId = TaxSubject::query()->where('fiscal_identifier_blind_index', $cnpBlindIndex)->value('id');
+
+        // A CNP already registered and still owned cannot be taken; one whose owner has reset it
+        // ({@see ResetTaxSubject}) — membership revoked, identity scrubbed, only the one-way hash kept
+        // — is an empty husk that any registration may reconnect: the same subject row and its audit
+        // chain come back rather than a new row (and an orphaned hash) being created. Reconnecting is
+        // deliberately not restricted to the previous owner (registration is first-come for any CNP,
+        // and the husk holds no data), but whether it is still owned is decided under a row lock in
+        // {@see reattach()}, so two registrations racing for the same freed CNP cannot both attach.
+        if (is_string($existingId)) {
+            return $this->reattach($existingId, $input);
         }
 
         return DB::transaction(function () use ($input, $cnpBlindIndex): TaxSubject {
@@ -107,17 +121,7 @@ final readonly class RegisterPfSubject
             $subject->fiscal_identifier_kind = FiscalIdentifierKind::CNP;
             $subject->save();
 
-            PfProfile::create([
-                'tax_subject_id' => $subject->id,
-                'first_name_ciphertext' => $input->firstName,
-                'last_name_ciphertext' => $input->lastName,
-                'birth_date_ciphertext' => $input->birthDate,
-                'tax_residency_country' => $this->country(),
-                'county_code' => $input->countyCode,
-                'locality_ciphertext' => $input->locality,
-                'address_ciphertext' => $input->address,
-                'anaf_tax_office_code' => $input->anafTaxOfficeCode,
-            ]);
+            $this->createPfProfile($subject->id, $input);
 
             SubjectMembership::grantOwnership($subject->id, $input->registeringUserId);
 
@@ -132,6 +136,72 @@ final readonly class RegisterPfSubject
 
             return $subject;
         });
+    }
+
+    /**
+     * Reconnects a reset taxpayer to whoever is registering its CNP again.
+     *
+     * The subject row and its audit chain are the ones {@see ResetTaxSubject} left behind — only the
+     * one-way CNP hash and the DEK survived it — so re-registering restores the identity against that
+     * same row and grants a fresh ownership, rather than creating a new subject (which the kept hash
+     * would not even allow, being `UNIQUE`). The decisive ownership read is taken under a row lock:
+     * if another registration won the same freed CNP first, its active membership is seen here and
+     * this one is refused, so a husk is never co-owned.
+     */
+    private function reattach(string $subjectId, RegisterPfSubjectInput $input): TaxSubject
+    {
+        return DB::transaction(function () use ($subjectId, $input): TaxSubject {
+            $subject = TaxSubject::query()->whereKey($subjectId)->lockForUpdate()->firstOrFail();
+
+            if (SubjectMembership::query()->where('subject_id', $subjectId)->whereNull('revoked_at')->exists()) {
+                throw DuplicateCnpException::alreadyRegistered();
+            }
+
+            // Reattach only ever revives a husk a reset left behind — closed, its identity scrubbed to
+            // the kept hash. A subject that still holds an identity is not one, even with no active
+            // membership; reviving it would hand its old accounts and documents to whoever knows the CNP.
+            if ($subject->status !== SubjectStatus::CLOSED || $subject->fiscal_identifier_ciphertext !== null) {
+                throw DuplicateCnpException::alreadyRegistered();
+            }
+
+            $this->allowance->ensureActiveRoom($input->registeringUserId);
+
+            $subject->status = SubjectStatus::ACTIVE;
+            $subject->display_name_ciphertext = $input->displayName;
+            $subject->fiscal_identifier_ciphertext = $input->cnp;
+            $subject->fiscal_identifier_kind = FiscalIdentifierKind::CNP;
+            $subject->save();
+
+            $this->createPfProfile($subjectId, $input);
+
+            SubjectMembership::grantOwnership($subjectId, $input->registeringUserId);
+
+            $this->audit->record(AuditEventInput::occurringNow(
+                subjectId: $subjectId,
+                actorId: $input->registeringUserId,
+                eventType: 'TaxSubjectReattached',
+                resourceType: 'TaxSubject',
+                resourceId: $subjectId,
+                payloadHash: $this->audit->hashPayload(['type' => SubjectType::PF->value]),
+            ));
+
+            return $subject;
+        });
+    }
+
+    private function createPfProfile(string $subjectId, RegisterPfSubjectInput $input): void
+    {
+        PfProfile::create([
+            'tax_subject_id' => $subjectId,
+            'first_name_ciphertext' => $input->firstName,
+            'last_name_ciphertext' => $input->lastName,
+            'birth_date_ciphertext' => $input->birthDate,
+            'tax_residency_country' => $this->country(),
+            'county_code' => $input->countyCode,
+            'locality_ciphertext' => $input->locality,
+            'address_ciphertext' => $input->address,
+            'anaf_tax_office_code' => $input->anafTaxOfficeCode,
+        ]);
     }
 
     /**

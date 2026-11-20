@@ -9,9 +9,11 @@ use Kern\TaxRomania\Http\Controllers\Banks\ShowBankLogoController;
 use Kern\TaxRomania\Http\Controllers\Banks\ShowBankLogosController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\ApproveFiscalParameterVersionController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\DropFiscalParameterValuesController;
+use Kern\TaxRomania\Http\Controllers\FiscalParameters\ImportTaxRulesController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\ReadMinimumWagesController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\RejectFiscalParameterVersionController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\ShowFiscalParameterBoardController;
+use Kern\TaxRomania\Http\Controllers\FiscalParameters\ShowTaxRuleSyncController;
 use Kern\TaxRomania\Http\Controllers\FiscalParameters\StartFiscalYearController;
 use Kern\TaxRomania\Http\Controllers\Fx\ShowCurrencyCatalogueController;
 use Kern\TaxRomania\Http\Controllers\Fx\ShowFxRateHistoryController;
@@ -53,6 +55,7 @@ use Kern\TaxRomania\Http\Controllers\Subjects\InspectCnpController;
 use Kern\TaxRomania\Http\Controllers\Subjects\ListSubjectsController;
 use Kern\TaxRomania\Http\Controllers\Subjects\ReadIdCardController;
 use Kern\TaxRomania\Http\Controllers\Subjects\RegisterPfSubjectController;
+use Kern\TaxRomania\Http\Controllers\Subjects\ResetTaxSubjectController;
 use Kern\TaxRomania\Http\Controllers\Subjects\ShowIdCardReadingController;
 use Kern\TaxRomania\Http\Controllers\Subjects\ShowSubjectAvatarController;
 use Kern\TaxRomania\Http\Controllers\Subjects\ShowSubjectCountsController;
@@ -162,6 +165,12 @@ Route::prefix('v1/subjects/{subject}')->middleware(['auth:web', 'tax-subject'])-
      * these rows only exist relative to one subject and the `tax-subject` middleware binds it
      * before any query runs.
      */
+    // Empty the taxpayer back to nothing (owner-only). In this group, not beside the status change,
+    // because it acts *within* the tenant: the wipe runs tenant-scoped queries that need the binding.
+    // Irreversible and destructive, so rate-limited per person — a hijacked session cannot wipe
+    // taxpayer after taxpayer in a burst. The screen's type-to-confirm dialog is the other guard.
+    Route::post('reset', ResetTaxSubjectController::class)->middleware('throttle:10,1');
+
     Route::get('wallet/overview', ShowWalletOverviewController::class);
     // A year read three ways — by tag, by bank, by category. Never a tax figure: what is owed comes
     // from the tax engine's versioned rules, not from a person's own labels.
@@ -369,7 +378,12 @@ Route::prefix('v1/fx')->middleware('auth:web')->group(function (): void {
 Route::prefix('v1/fiscal-parameters')->middleware('auth:web')->group(function (): void {
     Route::get('/', ShowFiscalParameterBoardController::class)->middleware('permission:fiscal.parameters.view');
 
+    // Whether the engine's rule classes are recorded in the database — readable by anyone who may read
+    // the board; importing the missing ones is an approver's act, in the group below.
+    Route::get('rules/sync', ShowTaxRuleSyncController::class)->middleware('permission:fiscal.parameters.view');
+
     Route::middleware('permission:fiscal.parameters.approve')->group(function (): void {
+        Route::post('rules/import', ImportTaxRulesController::class);
         Route::post('versions/{version}/approve', ApproveFiscalParameterVersionController::class)->whereUuid('version');
         Route::post('versions/{version}/reject', RejectFiscalParameterVersionController::class)->whereUuid('version');
         Route::post('years', StartFiscalYearController::class);

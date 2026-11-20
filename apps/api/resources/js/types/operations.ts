@@ -301,6 +301,8 @@ export interface OperationsActivity {
     available: boolean;
     moving: boolean;
     pending: number;
+    /** Jobs a worker has in hand right now (reserved) — work in flight that isn't a named task. */
+    active: number;
     failed: number;
     /**
      * How long to wait before asking again when no socket nudge came, in milliseconds — or null when
@@ -318,6 +320,7 @@ export function parseOperationsActivity(payload: unknown): OperationsActivity {
         available: bool(body, 'available'),
         moving: bool(body, 'moving'),
         pending: num(body, 'pending'),
+        active: num(body, 'active'),
         failed: num(body, 'failed'),
         // Null (idle) is kept as null — coercing it to 0 would make the screen poll as fast as it can.
         pollAfterMs: typeof body.poll_after_ms === 'number' ? body.poll_after_ms : null,
