@@ -177,8 +177,9 @@ it('refuses to reset while an import is still being written, and touches nothing
         'updated_at' => now('UTC'),
     ]);
 
-    expect(fn (): mixed => app(ResetTaxSubject::class)($subject, $user->id))
-        ->toThrow(ImportNotOpenException::class);
+    expect(function () use ($subject, $user): void {
+        app(ResetTaxSubject::class)($subject, $user->id);
+    })->toThrow(ImportNotOpenException::class);
 
     // Untouched: the account is still there and the identity is intact.
     expect(FinancialAccount::query()->where('tax_subject_id', $subject->id)->whereKey($account->id)->exists())
