@@ -1163,11 +1163,11 @@ final readonly class WalletQuery
             ->selectRaw('sum(case when deposit_terms.funding_transaction_id is null then 0 else -financial_transactions.amount_minor end) as funded')
             ->selectRaw(
                 'sum(case when financial_transactions.amount_minor < 0'
-                .' and deposit_terms.funding_transaction_id is null'
-                .' and exists (select 1 from transaction_splits'
-                .' where transaction_splits.transaction_id = financial_transactions.id'
-                .' and transaction_splits.category_code = ?)'
-                .' then -financial_transactions.amount_minor else 0 end) as transferred',
+                . ' and deposit_terms.funding_transaction_id is null'
+                . ' and exists (select 1 from transaction_splits'
+                . ' where transaction_splits.transaction_id = financial_transactions.id'
+                . ' and transaction_splits.category_code = ?)'
+                . ' then -financial_transactions.amount_minor else 0 end) as transferred',
                 [DepositMovements::TRANSFER],
             )
             ->get();
