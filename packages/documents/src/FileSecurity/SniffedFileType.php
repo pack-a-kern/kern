@@ -132,6 +132,15 @@ enum SniffedFileType: string
         return implode(',', $entries);
     }
 
+    /**
+     * The accepted types named for a person, derived from the cases so the list cannot go stale —
+     * "PDF, JPEG, PNG, CSV, XLSX, XLS". Used where a rejection has to say what would have been taken.
+     */
+    public static function humanList(): string
+    {
+        return implode(', ', array_map(static fn (self $type): string => $type->name, self::cases()));
+    }
+
     /** How many leading bytes {@link matches()} needs to decide. */
     public const int SNIFF_WINDOW_BYTES = 1024;
 
