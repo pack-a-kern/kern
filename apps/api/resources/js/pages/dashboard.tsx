@@ -9,6 +9,7 @@ import {
     FileUp,
     HandCoins,
     Hourglass,
+    Info,
     Landmark,
     Percent,
     PiggyBank,
@@ -24,17 +25,7 @@ import { getWalletOverview } from '../api/walletApi';
 import { apiRequest } from '../lib/http';
 import BankMark from '../components/wallet/BankMark';
 import { Chart } from '../components/Chart';
-import {
-    EmptyState,
-    IconBadge,
-    Kpi,
-    Page,
-    Panel,
-    PanelButton,
-    PanelNote,
-    PanelSelect,
-    Pill,
-} from '../components/panel';
+import { EmptyState, IconBadge, Kpi, Page, Panel, PanelButton, PanelSelect, Pill } from '../components/panel';
 import { Skeleton } from '../components/ui/skeleton';
 import { useRememberedState } from '../hooks/useRememberedState';
 import { useTranslation } from '../i18n';
@@ -76,7 +67,7 @@ const SWATCHES: Record<HoldingGroup['group'], string> = {
     general: 'bg-[var(--brand-300)]',
     cash: 'bg-success',
     other: 'bg-amber-500',
-    investments: 'bg-violet-500',
+    investments: 'bg-[var(--primary)]',
 };
 
 /**
@@ -102,6 +93,10 @@ export default function Dashboard(): JSX.Element {
 
     const [overview, setOverview] = useState<Overview | null>(null);
     const [failed, setFailed] = useState(false);
+    // The allocation card: which holding is in focus (null = the largest, chosen below), and whether
+    // the "how it works" note is open.
+    const [focusGroup, setFocusGroup] = useState<string | null>(null);
+    const [howOpen, setHowOpen] = useState(false);
 
     useEffect(() => {
         if (subjectId === null) {
@@ -225,6 +220,24 @@ export default function Dashboard(): JSX.Element {
     const groups = totals?.breakdown ?? [];
     const owedToMe = totals?.owedToMe;
 
+    // The holding under the spotlight: the one picked, else the largest share, so the card opens on
+    // something rather than nothing. Its reading — the deposit count, the currencies — sits beneath.
+    const largestGroup = groups.reduce<HoldingGroup | null>(
+        (best, group) => (best === null || Number(group.share) > Number(best.share) ? group : best),
+        null,
+    );
+    const focusKey = focusGroup ?? largestGroup?.group ?? null;
+    const focused = groups.find((group) => group.group === focusKey) ?? null;
+    const groupDetail = (group: HoldingGroup): string =>
+        [
+            group.group === 'deposits' && totals !== null
+                ? t((d) => d.pages.walletOverview.depositCount).replace('{count}', String(totals.depositCount))
+                : '',
+            perCurrency(group.amounts),
+        ]
+            .filter((part) => part !== '')
+            .join(' · ');
+
     return (
         <>
             <Head title={t((d) => d.dashboard.title)} />
@@ -239,8 +252,9 @@ export default function Dashboard(): JSX.Element {
                     compare themselves.
                 */}
                 <section className="border-border bg-card shadow-float overflow-hidden rounded-xl border">
-                    <div className="flex flex-col gap-5 p-5 xl:flex-row xl:gap-8">
-                        <div className="border-border overview-figure min-w-0 xl:border-r xl:pr-8">
+                    <div className="grid gap-6 p-5 lg:grid-cols-2 lg:gap-0">
+                        {/* LEFT: the figure, where it came from, and the allocation it breaks into. */}
+                        <div className="border-border flex min-w-0 flex-col lg:border-r lg:pr-6">
                             <div className="flex items-center gap-2.5">
                                 <IconBadge tone="brand">
                                     <Wallet className="size-4" />
@@ -266,9 +280,7 @@ export default function Dashboard(): JSX.Element {
                                 )}
                             </div>
 
-                            {/* Where the figure came from, as a mark rather than a sentence: a partial total
-                                is a different kind of number from a complete one, and that reads faster as a
-                                state than as prose a reader has to finish. */}
+                            {/* Where the figure came from, as a mark rather than a sentence. */}
                             {totals === null ? null : (
                                 <div className="mt-2.5 flex flex-wrap items-center gap-2">
                                     <Pill tone={totals.netWorth.complete ? 'accent' : 'locked'}>
@@ -282,9 +294,6 @@ export default function Dashboard(): JSX.Element {
                                 </div>
                             )}
 
-                            {/* A total below what the person has, said where it is read: an account whose
-                                records start after money was already in it sums below zero, and the day
-                                its history starts is what importing earlier statements fixes. */}
                             {totals?.recordsShortFrom == null ? null : (
                                 <p className="note mt-2">
                                     {t((d) => d.pages.walletOverview.recordsShortFrom).replace(
@@ -293,59 +302,98 @@ export default function Dashboard(): JSX.Element {
                                     )}
                                 </p>
                             )}
+
+                            {/* Allocation — the bar, pinned to the foot of the column, and the one holding
+                                in focus read out beneath it. The bar dims every share but the focused one. */}
+                            {groups.length > 0 && (
+                                <div className="mt-6 lg:mt-auto lg:pt-6">
+                                    <div className="mb-2.5 flex items-center justify-between gap-2">
+                                        <span className="text-xs font-semibold">
+                                            {t((d) => d.pages.walletOverview.allocation)}
+                                        </span>
+                                        <span className="note">{t((d) => d.pages.walletOverview.allocationOf)}</span>
+                                    </div>
+
+                                    <div
+                                        className="bg-muted relative flex h-1.5 w-full gap-0.5 overflow-hidden rounded-full"
+                                        aria-hidden="true"
+                                    >
+                                        {groups.map((group) =>
+                                            Number(group.share) === 0 ? null : (
+                                                <div
+                                                    key={group.group}
+                                                    className={cn(
+                                                        'h-full min-w-0 rounded-[2px] transition-[opacity,filter] duration-200',
+                                                        SWATCHES[group.group],
+                                                        focusKey !== null && focusKey !== group.group && 'opacity-25',
+                                                        focusKey === group.group && 'brightness-110',
+                                                    )}
+                                                    style={{ width: `calc(${group.share} * 100%)` }}
+                                                />
+                                            ),
+                                        )}
+                                    </div>
+
+                                    {focused !== null && (
+                                        <div
+                                            className="border-border mt-3 flex items-center gap-2.5 rounded-lg border px-3 py-2"
+                                            aria-live="polite"
+                                        >
+                                            <span
+                                                className={cn(
+                                                    'size-2.5 shrink-0 rounded-full',
+                                                    SWATCHES[focused.group],
+                                                )}
+                                                aria-hidden="true"
+                                            />
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center justify-between gap-2 text-xs font-semibold">
+                                                    <span className="truncate">
+                                                        {t((d) => d.pages.walletOverview[focused.group])}
+                                                    </span>
+                                                    <span className="shrink-0 tabular-nums">
+                                                        {percent(Number(focused.share))} · {holdingValue(focused)}
+                                                    </span>
+                                                </div>
+                                                {groupDetail(focused) === '' ? null : (
+                                                    <div className="note mt-0.5 truncate">{groupDetail(focused)}</div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
-                        <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-2">
+                        {/* RIGHT: a tile per holding; picking one puts it in focus on the left. */}
+                        <div className="min-w-0 lg:pl-6">
+                            <div className="mb-3 flex items-center justify-between gap-2">
                                 <div className="panel-title">{t((d) => d.pages.walletOverview.whereItSits)}</div>
-                                <span className="note">{t((d) => d.pages.walletOverview.allocationOf)}</span>
+                                <span className="note">{t((d) => d.pages.walletOverview.selectCategory)}</span>
                             </div>
 
-                            <div
-                                className="bg-muted mt-3.5 flex h-1.5 gap-0.5 overflow-hidden rounded-full"
-                                aria-hidden="true"
-                            >
-                                {groups.map((group) =>
-                                    Number(group.share) === 0 ? null : (
-                                        <div
-                                            key={group.group}
-                                            className={cn('h-full', SWATCHES[group.group])}
-                                            style={{ width: `calc(${group.share} * 100%)` }}
-                                        />
-                                    ),
-                                )}
-                            </div>
-
-                            <dl className="divide-border mt-3 divide-y">
+                            <div className="grid grid-cols-2 gap-2.5">
                                 {groups.map((group) => {
-                                    /* What the share is not: the deposit count and the per-currency split
-                                       are the holding read out, and they belong under the name rather than
-                                       in the line that identifies it. */
-                                    const detail = [
-                                        group.group === 'deposits' && totals !== null
-                                            ? t((d) => d.pages.walletOverview.depositCount).replace(
-                                                  '{count}',
-                                                  String(totals.depositCount),
-                                              )
-                                            : '',
-                                        perCurrency(group.amounts),
-                                    ]
-                                        .filter((part) => part !== '')
-                                        .join(' · ');
+                                    const active = focusKey === group.group;
+                                    const zero = Number(group.share) === 0;
 
                                     return (
-                                        <div
+                                        <button
                                             key={group.group}
-                                            className="flex items-baseline justify-between gap-x-4 py-2.5 first:pt-0 last:pb-0"
+                                            type="button"
+                                            aria-pressed={active}
+                                            onClick={() => {
+                                                setFocusGroup(group.group);
+                                            }}
+                                            className={cn(
+                                                'group border-border bg-card rounded-xl border p-3 text-left transition',
+                                                'hover:border-accent-400 hover:-translate-y-px',
+                                                'focus-visible:ring-accent-500/40 focus-visible:ring-2 focus-visible:outline-none',
+                                                active && 'border-accent-500 bg-accent/30',
+                                            )}
                                         >
-                                            {/* Two lines at every width. The first says which holding and how
-                                                much of the total it is, with the amount against the right edge;
-                                                the reading sits under it. All of it inline made a line too long
-                                                to fit beside the amount even on a desktop, so the amount wrapped
-                                                onto a line of its own at the left — the one place a figure should
-                                                never be. */}
-                                            <dt className="flex min-w-0 flex-col gap-y-1 text-xs font-medium">
-                                                <span className="flex min-w-0 items-center gap-2">
+                                            <div className="flex items-center justify-between gap-1.5">
+                                                <span className="flex min-w-0 items-center gap-2 text-xs font-semibold">
                                                     <span
                                                         className={cn(
                                                             'size-2 shrink-0 rounded-full',
@@ -355,34 +403,55 @@ export default function Dashboard(): JSX.Element {
                                                     <span className="truncate">
                                                         {t((d) => d.pages.walletOverview[group.group])}
                                                     </span>
-                                                    {/* The share as a mark, not as the first of three
-                                                        full stops' worth of text: it is the one number here
-                                                        that is about the whole rather than this holding. */}
-                                                    <Pill tone="neutral" className="shrink-0 tabular-nums">
-                                                        {percent(Number(group.share))}
-                                                    </Pill>
                                                 </span>
-                                                {detail === '' ? null : (
-                                                    /* Indented by the dot and its gap, so the reading
-                                                       starts where the name above it does. Not on a
-                                                       phone: there the row is the name, its share and
-                                                       its amount, and the breakdown is a line too many. */
-                                                    <span className="note hidden pl-4 sm:block">{detail}</span>
+                                                <span className="note shrink-0 font-semibold tabular-nums">
+                                                    {percent(Number(group.share))}
+                                                </span>
+                                            </div>
+                                            <div
+                                                className={cn(
+                                                    'mt-3 text-base font-bold tabular-nums',
+                                                    zero && 'text-muted-foreground',
                                                 )}
-                                            </dt>
-                                            <dd className="shrink-0 text-sm font-semibold tabular-nums">
+                                            >
                                                 {holdingValue(group)}
-                                            </dd>
-                                        </div>
+                                            </div>
+                                            {groupDetail(group) === '' ? null : (
+                                                <div className="note mt-1 truncate">{groupDetail(group)}</div>
+                                            )}
+                                        </button>
                                     );
                                 })}
-                            </dl>
+                            </div>
                         </div>
                     </div>
 
-                    {/* The same footnote the permission matrix wears: it qualifies every figure above it,
-                        not the one it happens to sit under. */}
-                    <PanelNote>{t((d) => d.pages.walletOverview.generalNote)}</PanelNote>
+                    {/* FOOT: how the figure is reached, a sentence away behind a toggle. */}
+                    <div className="border-border bg-muted/30 border-t px-5 py-3">
+                        <div className="flex items-center justify-between gap-3">
+                            <span className="note flex items-center gap-2">
+                                <Info className="size-3.5 shrink-0" aria-hidden="true" />
+                                {t((d) => d.pages.walletOverview.howTitle)}
+                            </span>
+                            <button
+                                type="button"
+                                aria-expanded={howOpen}
+                                onClick={() => {
+                                    setHowOpen((open) => !open);
+                                }}
+                                className="text-accent-700 dark:text-accent-400 shrink-0 text-xs font-semibold hover:underline"
+                            >
+                                {howOpen
+                                    ? t((d) => d.pages.walletOverview.howHide)
+                                    : t((d) => d.pages.walletOverview.howItWorks)}
+                            </button>
+                        </div>
+                        {howOpen && (
+                            <p className="note border-border mt-2.5 max-w-prose border-t pt-2.5">
+                                {t((d) => d.pages.walletOverview.generalNote)}
+                            </p>
+                        )}
+                    </div>
                 </section>
 
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(13rem,1fr))] gap-3">

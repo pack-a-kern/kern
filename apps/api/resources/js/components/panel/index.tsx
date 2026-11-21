@@ -180,17 +180,23 @@ export function EmptyState(props: {
     title: string;
     description?: string;
     action?: ReactNode;
+    /** A quieter line under the action — a caveat, a shortcut, a "nothing to do here yet". */
+    note?: string;
 }): JSX.Element {
     return (
-        <div className="flex flex-col items-center px-6 py-12 text-center">
-            <div className="bg-secondary text-muted-foreground grid size-11 place-items-center rounded-2xl">
-                {props.icon}
+        <div className="empty-state">
+            {/* Decorative: the title carries the meaning. A tile holding the icon, tipped a touch over a
+                soft halo, with two sparks — it straightens when the block is hovered. */}
+            <div className="empty-state-art" aria-hidden="true">
+                <span className="empty-state-halo" />
+                <span className="empty-state-tile">{props.icon}</span>
+                <span className="empty-state-spark empty-state-spark-a" />
+                <span className="empty-state-spark empty-state-spark-b" />
             </div>
-            <p className="mt-3 text-sm font-semibold">{props.title}</p>
-            {props.description !== undefined && (
-                <p className="text-muted-foreground mt-1 max-w-sm text-xs leading-5">{props.description}</p>
-            )}
-            {props.action !== undefined && <div className="mt-4">{props.action}</div>}
+            <p className="empty-state-title">{props.title}</p>
+            {props.description !== undefined && <p className="empty-state-description">{props.description}</p>}
+            {props.action !== undefined && <div className="empty-state-action">{props.action}</div>}
+            {props.note !== undefined && <p className="empty-state-note">{props.note}</p>}
         </div>
     );
 }
@@ -1068,8 +1074,8 @@ export function PanelDialog(props: {
     onOpenChange: (open: boolean) => void;
     title: string;
     description?: string;
-    /** `md` by default; `lg` for a form with two columns of fields. */
-    size?: 'sm' | 'md' | 'lg';
+    /** `md` by default; `lg` for a form with two columns of fields, `xl` wider still. */
+    size?: 'sm' | 'md' | 'lg' | 'xl';
     children: ReactNode;
     actions: ReactNode;
     /**

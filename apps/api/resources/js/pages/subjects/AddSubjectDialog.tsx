@@ -7,7 +7,6 @@ import {
     CheckCircle2,
     GlobeIcon,
     IdCardIcon,
-    Loader2,
     Lock,
     MapPinIcon,
     Plus,
@@ -79,6 +78,9 @@ export default function AddSubjectDialog(props: {
      */
     const [consent, setConsent] = useState(false);
     const [scan, setScan] = useState<ScanState>('idle');
+    // The two stages of a read we actually know about: the photo going up, then the wait for the
+    // answer. Not faked OCR progress — just the real client-side state, so the label tells the truth.
+    const [readPhase, setReadPhase] = useState<'uploading' | 'reading'>('uploading');
     const [cardUrl, setCardUrl] = useState<string | null>(null);
     const [faceBox, setFaceBox] = useState<IdCardFaceBox | null>(null);
     const [avatarBlob, setAvatarBlob] = useState<Blob | null>(null);
@@ -155,6 +157,7 @@ export default function AddSubjectDialog(props: {
         const url = URL.createObjectURL(file);
         cardUrlRef.current = url;
         setCardUrl(url);
+        setReadPhase('uploading');
         setScan('reading');
         errors.reset();
 
@@ -174,6 +177,8 @@ export default function AddSubjectDialog(props: {
             return;
         }
 
+        // The photo is up; now the wait is for the provider's answer. The label moves on to match.
+        setReadPhase('reading');
         awaitingToken.current = token;
 
         // The socket is the normal path; this is the backstop for a nudge that never arrives.
@@ -301,6 +306,7 @@ export default function AddSubjectDialog(props: {
         setFaceBox(null);
         setAvatarBlob(null);
         setStash(null);
+        setReadPhase('uploading');
         setScan('idle');
     };
 
@@ -309,53 +315,107 @@ export default function AddSubjectDialog(props: {
     let scanArea: JSX.Element;
 
     if (scan === 'reading') {
+        // The chosen card on a dark scanner bed, framed by corner brackets with a light passing over
+        // it, under a line that names the real stage — the photo going up, then the wait for the
+        // answer. The image is the one already in the browser; nothing is fetched to draw this.
         scanArea = (
-            <p className="idcard-status idcard-status--busy">
-                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                {t((d) => d.pages.settingsSubjects.idCard.reading)}
-            </p>
+            <div className="idcard-reading">
+                <div className="idcard-visual">
+                    <span className="idcard-visual-tag">
+                        <ScanLine className="size-3" aria-hidden="true" />
+                        {t((d) => d.pages.settingsSubjects.idCard.scanTag)}
+                    </span>
+                    <div className="idcard-visual-photo">
+                        {cardUrl !== null && <img src={cardUrl} alt="" />}
+                        <span className="idcard-sweep" aria-hidden="true" />
+                        <span className="idcard-corner idcard-corner-tl" aria-hidden="true" />
+                        <span className="idcard-corner idcard-corner-tr" aria-hidden="true" />
+                        <span className="idcard-corner idcard-corner-bl" aria-hidden="true" />
+                        <span className="idcard-corner idcard-corner-br" aria-hidden="true" />
+                    </div>
+                </div>
+                <div className="idcard-rail" aria-hidden="true">
+                    <span />
+                </div>
+                <p className="idcard-meta" role="status" aria-live="polite">
+                    <span className="idcard-meta-dot" aria-hidden="true" />
+                    {readPhase === 'uploading'
+                        ? t((d) => d.pages.settingsSubjects.idCard.uploading)
+                        : t((d) => d.pages.settingsSubjects.idCard.reading)}
+                </p>
+            </div>
         );
     } else if (scan === 'done') {
         scanArea = (
-            <div className="idcard-done">
-                <p className="idcard-status idcard-status--ok">
-                    <CheckCircle2 className="size-4" aria-hidden="true" />
-                    <span className="flex-1">{t((d) => d.pages.settingsSubjects.idCard.scanned)}</span>
-                </p>
-                <PanelButton
-                    variant="outline"
-                    inline
-                    onClick={() => {
-                        resetScan();
-                    }}
-                >
-                    <Upload className="size-3.5" aria-hidden="true" />
-                    {t((d) => d.pages.settingsSubjects.idCard.scanAgain)}
-                </PanelButton>
+            <div className="idcard-review">
+                {cardUrl !== null && <img src={cardUrl} alt="" className="idcard-review-thumb" />}
+                <div className="idcard-review-body">
+                    <p className="idcard-review-title">
+                        <CheckCircle2 className="idcard-review-check size-4" aria-hidden="true" />
+                        {t((d) => d.pages.settingsSubjects.idCard.reviewTitle)}
+                    </p>
+                    <p className="note">{t((d) => d.pages.settingsSubjects.idCard.reviewReady)}</p>
+                    <div className="idcard-review-actions">
+                        <PanelButton
+                            primary
+                            inline
+                            disabled={checking}
+                            onClick={() => {
+                                void checkCnp();
+                            }}
+                        >
+                            <ArrowRight className="size-3.5" aria-hidden="true" />
+                            {checking
+                                ? t((d) => d.pages.settingsSubjects.checkingCnp)
+                                : t((d) => d.pages.settingsSubjects.idCard.reviewAction)}
+                        </PanelButton>
+                        <PanelButton
+                            variant="outline"
+                            inline
+                            onClick={() => {
+                                resetScan();
+                            }}
+                        >
+                            <Upload className="size-3.5" aria-hidden="true" />
+                            {t((d) => d.pages.settingsSubjects.idCard.scanAgain)}
+                        </PanelButton>
+                    </div>
+                </div>
             </div>
         );
-    } else if (consent) {
-        scanArea = (
-            <FileDrop
-                id="idcard-scan-file"
-                compact
-                accept={['.jpg', '.jpeg', '.png']}
-                title={t((d) => d.pages.settingsSubjects.idCard.dropTitle)}
-                choose={t((d) => d.pages.settingsSubjects.idCard.choose)}
-                onFiles={(files) => {
-                    const file = files[0];
-
-                    if (file !== undefined) {
-                        void onCardChosen(file);
-                    }
-                }}
-            />
-        );
     } else {
+        // Idle, or after a failed read: one card. The drop zone sits faded and inert until the box
+        // along its foot is ticked — the agreement and the thing it unlocks in the same place, rather
+        // than a separate "agree first" placeholder standing in for the drop.
         scanArea = (
-            <div className="idcard-locked">
-                <Lock className="size-5" aria-hidden="true" />
-                <span>{t((d) => d.pages.settingsSubjects.idCard.enable)}</span>
+            <div className="idcard-scan-card">
+                <div className="idcard-drop-gate" data-locked={consent ? undefined : ''} inert={!consent}>
+                    <FileDrop
+                        id="idcard-scan-file"
+                        compact
+                        accept={['.jpg', '.jpeg', '.png']}
+                        title={t((d) => d.pages.settingsSubjects.idCard.dropTitle)}
+                        choose={t((d) => d.pages.settingsSubjects.idCard.choose)}
+                        onFiles={(files) => {
+                            const file = files[0];
+
+                            if (file !== undefined) {
+                                void onCardChosen(file);
+                            }
+                        }}
+                    />
+                </div>
+                <label className="idcard-consent" data-on={consent ? '' : undefined} htmlFor="idcard-consent">
+                    <Checkbox
+                        id="idcard-consent"
+                        checked={consent}
+                        className="mt-0.5"
+                        onCheckedChange={(value) => {
+                            setConsent(value === true);
+                        }}
+                    />
+                    <span>{t((d) => d.pages.settingsSubjects.idCard.consent)}</span>
+                </label>
             </div>
         );
     }
@@ -364,7 +424,7 @@ export default function AddSubjectDialog(props: {
         <PanelDialog
             open={props.open}
             onOpenChange={props.onOpenChange}
-            size="lg"
+            size="xl"
             title={t((d) => d.pages.settingsSubjects.addTitle)}
             description={t((d) => d.pages.settingsSubjects.addHint)}
             actions={
@@ -396,83 +456,96 @@ export default function AddSubjectDialog(props: {
             }
         >
             {details === null ? (
-                <div className="space-y-3">
-                    <div className="idcard-scan">
-                        <div className="idcard-scan-head">
-                            <span className="idcard-scan-badge" aria-hidden="true">
-                                <ScanLine className="size-4" />
-                            </span>
-                            <div className="min-w-0">
-                                <p className="idcard-scan-title">{t((d) => d.pages.settingsSubjects.idCard.title)}</p>
-                                <p className="note">{t((d) => d.pages.settingsSubjects.idCard.hint)}</p>
-                            </div>
+                <>
+                    <div className="idcard-methods">
+                        {/* Scan a card. */}
+                        <section className="idcard-method">
+                            <header className="idcard-method-head">
+                                <span className="idcard-method-icon" aria-hidden="true">
+                                    <ScanLine className="size-[18px]" />
+                                </span>
+                                <div className="min-w-0">
+                                    <p className="idcard-method-title">
+                                        {t((d) => d.pages.settingsSubjects.idCard.title)}
+                                    </p>
+                                    <p className="idcard-method-sub">
+                                        {t((d) => d.pages.settingsSubjects.idCard.scanSubtitle)}
+                                    </p>
+                                </div>
+                            </header>
+
+                            {scanArea}
+
+                            {scan === 'failed' && (
+                                <p className="idcard-status idcard-status--bad">
+                                    <AlertTriangle className="size-4" aria-hidden="true" />
+                                    {t((d) => d.pages.settingsSubjects.idCard.readFailed)}
+                                </p>
+                            )}
+                        </section>
+
+                        <div className="idcard-divider" aria-hidden="true">
+                            <span>{t((d) => d.pages.settingsSubjects.idCard.divider)}</span>
                         </div>
 
-                        <label className="idcard-consent" data-on={consent ? '' : undefined} htmlFor="idcard-consent">
-                            <Checkbox
-                                id="idcard-consent"
-                                checked={consent}
-                                className="mt-0.5"
-                                onCheckedChange={(value) => {
-                                    setConsent(value === true);
-                                }}
-                            />
-                            <span>{t((d) => d.pages.settingsSubjects.idCard.consent)}</span>
-                        </label>
+                        {/* Or type the number. */}
+                        <section className="idcard-method">
+                            <header className="idcard-method-head">
+                                <span className="idcard-method-icon" aria-hidden="true">
+                                    <IdCardIcon className="size-[18px]" />
+                                </span>
+                                <div className="min-w-0">
+                                    <p className="idcard-method-title">
+                                        {t((d) => d.pages.settingsSubjects.idCard.manualTitle)}
+                                    </p>
+                                    <p className="idcard-method-sub">
+                                        {t((d) => d.pages.settingsSubjects.idCard.manualSubtitle)}
+                                    </p>
+                                </div>
+                            </header>
 
-                        {scanArea}
+                            <div className="idcard-manual">
+                                <Field label={t((d) => d.pages.settingsSubjects.fields.cnp)} error={errors.get('cnp')}>
+                                    <PanelInput
+                                        icon={<IdCardIcon className="size-3.5" />}
+                                        inputMode="numeric"
+                                        autoComplete="off"
+                                        value={form.cnp}
+                                        // While a card is being read, the CNP it will fill is not the
+                                        // person's to type over: the field waits rather than racing it.
+                                        disabled={scan === 'reading'}
+                                        onChange={(event) => {
+                                            set('cnp')(event.target.value);
+                                        }}
+                                        onKeyDown={(event) => {
+                                            if (event.key === 'Enter' && form.cnp !== '' && scan !== 'reading') {
+                                                event.preventDefault();
+                                                void checkCnp();
+                                            }
+                                        }}
+                                    />
+                                </Field>
 
-                        {scan === 'failed' && (
-                            <p className="idcard-status idcard-status--bad">
-                                <AlertTriangle className="size-4" aria-hidden="true" />
-                                {t((d) => d.pages.settingsSubjects.idCard.readFailed)}
-                            </p>
-                        )}
+                                <p className="note">{t((d) => d.pages.settingsSubjects.idCard.manualHint)}</p>
+
+                                <PanelButton
+                                    primary
+                                    inline
+                                    className="self-start"
+                                    disabled={form.cnp === '' || checking || scan === 'reading'}
+                                    onClick={() => {
+                                        void checkCnp();
+                                    }}
+                                >
+                                    <ArrowRight className="size-3.5" aria-hidden="true" />
+                                    {checking
+                                        ? t((d) => d.pages.settingsSubjects.checkingCnp)
+                                        : t((d) => d.pages.settingsSubjects.continueLabel)}
+                                </PanelButton>
+                            </div>
+                        </section>
                     </div>
-
-                    <div className="idcard-or">
-                        <span>{t((d) => d.pages.settingsSubjects.idCard.or)}</span>
-                    </div>
-
-                    <Field
-                        label={t((d) => d.pages.settingsSubjects.fields.cnp)}
-                        hint={t((d) => d.pages.settingsSubjects.fields.cnpHint)}
-                        error={errors.get('cnp')}
-                    >
-                        <PanelInput
-                            icon={<IdCardIcon className="size-3.5" />}
-                            inputMode="numeric"
-                            autoComplete="off"
-                            value={form.cnp}
-                            // While a card is being read, the CNP it will fill is not the person's to type
-                            // over: the field waits for the answer rather than racing it.
-                            disabled={scan === 'reading'}
-                            onChange={(event) => {
-                                set('cnp')(event.target.value);
-                            }}
-                            onKeyDown={(event) => {
-                                if (event.key === 'Enter' && form.cnp !== '' && scan !== 'reading') {
-                                    event.preventDefault();
-                                    void checkCnp();
-                                }
-                            }}
-                        />
-                    </Field>
-
-                    <PanelButton
-                        primary
-                        inline
-                        disabled={form.cnp === '' || checking || scan === 'reading'}
-                        onClick={() => {
-                            void checkCnp();
-                        }}
-                    >
-                        <ArrowRight className="size-3.5" aria-hidden="true" />
-                        {checking
-                            ? t((d) => d.pages.settingsSubjects.checkingCnp)
-                            : t((d) => d.pages.settingsSubjects.continueLabel)}
-                    </PanelButton>
-                </div>
+                </>
             ) : (
                 <FieldGrid>
                     {cardUrl !== null && (
@@ -536,10 +609,7 @@ export default function AddSubjectDialog(props: {
                             icon={<IdCardIcon className="size-3.5" />}
                             value={form.cnp}
                             readOnly
-                            disabled
-                            onChange={() => {
-                                // Settled in the first step.
-                            }}
+                            affix={<Lock className="size-3" />}
                         />
                     </Field>
 
@@ -551,10 +621,7 @@ export default function AddSubjectDialog(props: {
                             icon={<CalendarIcon className="size-3.5" />}
                             value={form.birthDate}
                             readOnly
-                            disabled
-                            onChange={() => {
-                                // Derived from the CNP.
-                            }}
+                            affix={<Lock className="size-3" />}
                         />
                     </Field>
 
@@ -567,11 +634,7 @@ export default function AddSubjectDialog(props: {
                             icon={<GlobeIcon className="size-3.5" />}
                             value={COUNTRY}
                             readOnly
-                            disabled
-                            onChange={() => {
-                                // A disabled field emits nothing; this exists only to satisfy React's
-                                // controlled-input contract.
-                            }}
+                            affix={<Lock className="size-3" />}
                         />
                     </Field>
 
@@ -619,7 +682,10 @@ export default function AddSubjectDialog(props: {
                 </FieldGrid>
             )}
 
-            <p className="note mt-3">{t((d) => d.pages.settingsSubjects.privacyNote)}</p>
+            <div className="idcard-footerinfo">
+                <Lock className="size-3.5 shrink-0" aria-hidden="true" />
+                <span>{t((d) => d.pages.settingsSubjects.privacyNote)}</span>
+            </div>
         </PanelDialog>
     );
 }

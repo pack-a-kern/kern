@@ -35,6 +35,8 @@ export interface Instrument {
     latestPrice: { price: string; tradingDate: string | null } | null;
     /** How far off a maturity still to come is, as the server counts it; null for none, or one past. */
     maturesIn: Span | null;
+    /** The issuer's logo, cached from its BVB page; null when none is on file. */
+    logoUrl: string | null;
 }
 
 /** A stretch of time the server counted: 3 years, 5 months. */
@@ -70,6 +72,8 @@ export interface InstrumentDetail extends Instrument {
     latestChange: { percent: string; trend: 'UP' | 'DOWN' | 'FLAT' } | null;
     /** The order a government bond's terms were read from: a law on the legislation page. */
     termsDocumentId: string | null;
+    /** The instrument's own page on BVB, to open in a new tab; null for one not listed there. */
+    bvbUrl: string | null;
     /** How many payments its list holds, the next still to come and the last paid — the list itself is its own call. */
     payoutsCount: number;
     nextPayout: Payout | null;
@@ -147,6 +151,7 @@ export function parseInstrument(payload: unknown): Instrument {
         latestPrice:
             latest === null ? null : { price: str(latest, 'price'), tradingDate: nullableStr(latest, 'tradingDate') },
         maturesIn: row.maturesIn === null || row.maturesIn === undefined ? null : parseSpan(row.maturesIn),
+        logoUrl: nullableStr(row, 'logoUrl'),
     };
 }
 
@@ -195,6 +200,7 @@ export function parseInstrumentDetail(payload: unknown): InstrumentDetail {
                       trend: oneOf(['UP', 'DOWN', 'FLAT'] as const, change.trend, 'trend'),
                   },
         termsDocumentId: nullableStr(row, 'termsDocumentId'),
+        bvbUrl: nullableStr(row, 'bvbUrl'),
         payoutsCount: num(row, 'payoutsCount'),
         nextPayout: payout('nextPayout'),
         lastPayout: payout('lastPayout'),

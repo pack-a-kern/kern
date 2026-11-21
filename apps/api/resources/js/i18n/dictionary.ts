@@ -119,19 +119,26 @@ export interface Dictionary {
         notificationsFailed: string;
         queueActivity: {
             label: string;
+            subtitle: string;
             idle: string;
             processing: string;
             working: string;
             attention: string;
             paused: string;
             unavailable: string;
-            runningNow: string;
-            noneRunning: string;
+            idleTitle: string;
+            idleSub: string;
+            runningFor: string;
+            inProgress: string;
             queues: string;
+            queuesCount: string;
             waiting: string;
             queueIdle: string;
-            failed: string;
-            openJobs: string;
+            failedTitle: string;
+            failedSub: string;
+            review: string;
+            refreshNote: string;
+            openAllJobs: string;
         };
         /** Keyed by `resources/js/lib/palette.ts`'s registry — add a palette, `tsc` asks for these. */
         paletteNames: Record<PaletteName, string>;
@@ -663,7 +670,12 @@ export interface Dictionary {
             netWorthIncomplete: string;
             /** Its right half: the allocation, and the caption above the list. */
             whereItSits: string;
+            allocation: string;
             allocationOf: string;
+            selectCategory: string;
+            howTitle: string;
+            howItWorks: string;
+            howHide: string;
             netWorthPartial: string;
             /** General and cash together — what can be spent today. */
             available: string;
@@ -844,6 +856,9 @@ export interface Dictionary {
             /** A government bond's order, and the link that opens it among the laws. */
             order: string;
             openOrder: string;
+            /** A listed instrument's own page on BVB, and the link that opens it in a new tab. */
+            bvb: string;
+            openOnBvb: string;
             /** A coupon's period. */
             period: string;
             /** A bond's coupons, as its prospectus lays them out. */
@@ -1587,6 +1602,13 @@ export interface Dictionary {
             /** The screen with nothing on it yet: what is absent, and what pressing the button will give. */
             emptyTitle: string;
             emptyHint: string;
+            /** The empty-state detective: the case-file kicker, the idle lines it cycles, and the
+             * one line it says when the action is hovered or focused. */
+            mascotKicker: string;
+            mascotBubbleOne: string;
+            mascotBubbleTwo: string;
+            mascotBubbleThree: string;
+            mascotHover: string;
             draftHint: string;
             /** How many rule outputs the year produced, and the heading over the ring. */
             rulesApplied: string;
@@ -2211,7 +2233,6 @@ export interface Dictionary {
                 firstName: string;
                 lastName: string;
                 cnp: string;
-                cnpHint: string;
                 birthDate: string;
                 birthDateHint: string;
                 country: string;
@@ -2226,16 +2247,22 @@ export interface Dictionary {
             continueLabel: string;
             idCard: {
                 title: string;
-                hint: string;
+                scanSubtitle: string;
                 consent: string;
                 dropTitle: string;
                 choose: string;
-                enable: string;
+                scanTag: string;
+                uploading: string;
                 reading: string;
-                scanned: string;
+                reviewTitle: string;
+                reviewReady: string;
+                reviewAction: string;
                 scanAgain: string;
                 readFailed: string;
-                or: string;
+                divider: string;
+                manualTitle: string;
+                manualSubtitle: string;
+                manualHint: string;
                 avatarLabel: string;
                 avatarFailed: string;
                 adjust: string;

@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { Activity } from 'lucide-react';
+import { Activity, ArrowRight, ChevronDown, Inbox, Layers, Loader2, TriangleAlert } from 'lucide-react';
 import { useEffect, useState, type JSX } from 'react';
 
 import { getOperationsActivity } from '../api/operationsApi';
@@ -158,6 +158,11 @@ export default function QueueActivity(): JSX.Element | null {
                         </span>
                     )}
 
+                    <ChevronDown
+                        className="text-muted-foreground hidden size-3.5 shrink-0 lg:block"
+                        aria-hidden="true"
+                    />
+
                     {/* A corner dot: on a phone it carries waiting (amber) or failures (red), since the
                         chips are hidden there; from lg only failures show here, waiting being the chip above. */}
                     {data.failed > 0 ? (
@@ -173,79 +178,144 @@ export default function QueueActivity(): JSX.Element | null {
                     ) : null}
                 </button>
             </PopoverTrigger>
-            <PopoverContent align="end" collisionPadding={12} className="shell-sheet-menu w-80 p-0">
-                <div className="border-border flex items-center justify-between border-b px-3 py-2.5">
-                    <span className="text-xs font-semibold">{words.label}</span>
+            <PopoverContent align="end" collisionPadding={12} className="shell-sheet-menu w-96 p-0">
+                {/* Header: what this is, and the overall state as a pill. */}
+                <div className="flex items-start justify-between gap-3 px-4 pt-3.5 pb-3">
+                    <div className="min-w-0">
+                        <p className="text-sm font-semibold">{words.label}</p>
+                        <p className="text-2xs text-muted-foreground mt-0.5">{words.subtitle}</p>
+                    </div>
                     <span
-                        className={`text-2xs inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-semibold ${status.chip}`}
+                        className={`text-2xs inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1 font-semibold ${status.chip}`}
                     >
                         <span className={`size-1.5 rounded-full ${status.chipDot}`} aria-hidden="true" />
                         {status.text}
                     </span>
                 </div>
 
-                <div className="border-border border-b px-3 py-2.5">
-                    <p className="text-2xs text-muted-foreground mb-2 font-semibold tracking-wide uppercase">
-                        {words.runningNow}
-                    </p>
-                    {running.length === 0 ? (
-                        <p className="text-muted-foreground text-xs">{words.noneRunning}</p>
+                {/* The thing in flight — or the statement that nothing is. */}
+                <div className="px-3 pb-3">
+                    {running.length === 0 && data.active === 0 ? (
+                        <div className="bg-muted/60 flex items-center gap-3 rounded-xl p-3">
+                            <span className="border-border bg-card text-muted-foreground grid size-8 shrink-0 place-items-center rounded-lg border">
+                                <Inbox className="size-4" aria-hidden="true" />
+                            </span>
+                            <div className="min-w-0">
+                                <p className="text-xs font-semibold">{words.idleTitle}</p>
+                                <p className="text-2xs text-muted-foreground mt-0.5">{words.idleSub}</p>
+                            </div>
+                        </div>
+                    ) : running.length === 0 ? (
+                        <div className="bg-muted/60 flex items-center gap-3 rounded-xl p-3">
+                            <span className="border-border bg-card grid size-8 shrink-0 place-items-center rounded-lg border text-emerald-600 dark:text-emerald-400">
+                                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                            </span>
+                            <div className="min-w-0">
+                                <p className="text-xs font-semibold">{words.processing}</p>
+                                <p className="text-2xs text-muted-foreground mt-0.5">
+                                    {words.inProgress.replace('{count}', String(data.active))}
+                                </p>
+                            </div>
+                        </div>
                     ) : (
                         <ul className="space-y-1.5">
                             {running.map((run) => (
-                                <li key={run.key} className="flex items-center gap-2 text-xs">
-                                    <span className="relative flex size-2 shrink-0" aria-hidden="true">
-                                        <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500/60" />
-                                        <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+                                <li key={run.key} className="bg-muted/60 flex items-center gap-3 rounded-xl p-3">
+                                    <span className="border-border bg-card grid size-8 shrink-0 place-items-center rounded-lg border text-emerald-600 dark:text-emerald-400">
+                                        <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                                     </span>
-                                    <span className="truncate font-medium">{taskName(run.key)}</span>
-                                    <span className="text-2xs text-muted-foreground ml-auto tabular-nums">
-                                        {since(run.since)}
-                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-xs font-semibold">{taskName(run.key)}</p>
+                                        <p className="text-2xs text-muted-foreground mt-0.5">
+                                            {words.runningFor.replace('{time}', since(run.since))}
+                                        </p>
+                                    </div>
                                 </li>
                             ))}
                         </ul>
                     )}
                 </div>
 
-                <div className="px-3 py-2.5">
-                    <p className="text-2xs text-muted-foreground mb-2 font-semibold tracking-wide uppercase">
-                        {words.queues}
-                    </p>
-                    <ul className="space-y-1.5">
-                        {data.queues.map((queue) => (
-                            <li key={queue.name} className="flex items-center justify-between gap-2 text-xs">
-                                <span className="text-2xs font-mono">{queue.name}</span>
-                                {queue.waiting > 0 ? (
-                                    <span className="text-2xs rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-700 tabular-nums dark:bg-amber-500/15 dark:text-amber-400">
-                                        {queue.waiting} {words.waiting}
+                {/* Queues — one row each, with what each is holding. */}
+                {data.queues.length > 0 && (
+                    <div className="border-border border-t px-3 pt-3 pb-2">
+                        <div className="flex items-center justify-between px-1 pb-1.5">
+                            <span className="text-2xs text-muted-foreground font-bold tracking-wider uppercase">
+                                {words.queues}
+                            </span>
+                            <span className="text-2xs text-muted-foreground tabular-nums">
+                                {words.queuesCount.replace('{count}', String(data.queues.length))}
+                            </span>
+                        </div>
+                        <ul className="space-y-0.5">
+                            {data.queues.map((queue) => (
+                                <li
+                                    key={queue.name}
+                                    className="hover:bg-muted flex items-center justify-between gap-2 rounded-lg px-2 py-1.5"
+                                >
+                                    <span className="flex min-w-0 items-center gap-2">
+                                        <span className="bg-muted text-muted-foreground grid size-6 shrink-0 place-items-center rounded-md">
+                                            <Layers className="size-3" aria-hidden="true" />
+                                        </span>
+                                        <span className="text-2xs truncate font-mono">{queue.name}</span>
                                     </span>
-                                ) : (
-                                    <span className="text-2xs text-muted-foreground rounded-full px-2 py-0.5">
-                                        {words.queueIdle}
-                                    </span>
-                                )}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
+                                    {queue.waiting > 0 ? (
+                                        <span className="text-2xs shrink-0 rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-700 tabular-nums dark:bg-amber-500/15 dark:text-amber-400">
+                                            {queue.waiting} {words.waiting}
+                                        </span>
+                                    ) : (
+                                        <span className="text-2xs border-border text-muted-foreground shrink-0 rounded-full border px-2 py-0.5">
+                                            {words.queueIdle}
+                                        </span>
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
 
+                {/* Failures — a panel that invites a look, not a bare count. */}
                 {data.failed > 0 && (
+                    <div className="border-border border-t p-3">
+                        <div className="flex items-center gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-500/25 dark:bg-red-500/10">
+                            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">
+                                <TriangleAlert className="size-4" aria-hidden="true" />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold text-red-700 tabular-nums dark:text-red-400">
+                                    {words.failedTitle.replace('{count}', String(data.failed))}
+                                </p>
+                                <p className="text-2xs mt-0.5 text-red-600/80 dark:text-red-400/70">
+                                    {words.failedSub}
+                                </p>
+                            </div>
+                            <Link
+                                href="/admin/jobs"
+                                onClick={() => {
+                                    setOpen(false);
+                                }}
+                                className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-500/15"
+                            >
+                                {words.review} →
+                            </Link>
+                        </div>
+                    </div>
+                )}
+
+                {/* Footer: the refresh note, and the way to the full jobs screen. */}
+                <div className="border-border bg-muted/30 flex items-center justify-between gap-2 border-t px-4 py-2.5">
+                    <span className="text-2xs text-muted-foreground">{words.refreshNote}</span>
                     <Link
                         href="/admin/jobs"
                         onClick={() => {
                             setOpen(false);
                         }}
-                        className="border-border bg-muted/40 text-muted-foreground hover:text-foreground flex items-center gap-2 border-t px-3 py-2 text-xs"
+                        className="text-accent-700 dark:text-accent-400 inline-flex items-center gap-1 text-xs font-semibold hover:underline"
                     >
-                        <span className="size-1.5 shrink-0 rounded-full bg-red-500" aria-hidden="true" />
-                        <span className="font-semibold text-red-600 tabular-nums dark:text-red-400">{data.failed}</span>
-                        <span>{words.failed}</span>
-                        <span className="text-accent-600 dark:text-accent-400 ml-auto font-semibold">
-                            {words.openJobs}
-                        </span>
+                        {words.openAllJobs}
+                        <ArrowRight className="size-3.5" aria-hidden="true" />
                     </Link>
-                )}
+                </div>
             </PopoverContent>
         </Popover>
     );

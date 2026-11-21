@@ -22,6 +22,7 @@ import {
     Percent,
     RefreshCw,
     Scale,
+    SquareArrowOutUpRight,
     TrendingDown,
     Tag,
     TrendingUp,
@@ -246,6 +247,24 @@ export default function InstrumentPage({ instrumentId }: { instrumentId: string 
                                                   >
                                                       {words.openOrder}
                                                   </Link>
+                                              ),
+                                          },
+                                    // A share has no order to point at; a listed instrument has its page on
+                                    // BVB instead — opened in a new tab, since it leaves the app.
+                                    instrument.bvbUrl === null
+                                        ? null
+                                        : {
+                                              icon: SquareArrowOutUpRight,
+                                              label: words.bvb,
+                                              value: (
+                                                  <a
+                                                      href={instrument.bvbUrl}
+                                                      target="_blank"
+                                                      rel="noopener noreferrer"
+                                                      className="text-info"
+                                                  >
+                                                      {words.openOnBvb}
+                                                  </a>
                                               ),
                                           },
                                 ]}

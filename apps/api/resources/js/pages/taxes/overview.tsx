@@ -26,7 +26,8 @@ import {
     DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
-import { EmptyState, IconBadge, Kpi, Page, Panel, PanelButton, PanelSelect } from '../../components/panel';
+import { IconBadge, Kpi, Page, Panel, PanelButton, PanelSelect } from '../../components/panel';
+import { TaxMascotEmpty } from '../../components/TaxMascot';
 import { useRememberedState } from '../../hooks/useRememberedState';
 import { useTranslation } from '../../i18n';
 import { reportApiFailure } from '../../lib/apiErrors';
@@ -583,10 +584,16 @@ export default function TaxesOverview(): JSX.Element {
                     /* The action is inside the empty state, not only in the page's head: somebody who has
                        nothing on screen should not have to find the one control that changes that. */
                     <Panel title={t((d) => d.pages.taxes.breakdownTitle)} icon={<Receipt className="size-4" />}>
-                        <EmptyState
-                            icon={<Calculator className="size-5" />}
+                        <TaxMascotEmpty
+                            kicker={t((d) => d.pages.taxes.mascotKicker).replace('{year}', year)}
                             title={t((d) => d.pages.taxes.emptyTitle).replace('{year}', year)}
                             description={t((d) => d.pages.taxes.emptyHint)}
+                            idleLines={[
+                                t((d) => d.pages.taxes.mascotBubbleOne),
+                                t((d) => d.pages.taxes.mascotBubbleTwo),
+                                t((d) => d.pages.taxes.mascotBubbleThree),
+                            ]}
+                            hoverLine={t((d) => d.pages.taxes.mascotHover)}
                             action={
                                 <PanelButton
                                     primary

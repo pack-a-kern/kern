@@ -288,6 +288,42 @@ function KindLabel({ label, count }: { label: string; count: number | null }): J
 }
 
 /** One instrument: its name and codes, its kind, rate, maturity and latest price. */
+/**
+ * The issuer's mark beside its name: the logo cached from its BVB page when there is one, otherwise a
+ * small initials tile. The logo loads lazily and falls back to the initials if the image fails, so a
+ * row never shows a broken image.
+ */
+function IssuerMark({ instrument }: { instrument: Instrument }): JSX.Element {
+    const [failed, setFailed] = useState(false);
+    const initials =
+        (instrument.symbol ?? instrument.issuer)
+            .replace(/[^A-Za-z0-9]/g, '')
+            .slice(0, 2)
+            .toUpperCase() || '—';
+
+    if (instrument.logoUrl !== null && !failed) {
+        return (
+            <span className="market-issuer-mark">
+                <img
+                    src={instrument.logoUrl}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    onError={() => {
+                        setFailed(true);
+                    }}
+                />
+            </span>
+        );
+    }
+
+    return (
+        <span className="market-issuer-mark market-issuer-mark-fallback" aria-hidden="true">
+            {initials}
+        </span>
+    );
+}
+
 function InstrumentRow({ instrument }: { instrument: Instrument }): JSX.Element {
     const { t, locale } = useTranslation();
     const words = t((d) => d.pages.market);
@@ -297,13 +333,18 @@ function InstrumentRow({ instrument }: { instrument: Instrument }): JSX.Element 
     return (
         <tr>
             <td className="col-primary">
-                <Link href={`/investments/${instrument.id}`} className="font-semibold">
-                    {instrument.name}
-                </Link>
-                <div className="note">
-                    {codes.length === 0 ? null : <span className="mono">{codes.join(' · ')}</span>}
-                    {codes.length === 0 ? '' : ' · '}
-                    {instrument.issuer}
+                <div className="market-issuer">
+                    <IssuerMark instrument={instrument} />
+                    <div className="market-issuer-text">
+                        <Link href={`/investments/${instrument.id}`} className="font-semibold">
+                            {instrument.name}
+                        </Link>
+                        <div className="note">
+                            {codes.length === 0 ? null : <span className="mono">{codes.join(' · ')}</span>}
+                            {codes.length === 0 ? '' : ' · '}
+                            {instrument.issuer}
+                        </div>
+                    </div>
                 </div>
             </td>
             <td>

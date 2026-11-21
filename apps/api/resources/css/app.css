@@ -535,6 +535,19 @@
 }
 
 /*
+ * A field shown for reading, not filling — a value the number itself settled (the CNP, the birth
+ * date) or one the server owns (the country). Not `disabled`, which half-fades the very figure the
+ * person came to check: here the text stays at full strength, and a muted ground with the lock in
+ * the corner say plainly that it cannot be typed over.
+ */
+input.ctl[readonly] {
+    background: color-mix(in oklab, var(--muted) 55%, var(--card));
+    border-color: var(--border);
+    color: var(--foreground);
+    cursor: default;
+}
+
+/*
  * A field the browser filled in keeps the field's own look. Chrome paints an autofilled field a pale
  * blue, behind its `!important`, and its text near-black — on a dark card, dark on dark. The fill is
  * the one thing a page cannot override, so it is held back instead: a transition that would take a
@@ -1339,6 +1352,11 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
  */
 .shell-control.subject-control {
     height: auto;
+    /* A grid item (the sidebar foot is `grid`), so its default `min-width: auto` refuses to shrink
+       below the name's width — a long taxpayer name then widened the whole column and pushed the
+       controls under it off the edge. `min-width: 0` lets it shrink so the name truncates inside. */
+    min-width: 0;
+    max-width: 100%;
     gap: 0.625rem;
     padding: 0.5rem 0.625rem;
     font-size: var(--text-sm);
@@ -2051,6 +2069,393 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 .dialog-panel.dialog-lg {
     max-width: min(820px, calc(100vw - 2rem));
 }
+.dialog-panel.dialog-xl {
+    max-width: min(960px, calc(100vw - 2rem));
+}
+
+/* The one empty state the whole app shares (components/panel's EmptyState) — a halo, a tile holding
+ * the page's icon, and two sparks, over a bold line and a muted one. Everything is drawn from the
+ * design tokens, so it reads the same in light and dark. */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+}
+
+.empty-state-art {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 7rem;
+    height: 6.6rem;
+    margin-bottom: 1.1rem;
+}
+
+/* The soft disc behind the tile — a warm wash of the brand colour, gone by the rim. Tinted from
+ * `--primary`, so it is cocoa on the cocoa palette and follows every other palette the same way;
+ * mixed mostly into the card, so it reads as a gentle glow, never a grey blob. */
+.empty-state-halo {
+    position: absolute;
+    width: 6.6rem;
+    height: 6.6rem;
+    border-radius: 50%;
+    background: radial-gradient(
+        circle,
+        color-mix(in oklab, var(--primary) 12%, var(--card)) 0%,
+        color-mix(in oklab, var(--primary) 5%, var(--card)) 50%,
+        transparent 72%
+    );
+}
+
+/* The tile that holds the icon — a card face washed with a little of the brand colour and the brand
+ * mark on it, lifted off the halo, tipped a touch, straightening on hover. Everything is a brand
+ * mix, so the cocoa palette paints it cocoa and the rest paint it their own. */
+.empty-state-tile {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 4.3rem;
+    height: 4.3rem;
+    border-radius: var(--radius-xl);
+    border: 1px solid color-mix(in oklab, var(--primary) 18%, var(--border));
+    background: linear-gradient(155deg, var(--card), color-mix(in oklab, var(--primary) 7%, var(--card)));
+    color: var(--primary);
+    box-shadow: 0 8px 18px color-mix(in oklab, var(--primary) 12%, transparent);
+    transform: rotate(-5deg);
+    transition: transform 0.35s ease;
+}
+
+.empty-state-tile svg {
+    width: 1.9rem;
+    height: 1.9rem;
+}
+
+/* The two little chips beside the tile, for a touch of life. */
+.empty-state-spark {
+    position: absolute;
+    z-index: 2;
+    width: 7px;
+    height: 7px;
+    border-radius: 2px;
+    background: color-mix(in oklab, var(--primary) 40%, var(--card));
+    transform: rotate(23deg);
+}
+
+.empty-state-spark-a {
+    top: 11px;
+    right: 13px;
+}
+
+.empty-state-spark-b {
+    bottom: 15px;
+    left: 13px;
+    width: 5px;
+    height: 5px;
+    background: color-mix(in oklab, var(--primary) 18%, var(--border));
+}
+
+@media (hover: hover) {
+    .empty-state:hover .empty-state-tile {
+        transform: rotate(0deg) translateY(-3px);
+    }
+}
+
+.empty-state-title {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    text-wrap: balance;
+}
+
+.empty-state-description {
+    margin-top: 0.5rem;
+    max-width: 22rem;
+    color: var(--muted-foreground);
+    font-size: var(--text-xs);
+    line-height: 1.6;
+}
+
+.empty-state-action {
+    margin-top: 1.25rem;
+}
+
+.empty-state-note {
+    margin-top: 0.75rem;
+    color: var(--muted-foreground);
+    font-size: var(--text-2xs);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .empty-state-tile {
+        transition: none;
+    }
+}
+
+/* ── The tax-breakdown mascot ───────────────────────────────────────────────
+ * A little detective for the "no assessment yet" screen. Every brand colour is a mix of `--primary`
+ * (coat, hat, magnifier frame, bubble, the dashed ring and glow) or `--accent` (the sparks and the
+ * "looking" curl), so the character is cocoa on the cocoa palette and follows every other palette;
+ * skin, hair, shirt and shoes are illustration tones. It idles (breath + blink) and reacts when the
+ * action is hovered or focused — the stage's `data-mode` flips to `hover`. */
+.tax-mascot {
+    --m-coat-a: color-mix(in oklab, var(--primary) 38%, white);
+    --m-coat-b: color-mix(in oklab, var(--primary) 60%, white);
+    --m-coat-sleeve: color-mix(in oklab, var(--primary) 56%, white);
+    --m-coat-lapel: color-mix(in oklab, var(--primary) 32%, white);
+    --m-coat-stroke: color-mix(in oklab, var(--primary) 68%, black);
+    --m-coat-stroke-2: color-mix(in oklab, var(--primary) 52%, black);
+    --m-coat-line: color-mix(in oklab, var(--primary) 48%, black);
+    --m-coat-btn: color-mix(in oklab, var(--primary) 76%, black);
+    --m-hat-a: color-mix(in oklab, var(--primary) 60%, black);
+    --m-hat-b: color-mix(in oklab, var(--primary) 82%, black);
+    --m-hat-brim: color-mix(in oklab, var(--primary) 46%, black);
+    --m-hat-band: color-mix(in oklab, var(--primary) 70%, black);
+    --m-hat-stroke: color-mix(in oklab, var(--primary) 84%, black);
+    --m-hat-line: color-mix(in oklab, var(--primary) 40%, white);
+    --m-glass-frame: color-mix(in oklab, var(--primary) 72%, black);
+    --m-lens: color-mix(in oklab, var(--accent) 20%, transparent);
+    --m-paper: var(--background);
+    --m-paper-2: color-mix(in oklab, var(--primary) 8%, var(--background));
+    --m-paper-edge: var(--border);
+    --m-paper-line: color-mix(in oklab, var(--muted-foreground) 45%, transparent);
+    --m-paper-text: var(--muted-foreground);
+    --m-accent: var(--accent);
+    --m-accent-soft: color-mix(in oklab, var(--accent) 60%, var(--muted-foreground));
+    --m-shadow: color-mix(in oklab, var(--foreground) 12%, transparent);
+    gap: 1.25rem;
+}
+
+/* The case file — kicker, title, line, action. Centred when stacked under the detective on a phone,
+ * left-aligned beside it from `sm` up. */
+.tax-mascot-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 24rem;
+}
+
+.tax-mascot-kicker {
+    margin-bottom: 0.5rem;
+    color: color-mix(in oklab, var(--primary) 72%, var(--muted-foreground));
+    font-size: var(--text-2xs);
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+/* A proper headline for this hero layout — larger than the stock empty-state title, but measured. */
+.tax-mascot-title {
+    font-size: var(--text-lg);
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+/* From `sm` up: detective on the left, case file on the right, both centred on the shared row. */
+@media (min-width: 40rem) {
+    .tax-mascot {
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        gap: 2.25rem;
+        text-align: left;
+    }
+    .tax-mascot-copy {
+        align-items: flex-start;
+    }
+}
+
+.tax-mascot-stage {
+    position: relative;
+    flex: none;
+    width: min(100%, 22rem);
+    aspect-ratio: 420 / 350;
+    display: grid;
+    place-items: center;
+    /* A soft brand-tinted glow pooled under the character. */
+    background: radial-gradient(
+        ellipse at 42% 62%,
+        color-mix(in oklab, var(--primary) 10%, var(--card)) 0%,
+        transparent 52%
+    );
+    isolation: isolate;
+}
+
+/* The dashed case-file ring behind the detective. */
+.tax-mascot-ring {
+    position: absolute;
+    z-index: -1;
+    width: 74%;
+    height: 80%;
+    border-radius: 48%;
+    border: 1px dashed color-mix(in oklab, var(--primary) 30%, var(--border));
+    transform: rotate(-10deg);
+    opacity: 0.6;
+}
+
+.tax-mascot-svg {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+/* The speech bubble — a rounded card with a small tail, up and to the right of the detective.
+ * `key` on the element restarts this pop every time the line changes. */
+.tax-mascot-bubble {
+    position: absolute;
+    right: -2%;
+    top: 4%;
+    z-index: 2;
+    max-width: 12rem;
+    min-width: 8.5rem;
+    padding: 0.7rem 0.85rem;
+    border-radius: 16px 16px 16px 5px;
+    border: 1.8px solid color-mix(in oklab, var(--primary) 36%, var(--border));
+    background: var(--card);
+    color: color-mix(in oklab, var(--primary) 80%, var(--foreground));
+    font-size: var(--text-xs);
+    font-weight: 750;
+    line-height: 1.4;
+    box-shadow: 0 8px 26px color-mix(in oklab, var(--foreground) 9%, transparent);
+    animation: mascot-bubble-pop 0.3s cubic-bezier(0.15, 1.3, 0.28, 1) both;
+}
+
+.tax-mascot-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 16px;
+    width: 14px;
+    height: 14px;
+    background: var(--card);
+    border-left: 1.8px solid color-mix(in oklab, var(--primary) 36%, var(--border));
+    border-bottom: 1.8px solid color-mix(in oklab, var(--primary) 36%, var(--border));
+    transform: rotate(-40deg);
+}
+
+/* Idle life: a slow breath and an occasional blink. Transform origins are in viewBox units. */
+.tax-mascot-character {
+    transform-origin: 187px 300px;
+    animation: mascot-breathe 4.5s ease-in-out infinite;
+}
+
+.tax-mascot-eyes {
+    transform-origin: 183px 138px;
+    animation: mascot-blink 5.1s infinite;
+}
+
+/* The rigs that react to hover/focus — each eased, so the pose changes feel deliberate. */
+.tax-mascot-face {
+    transform-origin: 184px 137px;
+    transition: transform 0.48s cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+.tax-mascot-pupils {
+    transition: transform 0.3s;
+}
+
+.tax-mascot-arm {
+    transform-origin: 241px 210px;
+    transition: transform 0.57s cubic-bezier(0.18, 1.25, 0.3, 1);
+}
+
+.tax-mascot-mouth-smile {
+    opacity: 0;
+    transition: opacity 0.25s;
+}
+
+.tax-mascot-mouth-neutral {
+    opacity: 1;
+    transition: opacity 0.25s;
+}
+
+.tax-mascot-sparkles {
+    opacity: 0;
+    transition: opacity 0.25s;
+}
+
+.tax-mascot-lookmark {
+    opacity: 1;
+    transition: opacity 0.25s;
+}
+
+/* Hover/focus: the detective looks over, raises the magnifier, smiles and sparks. */
+.tax-mascot-stage[data-mode='hover'] .tax-mascot-face {
+    transform: rotate(6deg);
+}
+.tax-mascot-stage[data-mode='hover'] .tax-mascot-pupils {
+    transform: translate(5px, -1px);
+}
+.tax-mascot-stage[data-mode='hover'] .tax-mascot-arm {
+    transform: rotate(-29deg);
+}
+.tax-mascot-stage[data-mode='hover'] .tax-mascot-mouth-smile {
+    opacity: 1;
+}
+.tax-mascot-stage[data-mode='hover'] .tax-mascot-mouth-neutral {
+    opacity: 0;
+}
+.tax-mascot-stage[data-mode='hover'] .tax-mascot-sparkles {
+    opacity: 1;
+}
+.tax-mascot-stage[data-mode='hover'] .tax-mascot-lookmark {
+    opacity: 0;
+}
+
+@keyframes mascot-breathe {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-2px);
+    }
+}
+
+@keyframes mascot-blink {
+    0%,
+    90%,
+    93%,
+    100% {
+        transform: scaleY(1);
+    }
+    91.5% {
+        transform: scaleY(0.12);
+    }
+}
+
+@keyframes mascot-bubble-pop {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.91);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tax-mascot-character,
+    .tax-mascot-eyes,
+    .tax-mascot-bubble {
+        animation: none;
+    }
+    .tax-mascot-face,
+    .tax-mascot-pupils,
+    .tax-mascot-arm,
+    .tax-mascot-mouth-smile,
+    .tax-mascot-mouth-neutral,
+    .tax-mascot-sparkles,
+    .tax-mascot-lookmark {
+        transition: none;
+    }
+}
 
 /* The sentence under a page's <h1>. */
 .page-lede {
@@ -2591,78 +2996,118 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
 /* Reading an identity card to pre-fill a new taxpayer (ADR 0028). A tinted panel at the head of the
  * add-taxpayer dialog: a consent row, then the drop area — or, until the box is ticked, a locked
  * stand-in — and a single status line for the read. */
-.idcard-scan {
+/* The two ways to add a taxpayer, side by side — scan a card, or type the CNP — with a rule between
+ * them. On a narrow screen they stack and the rule lies flat. */
+.idcard-methods {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: stretch;
+}
+
+.idcard-method {
     display: flex;
+    min-width: 0;
     flex-direction: column;
     gap: 0.75rem;
-    padding: 1rem;
-    border: 1px solid color-mix(in oklab, var(--primary) 18%, var(--border));
-    border-radius: var(--radius-xl);
-    background: color-mix(in oklab, var(--primary) 4%, var(--card));
 }
 
-.idcard-scan-head {
+/* An icon, the method's name, and a word on what it does. */
+.idcard-method-head {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 0.625rem;
+    min-height: 2.5rem;
 }
 
-.idcard-scan-badge {
+.idcard-method-icon {
     display: grid;
     width: 2.25rem;
     height: 2.25rem;
     flex: none;
     place-items: center;
     border-radius: var(--radius-lg);
-    background: var(--primary);
-    color: var(--primary-foreground);
+    background: color-mix(in oklab, var(--primary) 10%, var(--muted));
+    color: color-mix(in oklab, var(--primary) 80%, var(--foreground));
 }
 
-.idcard-scan-title {
+.idcard-method-title {
     font-size: var(--text-sm);
     font-weight: 600;
+    line-height: 1.2;
 }
 
-/* The consent row: a quiet card that lifts to the accent the moment it is ticked, so agreeing is
- * visible without reading the sentence again. */
-.idcard-consent {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.625rem;
-    padding: 0.625rem 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    background: var(--card);
+.idcard-method-sub {
     font-size: var(--text-xs);
-    line-height: 1.5;
-    cursor: pointer;
-    transition:
-        background-color 0.15s,
-        border-color 0.15s;
+    color: var(--muted-foreground);
 }
 
-.idcard-consent[data-on] {
-    border-color: color-mix(in oklab, var(--primary) 45%, var(--border));
-    background: color-mix(in oklab, var(--primary) 8%, var(--card));
-}
-
-/* The stand-in shown until consent is given: the shape of the drop area, visibly inert. */
-.idcard-locked {
+/* "OR" between the columns: a vertical rule on a wide screen, a horizontal one once stacked. */
+.idcard-divider {
     display: flex;
-    min-height: 8.5rem;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    padding: 1.125rem;
-    border: 2px dashed var(--border);
-    border-radius: var(--radius-xl);
+    gap: 0.75rem;
     color: var(--muted-foreground);
-    text-align: center;
-    font-size: var(--text-xs);
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
 }
 
-/* One status line for the read — busy, done, or failed — each in its own tone. */
+.idcard-divider::before,
+.idcard-divider::after {
+    content: '';
+    width: 1px;
+    flex: 1;
+    background: var(--border);
+}
+
+/* The agreement, as the scan card's own footer — a plain row, not a second box. Its text firms from
+ * muted to full ink the moment it is ticked, so agreeing reads without re-reading the sentence. */
+.idcard-consent {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.125rem 0.125rem 0;
+    font-size: var(--text-xs);
+    line-height: 1.5;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    transition: color 0.15s;
+}
+
+.idcard-consent[data-on] {
+    color: var(--foreground);
+}
+
+/* The scan card: the drop zone, and along its foot the agreement that unlocks it — one card. */
+.idcard-scan-card {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.625rem;
+}
+
+/* The drop zone stays faded and inert until consent is given — the `inert` attribute blocks pointer
+ * and keyboard both, so the only way in is to tick the box beneath it first. */
+.idcard-drop-gate {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    transition: opacity 0.15s;
+}
+
+.idcard-drop-gate > * {
+    flex: 1;
+}
+
+.idcard-drop-gate[data-locked] {
+    opacity: 0.5;
+}
+
+/* The one status still shown as a tinted strip: the failed read. */
 .idcard-status {
     display: flex;
     align-items: center;
@@ -2673,46 +3118,315 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     font-weight: 500;
 }
 
-.idcard-status--busy {
-    background: color-mix(in oklab, var(--primary) 10%, var(--card));
-    color: color-mix(in oklab, var(--primary) 70%, var(--foreground));
-}
-
-.idcard-status--ok {
-    background: color-mix(in oklab, var(--success, oklch(0.6 0.13 155)) 12%, var(--card));
-    color: color-mix(in oklab, var(--success, oklch(0.5 0.13 155)) 85%, var(--foreground));
-}
-
 .idcard-status--bad {
     background: color-mix(in oklab, var(--destructive) 10%, var(--card));
     color: color-mix(in oklab, var(--destructive) 80%, var(--foreground));
 }
 
-/* After a good read: the confirmation, and under it a plain upload control so replacing the photo
- * is an obvious next step rather than a word to decipher. */
-.idcard-done {
+/* The reading state: a framed scanner bed, below it an indeterminate rail and the stage line. */
+.idcard-reading {
     display: flex;
+    flex: 1;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.625rem;
 }
 
-/* "or enter the CNP manually" — a rule with the choice named in the middle. */
-.idcard-or {
+/* The card on a dark bed — its own small world, dark in either theme, the way a scanner's glass is —
+ * framed by corner brackets with a light passing over it. The image is the one already in the
+ * browser; nothing is fetched to draw this. The wait is indeterminate, so the light repeats. */
+.idcard-visual {
+    position: relative;
+    display: grid;
+    flex: 1;
+    min-height: 13rem;
+    place-items: center;
+    padding: 1rem;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border);
+    background: radial-gradient(
+        ellipse at 50% 28%,
+        color-mix(in oklab, var(--primary) 9%, var(--card)),
+        var(--muted) 86%
+    );
+    box-shadow: inset 0 1px 0 color-mix(in oklab, var(--foreground) 5%, transparent);
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.idcard-visual-photo {
+    position: relative;
+    display: inline-flex;
+    max-width: 82%;
+    filter: drop-shadow(0 8px 14px color-mix(in oklab, var(--foreground) 22%, transparent));
+}
+
+.idcard-visual-photo img {
+    display: block;
+    max-width: 100%;
+    max-height: 9.5rem;
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+/* The four brackets that frame the card — the accent, glowing, the colour of the sweep. */
+.idcard-corner {
+    position: absolute;
+    width: 1.05rem;
+    height: 1.05rem;
+    border: 0 solid var(--primary);
+    filter: drop-shadow(0 0 3px color-mix(in oklab, var(--primary) 55%, transparent));
+}
+
+.idcard-corner-tl {
+    top: -6px;
+    left: -6px;
+    border-width: 2px 0 0 2px;
+    border-radius: 4px 0 0 0;
+}
+
+.idcard-corner-tr {
+    top: -6px;
+    right: -6px;
+    border-width: 2px 2px 0 0;
+    border-radius: 0 4px 0 0;
+}
+
+.idcard-corner-bl {
+    bottom: -6px;
+    left: -6px;
+    border-width: 0 0 2px 2px;
+    border-radius: 0 0 0 4px;
+}
+
+.idcard-corner-br {
+    bottom: -6px;
+    right: -6px;
+    border-width: 0 2px 2px 0;
+    border-radius: 0 0 4px 0;
+}
+
+/* The light that passes down the card — confined to the photo so it reads as crossing the document. */
+.idcard-sweep {
+    position: absolute;
+    inset-inline: -2px;
+    top: -34%;
+    height: 34%;
+    border-radius: 4px;
+    background: linear-gradient(
+        to bottom,
+        transparent,
+        color-mix(in oklab, var(--primary) 22%, transparent) 66%,
+        color-mix(in oklab, var(--primary) 52%, transparent) 92%,
+        color-mix(in oklab, var(--primary) 80%, white)
+    );
+    box-shadow: 0 2px 12px color-mix(in oklab, var(--primary) 40%, transparent);
+    animation: idcard-sweep 2.2s cubic-bezier(0.35, 0, 0.6, 1) infinite;
+}
+
+@keyframes idcard-sweep {
+    0% {
+        top: -34%;
+        opacity: 0;
+    }
+    12% {
+        opacity: 1;
+    }
+    88% {
+        opacity: 1;
+    }
+    100% {
+        top: 100%;
+        opacity: 0;
+    }
+}
+
+/* The pill in the corner naming the state. */
+.idcard-visual-tag {
+    position: absolute;
+    top: 0.6rem;
+    left: 0.7rem;
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.35rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: color-mix(in oklab, var(--card) 80%, transparent);
     color: var(--muted-foreground);
     font-size: var(--text-2xs);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
 }
 
-.idcard-or::before,
-.idcard-or::after {
-    content: '';
+/* An indeterminate rail — a segment that slides, not a filling bar. We do not know how long the
+ * read takes, so it says "working", not a false percentage. */
+.idcard-rail {
+    position: relative;
+    height: 3px;
+    border-radius: 4px;
+    background: color-mix(in oklab, var(--primary) 12%, var(--muted));
+    overflow: hidden;
+}
+
+.idcard-rail > span {
+    position: absolute;
+    inset-block: 0;
+    width: 40%;
+    border-radius: 4px;
+    background: color-mix(in oklab, var(--primary) 65%, var(--foreground));
+    animation: idcard-rail 1.4s ease-in-out infinite;
+}
+
+@keyframes idcard-rail {
+    0% {
+        left: -40%;
+    }
+    100% {
+        left: 100%;
+    }
+}
+
+/* The line under the rail: a pulsing dot and the stage it is in now. */
+.idcard-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    color: color-mix(in oklab, var(--primary) 55%, var(--foreground));
+}
+
+.idcard-meta-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    flex: none;
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--primary) 70%, var(--foreground));
+    animation: idcard-pulse 1.3s ease-in-out infinite;
+}
+
+@keyframes idcard-pulse {
+    0%,
+    100% {
+        opacity: 0.35;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+/* After a good read: the card thumbnail, a line that it read, and the way on. */
+.idcard-review {
+    display: flex;
     flex: 1;
-    height: 1px;
-    background: var(--border);
+    align-items: center;
+    gap: 0.875rem;
+    min-height: 13rem;
+    padding: 0.875rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    background: var(--card);
+}
+
+.idcard-review-thumb {
+    width: 5.5rem;
+    height: 4.75rem;
+    flex: none;
+    object-fit: contain;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--muted);
+    padding: 0.25rem;
+}
+
+.idcard-review-body {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.idcard-review-title {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: var(--text-sm);
+    font-weight: 600;
+}
+
+.idcard-review-check {
+    color: color-mix(in oklab, oklch(0.6 0.13 155) 85%, var(--foreground));
+}
+
+.idcard-review-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+/* The manual column's framed box: the CNP, a word on what Continue does, and the button. Centred so
+ * it stands level with the scanner bed beside it. */
+.idcard-manual {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.625rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    background: var(--card);
+}
+
+/* The encryption note across the foot — a lock in a quiet box, on our surfaces so it reads in both
+ * themes rather than the mock's fixed grey. Shown on both steps of the dialog. */
+.idcard-footerinfo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: color-mix(in oklab, var(--muted) 45%, var(--card));
+    color: var(--muted-foreground);
+    font-size: var(--text-2xs);
+    line-height: 1.55;
+}
+
+@media (max-width: 640px) {
+    .idcard-methods {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .idcard-divider {
+        flex-direction: row;
+    }
+
+    .idcard-divider::before,
+    .idcard-divider::after {
+        width: auto;
+        height: 1px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .idcard-sweep {
+        animation: none;
+        top: 36%;
+        opacity: 0.6;
+    }
+
+    .idcard-rail > span {
+        animation: none;
+        left: 0;
+        width: 100%;
+        opacity: 0.6;
+    }
+
+    .idcard-meta-dot {
+        animation: none;
+        opacity: 0.8;
+    }
 }
 
 /* The card, framed, in the second step where its photo is cropped into the avatar. */
@@ -3785,6 +4499,45 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
        read before it can be seen as the smaller one. */
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
+}
+
+/* The issuer's mark beside its name in the market list — the cached logo, or an initials tile. */
+.market-issuer {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+}
+
+.market-issuer-text {
+    min-width: 0;
+}
+
+.market-issuer-mark {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--card);
+}
+
+.market-issuer-mark img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 2px;
+}
+
+.market-issuer-mark-fallback {
+    background: color-mix(in oklab, var(--primary) 8%, var(--card));
+    color: var(--muted-foreground);
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    letter-spacing: 0.02em;
 }
 
 .data-table td {
