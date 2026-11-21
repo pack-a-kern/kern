@@ -54,6 +54,7 @@ final class ListInstrumentsController
         $counts = (clone $kept)->toBase()->selectRaw('kind, count(*) AS kept')->groupBy('kind')->pluck('kept', 'kind')->all();
         $query = $kept
             ->select('ext_financial_instruments.*')
+            ->with('issuerProfile')
             ->addSelect(['latest_price' => $latest('price'), 'latest_trading_date' => $latest('trading_date')])
             ->when($filters['kind'] ?? null, static fn (Builder $q, string $kind): Builder => $q->where('kind', $kind))
             ->orderBy('name')

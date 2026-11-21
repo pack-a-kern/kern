@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Investments\InvestmentsApiTest;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Kern\Investments\Enums\InstrumentKind;
 use Kern\Investments\Enums\InstrumentStatus;
 use Kern\Investments\Enums\Market;
@@ -133,9 +134,12 @@ it('shows an instrument with how its price moved, how far off it matures, and it
         ->and($bond->json('maturesIn'))->toBe(['value' => 3, 'unit' => 'year'])
         ->and($bond->json('latestChange'))->toBeNull()
         ->and($bond->json('termsDocumentId'))->toBe($tezaur->terms_document_id)
+        // A Tezaur bond is not listed on BVB, so it has no page there; a BVB share does.
+        ->and($bond->json('bvbUrl'))->toBeNull()
         ->and($bond->json())->not->toHaveKey('payouts')
         ->and($share->json('latestChange'))->toBe(['percent' => '-1.25', 'trend' => 'DOWN'])
-        ->and($share->json('maturesIn'))->toBeNull();
+        ->and($share->json('maturesIn'))->toBeNull()
+        ->and($share->json('bvbUrl'))->toContain('s=ALFA');
     $this->actingAs($this->user)->getJson('/api/v1/investments/instruments/01900000-0000-7000-8000-000000000000')->assertNotFound();
 });
 
@@ -243,7 +247,9 @@ it('reads a profile from BVB when asked, and answers the stored one while it is 
             'lastDividend' => '9.571562', 'lastDividendYear' => 2025, 'week52High' => '221.0000',
             'sharesTotal' => 449802567, 'tradingSince' => '2023-07-12', 'category' => 'Premium',
         ]);
-    Http::assertSentCount(1);
+    // Two outbound requests on the first refresh: the page, then the logo it points at (served here as
+    // the same HTML, so not kept). The second refresh is young, so it reaches out for neither.
+    Http::assertSentCount(2);
 });
 
 it('reads a listed bond’s yield and issue from BVB, and never asks for a bond that is not listed', function (): void {
@@ -260,7 +266,49 @@ it('reads a listed bond’s yield and issue from BVB, and never asks for a bond 
         // Its terms say 8%, BVB 8.25%: said.
         'couponDiffers' => true,
     ])->and($read->json('shareholders'))->toBe([]);
-    Http::assertSentCount(1);
+    // The page, then the logo it points at (served here as the same HTML, so not kept).
+    Http::assertSentCount(2);
+});
+
+it('caches the issuer logo the page points at, puts it on the market list, and serves it with a conditional 304', function (): void {
+    Storage::fake('issuer_logos');
+    knownShare();
+    $page = (string) file_get_contents(base_path('../../packages/investments/tests/Fixtures/bvb/instrument-share.html'));
+    // A 1×1 PNG — the smallest valid image, enough to prove the bytes are kept and served.
+    $png = (string) base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC', true);
+    Http::fake([
+        '*Logo.ashx*' => Http::response($png, 200, ['Content-Type' => 'image/png']),
+        'https://www.bvb.ro/*' => Http::response($page),
+    ]);
+
+    $this->actingAs($this->user)->postJson('/api/v1/investments/issuers/H2O/refresh')->assertOk();
+
+    $profile = IssuerProfile::query()->where('issuer_key', 'H2O')->sole();
+    expect($profile->logo_path)->toBe('H2O.png')
+        ->and($profile->logo_mime)->toBe('image/png')
+        ->and($profile->logo_etag)->toBe(hash('sha256', $png));
+    Storage::disk('issuer_logos')->assertExists('H2O.png');
+
+    // The market list carries the logo's address on that instrument.
+    $logos = column($this->actingAs($this->user)->getJson('/api/v1/investments/instruments?q=H2O')->assertOk()->json('data'), 'logoUrl');
+    expect($logos)->toHaveCount(1)
+        ->and($logos[0])->toContain('/investments/issuers/H2O/logo');
+
+    // The controller serves the cached image, and answers a matching If-None-Match with 304.
+    $etag = '"' . $profile->logo_etag . '"';
+    $served = $this->actingAs($this->user)->get('/api/v1/investments/issuers/H2O/logo')->assertOk();
+    expect($served->headers->get('Content-Type'))->toContain('image/png')
+        ->and($served->headers->get('ETag'))->toBe($etag);
+    $this->actingAs($this->user)->get('/api/v1/investments/issuers/H2O/logo', ['If-None-Match' => $etag])->assertStatus(304);
+});
+
+it('keeps the profile and shows initials when the issuer has no logo on file', function (): void {
+    knownShare();
+
+    // Never refreshed: no profile, so no logo to serve.
+    $this->actingAs($this->user)->get('/api/v1/investments/issuers/H2O/logo')->assertNotFound();
+    $logos = column($this->actingAs($this->user)->getJson('/api/v1/investments/instruments?q=H2O')->assertOk()->json('data'), 'logoUrl');
+    expect($logos)->toBe([null]);
 });
 
 it('refuses a refresh past the person’s budget', function (): void {

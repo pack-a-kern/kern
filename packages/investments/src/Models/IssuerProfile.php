@@ -40,6 +40,9 @@ use Kern\Platform\Crypto\Concerns\HasUuidPrimaryKey;
  * @property string|null $yield_to_maturity
  * @property int|null $units_issued
  * @property string|null $issue_value
+ * @property string|null $logo_path
+ * @property string|null $logo_mime
+ * @property string|null $logo_etag
  * @property string $evidence_id
  */
 final class IssuerProfile extends Model
@@ -55,6 +58,7 @@ final class IssuerProfile extends Model
         'last_dividend_year', 'week52_high', 'week52_low', 'shares_total', 'face_value', 'share_capital',
         'trading_since', 'segment', 'category', 'financial_calendar', 'bid', 'ask', 'coupon_rate', 'yield_to_maturity',
         'units_issued', 'issue_value',
+        'logo_path', 'logo_mime', 'logo_etag',
     ];
 
     /** @var array<string, string> */

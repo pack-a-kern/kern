@@ -67,7 +67,28 @@ final class IssuerPageParser
                 : Values::date($asOf[1], self::SOURCE . ', ' . self::STRUCTURE),
             financialCalendar: self::financialCalendar(HtmlPage::tableUnder($page, self::FINANCIAL)),
             figures: self::figures($page, self::labelled($issue)),
+            logoUrl: self::logo($page),
         );
+    }
+
+    /**
+     * The company logo in the page head — an `<img>` whose id ends in "imglogo" (the rest of the id is
+     * ASP.NET control plumbing that can change). Its `src` is returned as the page gives it, usually
+     * relative; the caller resolves it against the page URL. Null when the page shows no logo.
+     */
+    private static function logo(HTMLDocument $page): ?string
+    {
+        foreach ($page->querySelectorAll('img') as $img) {
+            if (! str_ends_with($img->getAttribute('id') ?? '', 'imglogo')) {
+                continue;
+            }
+
+            $src = trim($img->getAttribute('src') ?? '');
+
+            return $src === '' ? null : $src;
+        }
+
+        return null;
     }
 
     /** @return list<FinancialEvent> */

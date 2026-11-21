@@ -22,8 +22,13 @@ final class MarketViews
         $price = $instrument->getAttribute('latest_price');
         $priced = $instrument->getAttribute('latest_trading_date');
 
+        // The cached issuer logo, as a URL to the controller that serves it — only when one is on file,
+        // so the client asks for an image that is there rather than one that 404s.
+        $hasLogo = $instrument->symbol !== null && $instrument->relationLoaded('issuerProfile') && $instrument->issuerProfile?->logo_path !== null;
+
         return [
             'id' => $instrument->id,
+            'logoUrl' => $hasLogo ? route('investments.issuer-logo', ['key' => $instrument->symbol]) : null,
             'kind' => $instrument->kind->value,
             'programme' => $instrument->programme?->value,
             'isin' => $instrument->isin,

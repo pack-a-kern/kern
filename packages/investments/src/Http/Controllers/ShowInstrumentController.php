@@ -6,6 +6,8 @@ namespace Kern\Investments\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Carbon;
+use Kern\Investments\Config\InvestmentsConfig;
+use Kern\Investments\Enums\Market;
 use Kern\Investments\Http\Views\MarketViews;
 use Kern\Investments\Models\FinancialInstrument;
 use Kern\Investments\Models\InstrumentPayout;
@@ -19,9 +21,9 @@ use Kern\Investments\Queries\InstrumentPayouts;
  */
 final class ShowInstrumentController
 {
-    public function __invoke(string $instrument): JsonResponse
+    public function __invoke(string $instrument, InvestmentsConfig $config): JsonResponse
     {
-        $found = FinancialInstrument::query()->findOrFail($instrument);
+        $found = FinancialInstrument::query()->with('issuerProfile')->findOrFail($instrument);
         $price = InstrumentPrice::query()->where('instrument_id', $found->id)->orderByDesc('trading_date')->first();
         // The application's clock, as the import's: a payment is next from its own day on.
         $today = Carbon::today('UTC')->format('Y-m-d');
@@ -30,9 +32,14 @@ final class ShowInstrumentController
         $found->setAttribute('latest_price', $price?->price);
         $found->setAttribute('latest_trading_date', $price?->trading_date->format('Y-m-d'));
 
+        // A share or a listed bond has its own page on BVB, built from its symbol; a Treasury bond never
+        // listed there has none.
+        $bvbUrl = $found->market === Market::BVB && $found->symbol !== null ? $config->bvb->instrumentUrl($found->symbol) : null;
+
         return response()->json([
             ...MarketViews::instrument($found),
             'latestChange' => MarketViews::change($price?->change_percent),
+            'bvbUrl' => $bvbUrl,
             'termsDocumentId' => $found->terms_document_id,
             'payoutsCount' => InstrumentPayouts::shown($found)->count(),
             'nextPayout' => $payout(InstrumentPayouts::shown($found)->where('payment_date', '>=', $today)->first()),

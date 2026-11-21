@@ -9,6 +9,7 @@ use Kern\Investments\Http\Controllers\ListInstrumentsController;
 use Kern\Investments\Http\Controllers\ListPayoutsController;
 use Kern\Investments\Http\Controllers\RefreshIssuerProfileController;
 use Kern\Investments\Http\Controllers\ShowInstrumentController;
+use Kern\Investments\Http\Controllers\ShowIssuerLogoController;
 use Kern\Investments\Http\Controllers\ShowIssuerProfileController;
 
 /*
@@ -31,4 +32,13 @@ Route::prefix('v1/investments')->middleware(['auth:web', 'throttle:investments-r
     Route::post('issuers/{key}/refresh', RefreshIssuerProfileController::class)
         ->where('key', '[A-Z0-9]{1,16}')
         ->middleware('throttle:investments-refreshes-per-user');
+});
+
+/*
+ * The issuer logo is a cached static image, served from local disk and cached hard by the browser.
+ * It sits outside the market reads budget on a light throttle of its own, so a market page showing a
+ * logo per row does not spend a person's read allowance on images.
+ */
+Route::prefix('v1/investments')->middleware(['auth:web', 'throttle:240,1'])->group(function (): void {
+    Route::get('issuers/{key}/logo', ShowIssuerLogoController::class)->where('key', '[A-Z0-9]{1,16}')->name('investments.issuer-logo');
 });

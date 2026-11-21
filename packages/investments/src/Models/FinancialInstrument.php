@@ -6,6 +6,7 @@ namespace Kern\Investments\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use Kern\Investments\Casts\Decimal;
 use Kern\Investments\Enums\InstrumentKind;
@@ -80,5 +81,16 @@ final class FinancialInstrument extends Model
     public function scopeListedOnBvb(Builder $query, string $symbol): Builder
     {
         return $query->where('market', Market::BVB)->where('symbol', $symbol);
+    }
+
+    /**
+     * The issuer profile read from this instrument's BVB page — matched by symbol, which is the key a
+     * profile is kept under. Null for an instrument never read, or one not listed on BVB (no symbol).
+     *
+     * @return HasOne<IssuerProfile, $this>
+     */
+    public function issuerProfile(): HasOne
+    {
+        return $this->hasOne(IssuerProfile::class, 'issuer_key', 'symbol');
     }
 }

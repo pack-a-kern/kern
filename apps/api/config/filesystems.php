@@ -80,6 +80,19 @@ return [
             'report' => false,
         ],
 
+        /*
+         * Issuer logos cached from BVB instrument pages — public company branding, not sensitive
+         * data, so kept on local disk (never s3/minio) and served through a controller with a long
+         * immutable cache. See Kern\Investments\Services\IssuerProfiles and ShowIssuerLogoController.
+         */
+        'issuer_logos' => [
+            'driver' => 'local',
+            'root' => storage_path('app/issuer-logos'),
+            'serve' => false,
+            'throw' => false,
+            'report' => false,
+        ],
+
         // A physically separate bucket from 's3' — Kern\Documents\Quarantine\
         // QuarantineObjectStore (docs/handoff/022-document-pipeline.md) relies on this being a
         // disk the rest of the application never reads documents from, so an unscanned upload is

@@ -24,6 +24,9 @@ final readonly class IssuerPage
         public ?DateTimeImmutable $shareholdersAsOf,
         public array $financialCalendar,
         public IssuerFigures $figures,
+        /** The company logo's address exactly as the page gives it — often relative, so the caller
+         * resolves it against the page URL; null when the page shows no logo. */
+        public ?string $logoUrl = null,
     ) {
     }
 }
