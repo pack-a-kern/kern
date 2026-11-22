@@ -323,7 +323,7 @@ export default function Dashboard(): JSX.Element {
                                                 <div
                                                     key={group.group}
                                                     className={cn(
-                                                        'h-full min-w-0 rounded-[2px] transition-[opacity,filter] duration-200',
+                                                        'h-full min-w-0 rounded-sm transition-[opacity,filter] duration-200',
                                                         SWATCHES[group.group],
                                                         focusKey !== null && focusKey !== group.group && 'opacity-25',
                                                         focusKey === group.group && 'brightness-110',
