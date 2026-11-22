@@ -45,7 +45,7 @@ final class VerifyAiTaskModelsController
         $served = array_fill_keys($result->models, true);
         $exists = [];
 
-        foreach ($taskModels->distinctModels() as $model) {
+        foreach ($taskModels->distinctModels($credentials) as $model) {
             $exists[$model] = isset($served[$model]);
         }
 

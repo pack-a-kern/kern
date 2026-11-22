@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kern\Platform\Settings\Services;
 
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use Kern\Platform\Settings\DataTransferObjects\AiProviderCredentials;
 use Kern\Platform\Settings\DataTransferObjects\AiTaskModel;
 use RuntimeException;
 
@@ -27,9 +28,13 @@ final readonly class AiTaskModels
     }
 
     /**
+     * Pass already-resolved credentials to reuse them for the base model; otherwise they are
+     * resolved here. The verify endpoint resolves them once to reach the provider and hands them in,
+     * so the base model is not resolved a second time.
+     *
      * @return list<AiTaskModel>
      */
-    public function all(): array
+    public function all(?AiProviderCredentials $credentials = null): array
     {
         $tasks = $this->config->get('ai.tasks');
 
@@ -37,7 +42,7 @@ final readonly class AiTaskModels
             throw new RuntimeException('ai.tasks is missing or is not an array.');
         }
 
-        $base = $this->baseModel();
+        $base = $this->baseModel($credentials);
         $resolved = [];
 
         foreach ($tasks as $id => $definition) {
@@ -57,11 +62,11 @@ final readonly class AiTaskModels
      *
      * @return list<string>
      */
-    public function distinctModels(): array
+    public function distinctModels(?AiProviderCredentials $credentials = null): array
     {
         $models = [];
 
-        foreach ($this->all() as $task) {
+        foreach ($this->all($credentials) as $task) {
             if ($task->model !== null) {
                 $models[$task->model] = true;
             }
@@ -100,9 +105,9 @@ final readonly class AiTaskModels
             : new AiTaskModel($id, $base, true);
     }
 
-    private function baseModel(): ?string
+    private function baseModel(?AiProviderCredentials $credentials = null): ?string
     {
-        $model = ($this->resolveCredentials)()->model;
+        $model = ($credentials ?? ($this->resolveCredentials)())->model;
 
         return $model !== null && $model !== '' ? $model : null;
     }
