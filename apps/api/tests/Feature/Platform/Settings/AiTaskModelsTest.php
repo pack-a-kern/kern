@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Http;
 use Kern\Platform\Settings\Enums\SettingKey;
 use Kern\Platform\Settings\Repositories\SettingsRepository;
+use Kern\Platform\Settings\Services\ResolveTaskModel;
 
 /**
  * @param  array<int, array<string, mixed>>  $tasks
@@ -53,6 +54,71 @@ it('lists each task with its own model, or the base model it inherits', function
         ->and($byId['law_reader'])->toMatchArray(['model' => 'base-model', 'uses_default' => true])
         // Optional and unset: off, with no model, rather than inheriting the base one.
         ->and($byId['law_second_reader'])->toMatchArray(['model' => null, 'uses_default' => false]);
+});
+
+it('prefers a saved override to the env default, and names the setting key it is edited through', function (): void {
+    config([
+        'ai.statements.mapping.model' => 'env-mapping',
+        'ai.statements.classification.model' => 'env-classification',
+    ]);
+
+    // One task is overridden on the settings screen; its neighbour is left on the env default.
+    app(SettingsRepository::class)->set(SettingKey::AI_STATEMENT_MAPPING_MODEL, 'override-mapping', null);
+
+    /** @var array<int, array<string, mixed>> $tasks */
+    $tasks = $this->actingAs(settingsAdminUser())
+        ->getJson('/api/v1/settings/ai/task-models')
+        ->assertOk()
+        ->json('tasks');
+    $byId = keyByTaskId($tasks);
+
+    expect($byId['statement_mapping'])->toMatchArray([
+        'model' => 'override-mapping',
+        'uses_default' => false,
+        'setting_key' => 'ai.statement_mapping_model',
+        'optional' => false,
+    ])
+        ->and($byId['statement_classification'])->toMatchArray([
+            'model' => 'env-classification',
+            'uses_default' => false,
+            'setting_key' => 'ai.statement_classification_model',
+        ])
+        // The base-only reader carries no setting key of its own; the optional one is marked optional.
+        ->and($byId['document_read'])->toMatchArray(['setting_key' => null])
+        ->and($byId['law_second_reader'])->toMatchArray(['optional' => true]);
+});
+
+it('resolves a task model as the override, else the env default, else nothing', function (): void {
+    $resolve = app(ResolveTaskModel::class);
+
+    config(['ai.statements.mapping.model' => 'env-mapping', 'ai.idcard.read.model' => '']);
+
+    expect($resolve(SettingKey::AI_STATEMENT_MAPPING_MODEL))->toBe('env-mapping')
+        ->and($resolve(SettingKey::AI_ID_CARD_MODEL))->toBeNull();
+
+    // A saved override wins over the env default, trimmed.
+    app(SettingsRepository::class)->set(SettingKey::AI_STATEMENT_MAPPING_MODEL, '  override-mapping  ', null);
+
+    expect($resolve(SettingKey::AI_STATEMENT_MAPPING_MODEL))->toBe('override-mapping');
+});
+
+it('saves and clears a per-task model override through the settings group endpoint', function (): void {
+    config(['ai.statements.mapping.model' => 'env-mapping']);
+    $admin = settingsAdminUser();
+    $resolve = app(ResolveTaskModel::class);
+
+    $this->actingAs($admin)
+        ->putJson('/api/v1/settings/group/ai', ['settings' => ['ai.statement_mapping_model' => 'gpt-mapping']])
+        ->assertOk();
+
+    expect($resolve(SettingKey::AI_STATEMENT_MAPPING_MODEL))->toBe('gpt-mapping');
+
+    // An explicit null clears the override; the env default returns.
+    $this->actingAs($admin)
+        ->putJson('/api/v1/settings/group/ai', ['settings' => ['ai.statement_mapping_model' => null]])
+        ->assertOk();
+
+    expect($resolve(SettingKey::AI_STATEMENT_MAPPING_MODEL))->toBe('env-mapping');
 });
 
 it('checks each task model against the provider and reports which it serves', function (): void {

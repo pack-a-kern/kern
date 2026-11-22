@@ -159,16 +159,40 @@ describe('AI provider catalogue and model discovery', () => {
     it('reads the per-task models from the GET route, no body', async () => {
         const fetchMock = mockFetch({
             tasks: [
-                { id: 'document_read', model: 'base-model', uses_default: true },
-                { id: 'statement_classification', model: 'cls-model', uses_default: false },
-                { id: 'law_second_reader', model: null, uses_default: false },
+                { id: 'document_read', model: 'base-model', uses_default: true, setting_key: null, optional: false },
+                {
+                    id: 'statement_classification',
+                    model: 'cls-model',
+                    uses_default: false,
+                    setting_key: 'ai.statement_classification_model',
+                    optional: false,
+                },
+                {
+                    id: 'law_second_reader',
+                    model: null,
+                    uses_default: false,
+                    setting_key: 'ai.law_second_reader_model',
+                    optional: true,
+                },
             ],
         });
 
         await expect(getAiTaskModels()).resolves.toEqual([
-            { id: 'document_read', model: 'base-model', usesDefault: true },
-            { id: 'statement_classification', model: 'cls-model', usesDefault: false },
-            { id: 'law_second_reader', model: null, usesDefault: false },
+            { id: 'document_read', model: 'base-model', usesDefault: true, settingKey: null, optional: false },
+            {
+                id: 'statement_classification',
+                model: 'cls-model',
+                usesDefault: false,
+                settingKey: 'ai.statement_classification_model',
+                optional: false,
+            },
+            {
+                id: 'law_second_reader',
+                model: null,
+                usesDefault: false,
+                settingKey: 'ai.law_second_reader_model',
+                optional: true,
+            },
         ]);
 
         const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];

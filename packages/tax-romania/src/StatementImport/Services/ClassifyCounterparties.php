@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\StatementImport\Services;
 
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use Kern\Platform\Settings\Enums\SettingKey;
+use Kern\Platform\Settings\Services\ResolveTaskModel;
 use Kern\Platform\Tenancy\TenantScope;
 use Kern\TaxRomania\StatementImport\DataTransferObjects\AiAnswer;
 use Kern\TaxRomania\StatementImport\Enums\RowProposalSource;
@@ -44,6 +46,7 @@ final readonly class ClassifyCounterparties
         private TagDirectory $tags,
         private ConfigRepository $config,
         private CounterpartyPrompt $prompt,
+        private ResolveTaskModel $resolveTaskModel,
     ) {
     }
 
@@ -124,7 +127,7 @@ final readonly class ClassifyCounterparties
             $this->prompt->instruction(),
             $sent,
             self::schema(),
-            $this->config->string('ai.statements.classification.model'),
+            ($this->resolveTaskModel)(SettingKey::AI_STATEMENT_CLASSIFICATION_MODEL),
             $this->config->integer('ai.statements.classification.max_tokens'),
             $this->config->integer('ai.statements.timeout_seconds'),
         );

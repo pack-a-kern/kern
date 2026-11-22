@@ -7,6 +7,7 @@ namespace Kern\Platform\Settings\Services;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Kern\Platform\Settings\DataTransferObjects\AiProviderCredentials;
 use Kern\Platform\Settings\DataTransferObjects\AiTaskModel;
+use Kern\Platform\Settings\Enums\SettingKey;
 use RuntimeException;
 
 /**
@@ -24,6 +25,7 @@ final readonly class AiTaskModels
     public function __construct(
         private ConfigRepository $config,
         private ResolveAiProviderCredentials $resolveCredentials,
+        private ResolveTaskModel $resolveTaskModel,
     ) {
     }
 
@@ -80,29 +82,37 @@ final readonly class AiTaskModels
      */
     private function resolve(string $id, array $definition, ?string $base): AiTaskModel
     {
-        $modelKey = $definition['model_key'] ?? null;
+        $settingKey = $definition['setting_key'] ?? null;
+        $optional = (bool) ($definition['optional'] ?? false);
 
         // A task with no model of its own always uses the base model.
-        if ($modelKey === null) {
-            return new AiTaskModel($id, $base, true);
+        if ($settingKey === null) {
+            return new AiTaskModel($id, $base, true, null, false);
         }
 
-        if (! is_string($modelKey) || $modelKey === '') {
-            throw new RuntimeException("ai.tasks entry [{$id}] has a non-string or empty model_key.");
+        if (! is_string($settingKey)) {
+            throw new RuntimeException("ai.tasks entry [{$id}] has a non-string setting_key.");
         }
 
-        $configured = $this->config->get($modelKey);
-        $configured = is_string($configured) ? trim($configured) : '';
+        $key = SettingKey::tryFrom($settingKey);
 
-        if ($configured !== '') {
-            return new AiTaskModel($id, $configured, false);
+        if ($key === null) {
+            throw new RuntimeException("ai.tasks entry [{$id}] names an unknown setting_key [{$settingKey}].");
+        }
+
+        // The override if one is saved, else the task's env default — the same resolution the
+        // service that runs the task uses, so the screen and the work never disagree.
+        $own = ($this->resolveTaskModel)($key);
+
+        if ($own !== null) {
+            return new AiTaskModel($id, $own, false, $settingKey, $optional);
         }
 
         // Unset: off when the task is optional (a second reader nobody asked for), otherwise the
         // base model, which is the fallback every reader shares.
-        return (bool) ($definition['optional'] ?? false)
-            ? new AiTaskModel($id, null, false)
-            : new AiTaskModel($id, $base, true);
+        return $optional
+            ? new AiTaskModel($id, null, false, $settingKey, $optional)
+            : new AiTaskModel($id, $base, true, $settingKey, $optional);
     }
 
     private function baseModel(?AiProviderCredentials $credentials = null): ?string

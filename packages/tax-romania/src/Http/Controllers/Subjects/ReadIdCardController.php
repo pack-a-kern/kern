@@ -13,7 +13,9 @@ use Kern\Audit\DataTransferObjects\AuditEventInput;
 use Kern\Audit\Services\AuditChainService;
 use Kern\Documents\FileSecurity\SniffedFileType;
 use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Settings\Enums\SettingKey;
 use Kern\Platform\Settings\Services\ResolveAiProviderCredentials;
+use Kern\Platform\Settings\Services\ResolveTaskModel;
 use Kern\Platform\Uploads\Contracts\UploadScanner;
 use Kern\Platform\Uploads\Exceptions\UploadRejectedException;
 use Kern\TaxRomania\Subjects\IdCard\Jobs\ReadIdCardJob;
@@ -43,6 +45,7 @@ final class ReadIdCardController
         AuditChainService $audit,
         ConfigRepository $config,
         UploadScanner $scanner,
+        ResolveTaskModel $resolveTaskModel,
     ): JsonResponse {
         $user = $request->user();
 
@@ -58,8 +61,7 @@ final class ReadIdCardController
         ]);
 
         $credentials = ($resolveCredentials)();
-        $configuredModel = $config->get('ai.idcard.read.model');
-        $model = is_string($configuredModel) && $configuredModel !== '' ? $configuredModel : $credentials->model;
+        $model = $resolveTaskModel(SettingKey::AI_ID_CARD_MODEL) ?? $credentials->model;
 
         if (! $credentials->enabled || $credentials->baseUrl === null || $model === null) {
             return response()->json([

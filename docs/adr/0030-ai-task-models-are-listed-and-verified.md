@@ -1,6 +1,7 @@
 # ADR 0030 — The AI tasks and their models are listed, and checked against the provider
 
-**Status:** accepted, 2026-11-22
+**Status:** accepted, 2026-11-22; amended 2026-11-23 to make each task's model editable on the card
+(see "Amendment" below)
 
 ## Context
 
@@ -21,8 +22,8 @@ so has nothing to choose and nothing to verify against a catalogue.
 
 ## Decision
 
-The settings AI card gains a read-only list of every AI task and the model it will use, and a button
-that asks the provider whether those models exist.
+The settings AI card gains a list of every AI task and the model it will use — editable per task
+since the 2026-11-23 amendment below — and a button that asks the provider whether those models exist.
 
 - **The task list is config, named once in the platform.** `packages/platform/config/ai/tasks.php`
   enumerates each task and the config *key* that holds its model (or null for a task that only ever
@@ -46,8 +47,9 @@ that asks the provider whether those models exist.
 
 - **One maintenance point for the task list.** A new kind of model work is a row in
   `config/ai/tasks.php` plus a label in the frontend i18n (spelled out, so the dictionary guard sees
-  it reached). Forgetting the row means the task is absent from the screen — a visible omission, not
-  a wrong answer.
+  it reached); an *editable* task additionally needs its own `SettingKey` (with a `configPath()` to
+  its env default) and to resolve through `ResolveTaskModel`. Forgetting the row means the task is
+  absent from the screen — a visible omission, not a wrong answer.
 - **Verification is only as good as the provider's model list.** A provider that cannot list models
   (`modelsPath` null) can never be checked; the screen says so rather than implying the models are
   missing. Reuses `FetchAiProviderModels` and its `AiProviderFailure` logging unchanged — no new way
@@ -58,6 +60,30 @@ that asks the provider whether those models exist.
   config namespace.
 - **The embedding model stays invisible here by design**, matching `config/ai/embeddings.php`'s own
   note that there is no `model` key to choose.
+
+## Amendment (2026-11-23) — each task's model is editable, not only listed
+
+The list was read-only: a per-task model could only be changed by editing a module's env var and
+redeploying, exactly the friction the base model had already shed by living in the settings database.
+This amendment extends that same pattern to the tasks, with no change to the resolution rules above.
+
+- **Each editable task has its own `SettingKey`** (`AI_STATEMENT_MAPPING_MODEL`,
+  `AI_STATEMENT_CLASSIFICATION_MODEL`, `AI_ID_CARD_MODEL`, `AI_LAW_READER_MODEL`,
+  `AI_LAW_SECOND_READER_MODEL`), in the AI group, of type `STRING`. Its `configPath()` is the module
+  config key the task already read from env — so the key *bridges* to the env default rather than
+  replacing it. `document_read` has no key: it follows the base model, as before. `tasks.php` now
+  names these `setting_key`s instead of raw config keys (still platform's own strings — Deptrac-clean).
+- **`ResolveTaskModel` is the one place that applies the precedence**: the saved override, else the
+  task's env/config default, else nothing. `AiTaskModels` (the screen) *and* every service that runs a
+  task — the statement reader and classifier, the identity-card reader, the law reader — resolve
+  through it. Previously each read `config()` directly, so an override would have shown on the screen
+  and never reached the work; routing them all through one resolver is what keeps the two in step.
+- **Editing reuses the existing group machinery.** The keys save through `PUT settings/group/ai` like
+  every other AI field: a model name is stored as an override, an empty field (`null`) clears it and
+  the env default returns. Provenance (`SettingSource`) marks each row as inherited or overridden.
+- **Env stays the seed, the database holds only overrides.** An installation that never edits a task
+  behaves exactly as before — the env value resolves through `configPath()`. `.env` is never written;
+  the app keeps no write access to the secrets file.
 
 ## Sources consulted
 

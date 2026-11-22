@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Kern\TaxRomania\StatementImport\Services;
 
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use Kern\Platform\Settings\Enums\SettingKey;
+use Kern\Platform\Settings\Services\ResolveTaskModel;
 use Kern\TaxRomania\StatementImport\DataTransferObjects\AiAnswer;
 use Kern\TaxRomania\StatementImport\DataTransferObjects\FormSuggestion;
 use Kern\TaxRomania\StatementImport\DataTransferObjects\ParsedStatementFile;
@@ -68,6 +70,7 @@ final readonly class SuggestColumnMapping
     public function __construct(
         private StatementAiClient $ai,
         private ConfigRepository $config,
+        private ResolveTaskModel $resolveTaskModel,
     ) {
     }
 
@@ -84,7 +87,7 @@ final readonly class SuggestColumnMapping
             $this->config->string('ai.statements.mapping.instruction'),
             $this->payload($file, $askBank),
             self::schema(),
-            $this->config->string('ai.statements.mapping.model'),
+            ($this->resolveTaskModel)(SettingKey::AI_STATEMENT_MAPPING_MODEL),
             $this->config->integer('ai.statements.mapping.max_tokens'),
             $this->config->integer('ai.statements.timeout_seconds'),
         );

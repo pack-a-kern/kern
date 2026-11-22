@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Kern\Platform\Identity\Models\User;
+use Kern\Platform\Settings\Enums\SettingKey;
+use Kern\Platform\Settings\Repositories\SettingsRepository;
 use Kern\Platform\Uploads\Contracts\UploadScanner;
 use Kern\Platform\Uploads\Exceptions\UploadRejectedException;
 use Kern\TaxRomania\Subjects\IdCard\DataTransferObjects\IdCardReadResult;
@@ -179,6 +181,18 @@ it('reads the fields and the face box, clamping a box that runs off the card', f
     expect($result->reading?->faceBox?->x)->toBe(0.8);
     // 0.8 + 0.5 would exceed 1; the width is clamped to what is left.
     expect($result->reading?->faceBox?->w)->toEqualWithDelta(0.2, 1e-9);
+});
+
+it('sends the per-task id-card model override, not the base model', function (): void {
+    // The override an admin saves on the settings screen must actually reach the request — the
+    // regression this guards is a reader that still read the base model from config and never saw it.
+    configureIdCardProvider(); // base model: vision-1
+    app(SettingsRepository::class)->set(SettingKey::AI_ID_CARD_MODEL, 'id-card-vision-override', null);
+    idCardReply(['cnp' => '1960101223344', 'face_box' => null]);
+
+    app(IdCardReader::class)->read('bytes', 'image/jpeg');
+
+    Http::assertSent(static fn (Illuminate\Http\Client\Request $request): bool => ($request->data()['model'] ?? null) === 'id-card-vision-override');
 });
 
 it('keeps a CNP the model returned as a number, not only as a string', function (): void {

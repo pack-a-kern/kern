@@ -172,6 +172,10 @@ export interface AiTaskModel {
     id: string;
     model: string | null;
     usesDefault: boolean;
+    /** The settings key the screen edits this task's own model through; null for a task that follows the base model. */
+    settingKey: string | null;
+    /** True for a task whose unset state is "off" rather than the base model (the optional second reader). */
+    optional: boolean;
 }
 
 export function parseAiTaskModels(payload: unknown): AiTaskModel[] {
@@ -200,6 +204,8 @@ export function parseAiTaskModels(payload: unknown): AiTaskModel[] {
             id: task.id,
             model: typeof task.model === 'string' ? task.model : null,
             usesDefault: task.uses_default === true,
+            settingKey: typeof task.setting_key === 'string' ? task.setting_key : null,
+            optional: task.optional === true,
         };
     });
 }

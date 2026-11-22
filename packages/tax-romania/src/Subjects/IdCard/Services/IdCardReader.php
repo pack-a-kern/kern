@@ -8,8 +8,10 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use JsonException;
+use Kern\Platform\Settings\Enums\SettingKey;
 use Kern\Platform\Settings\Services\AiProviderCatalogue;
 use Kern\Platform\Settings\Services\ResolveAiProviderCredentials;
+use Kern\Platform\Settings\Services\ResolveTaskModel;
 use Kern\TaxRomania\Subjects\IdCard\DataTransferObjects\IdCardReading;
 use Kern\TaxRomania\Subjects\IdCard\DataTransferObjects\IdCardReadResult;
 
@@ -31,14 +33,14 @@ final readonly class IdCardReader
         private AiProviderCatalogue $catalogue,
         private HttpFactory $http,
         private ConfigRepository $config,
+        private ResolveTaskModel $resolveTaskModel,
     ) {
     }
 
     public function read(string $imageBytes, string $mimeType): IdCardReadResult
     {
         $credentials = ($this->credentials)();
-        $model = $this->config->get('ai.idcard.read.model');
-        $model = is_string($model) && $model !== '' ? $model : $credentials->model;
+        $model = ($this->resolveTaskModel)(SettingKey::AI_ID_CARD_MODEL) ?? $credentials->model;
 
         if (! $credentials->enabled || $credentials->baseUrl === null || $model === null) {
             return IdCardReadResult::failed(IdCardReadResult::UNAVAILABLE);

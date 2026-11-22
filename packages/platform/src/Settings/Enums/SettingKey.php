@@ -63,6 +63,25 @@ enum SettingKey: string
      */
     case AI_SUPPORTS_CONVERSION = 'ai.supports_conversion';
 
+    /**
+     * The model each kind of AI work uses, overriding the env/config default for that one task.
+     *
+     * A reasoning job (mapping a statement, classifying a counterparty, reading the law) and a
+     * vision job (an identity card) want measurably different models, and picking the right one per
+     * task should not need a deploy — the same reason the base model is editable here. Unset, each
+     * falls back to its `config()` path (an env var, {@see configPath()}), so an installation that
+     * never touches them behaves exactly as before. `document_read` has no key of its own: it
+     * deliberately follows the base {@see self::AI_MODEL}, which is editable on this same card.
+     *
+     * `ai.legislation.second_reader` is optional and has no base fallback — empty means "no second
+     * opinion", not "use the base model". {@see \Kern\Platform\Settings\Services\ResolveTaskModel}.
+     */
+    case AI_STATEMENT_MAPPING_MODEL = 'ai.statement_mapping_model';
+    case AI_STATEMENT_CLASSIFICATION_MODEL = 'ai.statement_classification_model';
+    case AI_ID_CARD_MODEL = 'ai.id_card_model';
+    case AI_LAW_READER_MODEL = 'ai.law_reader_model';
+    case AI_LAW_SECOND_READER_MODEL = 'ai.law_second_reader_model';
+
     // Upload limits and abuse controls (BLUEPRINT.md §14.2).
     case DOCUMENTS_MAX_PDF_BYTES = 'documents.max_pdf_bytes';
     case DOCUMENTS_MAX_IMAGE_BYTES = 'documents.max_image_bytes';
@@ -239,7 +258,9 @@ enum SettingKey: string
             self::AI_ENABLED, self::AI_PROVIDER, self::AI_BASE_URL, self::AI_MODEL,
             self::AI_API_KEY, self::AI_EXTRACTION_MAX_TOKENS,
             self::AI_EXTRACTION_TIMEOUT_SECONDS, self::AI_SUPPORTS_ENHANCEMENT,
-            self::AI_SUPPORTS_CONVERSION => SettingGroup::AI,
+            self::AI_SUPPORTS_CONVERSION, self::AI_STATEMENT_MAPPING_MODEL,
+            self::AI_STATEMENT_CLASSIFICATION_MODEL, self::AI_ID_CARD_MODEL,
+            self::AI_LAW_READER_MODEL, self::AI_LAW_SECOND_READER_MODEL => SettingGroup::AI,
 
             self::DOCUMENTS_MAX_PDF_BYTES, self::DOCUMENTS_MAX_IMAGE_BYTES,
             self::DOCUMENTS_MAX_IMAGE_PIXELS, self::DOCUMENTS_MAX_PAGES,
@@ -292,6 +313,12 @@ enum SettingKey: string
             self::AI_EXTRACTION_TIMEOUT_SECONDS => 'ai.documents.timeout_seconds',
             self::AI_SUPPORTS_ENHANCEMENT => 'ai.providers.supports_enhancement',
             self::AI_SUPPORTS_CONVERSION => 'ai.providers.supports_conversion',
+            // Each overrides the per-task model its module already reads from env.
+            self::AI_STATEMENT_MAPPING_MODEL => 'ai.statements.mapping.model',
+            self::AI_STATEMENT_CLASSIFICATION_MODEL => 'ai.statements.classification.model',
+            self::AI_ID_CARD_MODEL => 'ai.idcard.read.model',
+            self::AI_LAW_READER_MODEL => 'ai.legislation.reader',
+            self::AI_LAW_SECOND_READER_MODEL => 'ai.legislation.second_reader',
             self::DOCUMENTS_MAX_PDF_BYTES => 'documents.max_pdf_bytes',
             self::DOCUMENTS_MAX_IMAGE_BYTES => 'documents.max_image_bytes',
             self::DOCUMENTS_MAX_IMAGE_PIXELS => 'documents.max_image_pixels',
@@ -356,7 +383,10 @@ enum SettingKey: string
             self::SOURCES_BROWSER_USER_AGENT, self::SOURCES_CRAWLER_NAME => SettingType::HEADER_VALUE,
             self::SOURCES_CRAWLER_CONTACT => SettingType::CONTACT,
             self::AI_PROVIDER, self::AI_MODEL, self::CRYPTO_KMS_DRIVER, self::BROWSER_PROXY_USERNAME,
-            self::BROWSER_PROXY_PLAYBOOKS, self::SECURITY_HASH_DRIVER => SettingType::STRING,
+            self::BROWSER_PROXY_PLAYBOOKS, self::SECURITY_HASH_DRIVER,
+            self::AI_STATEMENT_MAPPING_MODEL, self::AI_STATEMENT_CLASSIFICATION_MODEL,
+            self::AI_ID_CARD_MODEL, self::AI_LAW_READER_MODEL,
+            self::AI_LAW_SECOND_READER_MODEL => SettingType::STRING,
             default => SettingType::INTEGER,
         };
     }

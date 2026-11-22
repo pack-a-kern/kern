@@ -6,6 +6,8 @@ namespace Kern\TaxRomania\StatementImport\Services;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use Kern\Platform\Settings\Enums\SettingKey;
+use Kern\Platform\Settings\Services\ResolveTaskModel;
 use Kern\Platform\Tenancy\TenantScope;
 use Kern\TaxRomania\StatementImport\DataTransferObjects\AiAnswer;
 use Kern\TaxRomania\Wallet\Enums\MoneyDirection;
@@ -65,6 +67,7 @@ final readonly class ClassifyKnownCounterparties
         private CounterpartyTransactions $rows,
         private CounterpartyPrompt $prompt,
         private ConfigRepository $config,
+        private ResolveTaskModel $resolveTaskModel,
     ) {
     }
 
@@ -166,7 +169,7 @@ final readonly class ClassifyKnownCounterparties
                 'counterparties' => $payload,
             ],
             ClassifyCounterparties::schema(),
-            $this->config->string('ai.statements.classification.model'),
+            ($this->resolveTaskModel)(SettingKey::AI_STATEMENT_CLASSIFICATION_MODEL),
             $this->config->integer('ai.statements.classification.max_tokens'),
             $this->config->integer('ai.statements.timeout_seconds'),
         );

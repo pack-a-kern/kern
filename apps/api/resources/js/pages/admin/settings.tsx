@@ -1424,7 +1424,9 @@ function AiPanel(props: {
 
     // The per-task model list is this installation's own configuration, not a provider call, so it
     // loads with the card. The check against the provider stays behind its button. A failure to read
-    // it leaves the section empty rather than breaking the AI card around it.
+    // it leaves the section empty rather than breaking the AI card around it. Re-read whenever the AI
+    // group reloads — after a save, so an edited model's resolved value and badge catch up to what was
+    // just stored; `props.group` is a fresh object only then, never on a keystroke.
     useEffect(() => {
         let active = true;
 
@@ -1443,7 +1445,7 @@ function AiPanel(props: {
         return () => {
             active = false;
         };
-    }, []);
+    }, [props.group]);
 
     const settingOf = (key: string): Setting | undefined => props.group.settings.find((s) => s.key === key);
     const valueOf = (key: string): string => props.drafts[key] ?? settingOf(key)?.value ?? '';
@@ -1946,35 +1948,106 @@ function AiPanel(props: {
                                 </PanelButton>
                             </div>
 
-                            <ul className="flex flex-col gap-1">
+                            <ul className="flex flex-col gap-1.5">
                                 {(taskModels ?? []).map((task) => {
+                                    // The verify badge is read against what is saved — `task.model` is
+                                    // the resolved effective model from the server, which catches up
+                                    // after a save (the list is re-read then).
                                     const exists =
                                         task.model === null || verification === null || !verification.checkable
                                             ? null
                                             : verification.exists[task.model] === true;
+                                    const settingKey = task.settingKey;
+                                    const setting = settingKey !== null ? settingOf(settingKey) : undefined;
+                                    const own = settingKey !== null ? valueOf(settingKey) : '';
+                                    const baseModel = valueOf('ai.model');
+                                    // The task's own model is always offered; the shared list too, so a
+                                    // model can be moved onto a task without loading the provider first.
+                                    const options = [...new Set([...modelOptions, own].filter((m) => m !== ''))].sort(
+                                        (a, b) => a.localeCompare(b),
+                                    );
+                                    const inheritLabel = task.optional
+                                        ? t((d) => d.pages.adminSettings.ai.taskModels.off)
+                                        : t((d) => d.pages.adminSettings.ai.taskModels.useDefault);
 
                                     return (
                                         <li
                                             key={task.id}
-                                            className="border-border flex flex-col gap-1 rounded-sm border px-2 py-1.5 text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                                            className="border-border flex flex-col gap-1.5 rounded-sm border px-2 py-1.5 text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                                         >
-                                            {/* On a phone the label takes its own line and the model
-                                                and its badges wrap underneath, so a long model name
-                                                and a status badge never crush the row off-screen; from
-                                                `sm` up the two sit on one line, badges to the right. */}
-                                            <span className="min-w-0 font-medium">{taskLabel(task.id)}</span>
-                                            <span className="flex flex-wrap items-center gap-1.5 sm:justify-end">
-                                                {task.model === null ? (
-                                                    <span className="text-muted-foreground">
-                                                        {t((d) => d.pages.adminSettings.ai.taskModels.off)}
-                                                    </span>
+                                            {/* On a phone the label takes its own line and the control
+                                                and badges wrap underneath; from `sm` up they share one
+                                                line, the control and badges to the right. */}
+                                            <span className="flex min-w-0 items-center gap-1.5 font-medium sm:shrink-0">
+                                                {taskLabel(task.id)}
+                                                {setting ? <SourceMark setting={setting} /> : null}
+                                            </span>
+                                            <span className="flex min-w-0 flex-wrap items-center gap-1.5 sm:justify-end">
+                                                {settingKey === null ? (
+                                                    // `document_read` has no model of its own: it follows
+                                                    // the base model, changed in the Model field above.
+                                                    task.model === null ? (
+                                                        <span className="text-muted-foreground">
+                                                            {t((d) => d.pages.adminSettings.ai.taskModels.off)}
+                                                        </span>
+                                                    ) : (
+                                                        <>
+                                                            <code className="font-mono break-all">{task.model}</code>
+                                                            {task.usesDefault ? (
+                                                                <Pill>
+                                                                    {t(
+                                                                        (d) =>
+                                                                            d.pages.adminSettings.ai.taskModels.default,
+                                                                    )}
+                                                                </Pill>
+                                                            ) : null}
+                                                        </>
+                                                    )
                                                 ) : (
                                                     <>
-                                                        <code className="font-mono break-all">{task.model}</code>
-                                                        {task.usesDefault ? (
-                                                            <Pill>
-                                                                {t((d) => d.pages.adminSettings.ai.taskModels.default)}
-                                                            </Pill>
+                                                        {options.length > 0 ? (
+                                                            <PanelSelect
+                                                                id={settingKey}
+                                                                className="min-w-0 sm:w-56"
+                                                                value={own}
+                                                                emptyLabel={inheritLabel}
+                                                                placeholder={inheritLabel}
+                                                                onValueChange={(value) => {
+                                                                    props.onDraft(settingKey, value);
+                                                                }}
+                                                                options={options.map((model) => ({
+                                                                    value: model,
+                                                                    label: model,
+                                                                }))}
+                                                                aria-label={taskLabel(task.id)}
+                                                            />
+                                                        ) : (
+                                                            <PanelInput
+                                                                id={settingKey}
+                                                                className="min-w-0 sm:w-56"
+                                                                value={own}
+                                                                placeholder={inheritLabel}
+                                                                onChange={(event) => {
+                                                                    props.onDraft(settingKey, event.target.value);
+                                                                }}
+                                                                aria-label={taskLabel(task.id)}
+                                                            />
+                                                        )}
+                                                        {/* Inheriting (no own model): say what it resolves
+                                                            to — the base model, or off for an optional task. */}
+                                                        {own === '' && !task.optional ? (
+                                                            <span className="text-muted-foreground inline-flex items-center gap-1">
+                                                                →
+                                                                <code className="font-mono break-all">
+                                                                    {baseModel !== ''
+                                                                        ? baseModel
+                                                                        : t(
+                                                                              (d) =>
+                                                                                  d.pages.adminSettings.ai.taskModels
+                                                                                      .off,
+                                                                          )}
+                                                                </code>
+                                                            </span>
                                                         ) : null}
                                                     </>
                                                 )}

@@ -11,8 +11,10 @@ use Illuminate\Http\Client\Factory as HttpFactory;
 use JsonException;
 use Kern\Legislation\Parsing\SectionText;
 use Kern\Platform\Settings\Enums\AiDialect;
+use Kern\Platform\Settings\Enums\SettingKey;
 use Kern\Platform\Settings\Services\AiProviderCatalogue;
 use Kern\Platform\Settings\Services\ResolveAiProviderCredentials;
+use Kern\Platform\Settings\Services\ResolveTaskModel;
 use Kern\TaxRomania\FiscalParameters\Matching\Provision;
 use Kern\TaxRomania\FiscalParameters\ParameterAnswer;
 use Kern\TaxRomania\FiscalParameters\ParameterDefinition;
@@ -43,6 +45,7 @@ final readonly class LawReader
         private ResolveAiProviderCredentials $credentials,
         private ConfigRepository $config,
         private LoggerInterface $log,
+        private ResolveTaskModel $resolveTaskModel,
     ) {
     }
 
@@ -62,9 +65,8 @@ final readonly class LawReader
      */
     public function readers(): array
     {
-        $reader = $this->config->string('ai.legislation.reader');
-        $reader = $reader !== '' ? $reader : (string) ($this->credentials)()->model;
-        $second = $this->config->string('ai.legislation.second_reader');
+        $reader = ($this->resolveTaskModel)(SettingKey::AI_LAW_READER_MODEL) ?? (string) ($this->credentials)()->model;
+        $second = ($this->resolveTaskModel)(SettingKey::AI_LAW_SECOND_READER_MODEL) ?? '';
 
         return array_values(array_unique(array_filter([$reader, $second], static fn (string $model): bool => $model !== '')));
     }

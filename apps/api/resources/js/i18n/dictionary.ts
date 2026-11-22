@@ -2349,8 +2349,10 @@ export interface Dictionary {
                     checking: string;
                     /** The badge on a task with no model of its own. */
                     default: string;
-                    /** The badge on an optional task left unconfigured. */
+                    /** The badge on an optional task left unconfigured, and the clear/off choice on an optional task's select. */
                     off: string;
+                    /** The clear choice on an editable task's model select — inherit the base model. */
+                    useDefault: string;
                     exists: string;
                     missing: string;
                     checkFailed: string;
