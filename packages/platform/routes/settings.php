@@ -7,11 +7,13 @@ use Kern\Platform\Http\Controllers\Settings\ListAiModelsController;
 use Kern\Platform\Http\Controllers\Settings\ReplaceAiConnectionController;
 use Kern\Platform\Http\Controllers\Settings\ReplaceBrowserProxyController;
 use Kern\Platform\Http\Controllers\Settings\ShowAiProvidersController;
+use Kern\Platform\Http\Controllers\Settings\ShowAiTaskModelsController;
 use Kern\Platform\Http\Controllers\Settings\ShowBrowserProxyController;
 use Kern\Platform\Http\Controllers\Settings\ShowSettingsController;
 use Kern\Platform\Http\Controllers\Settings\ShowSystemHealthController;
 use Kern\Platform\Http\Controllers\Settings\TestAiConnectionController;
 use Kern\Platform\Http\Controllers\Settings\UpdateSettingsGroupController;
+use Kern\Platform\Http\Controllers\Settings\VerifyAiTaskModelsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -46,6 +48,10 @@ Route::prefix('v1/settings')->middleware(['auth:web'])->group(function (): void 
         // fresh what it fetched is, is a question about *this product's* data. The application
         // registers it in `routes/api.php`.
         Route::get('ai/providers', ShowAiProvidersController::class);
+        // The model each AI task will use, read from config against the base model — no provider is
+        // reached, so this is a view, not a call. The button that does reach the provider to check
+        // those models exist is `ai/task-models/verify`, under the manage permission below.
+        Route::get('ai/task-models', ShowAiTaskModelsController::class);
         Route::get('browser/proxy', ShowBrowserProxyController::class);
     });
 
@@ -60,6 +66,9 @@ Route::prefix('v1/settings')->middleware(['auth:web'])->group(function (): void 
         // every sense that matters even though neither stores anything.
         Route::post('ai/test-connection', TestAiConnectionController::class)->middleware('throttle:operator-calls-per-user');
         Route::post('ai/models', ListAiModelsController::class)->middleware('throttle:operator-calls-per-user');
+        // Reaches the saved provider to ask whether every task's configured model exists on it —
+        // the same real-credentials call as the two above, so the same permission and throttle.
+        Route::post('ai/task-models/verify', VerifyAiTaskModelsController::class)->middleware('throttle:operator-calls-per-user');
 
         // Namespaced under `group/` deliberately: a bare `{group}` wildcard collides with the
         // AI-specific routes above, and `PUT settings/ai` then reaches the generic controller —

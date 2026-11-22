@@ -2,11 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
     fetchAiModels,
+    getAiTaskModels,
     listAiProviders,
     listSettings,
     replaceAiConnection,
     testAiConnection,
     updateSettingsGroup,
+    verifyAiModels,
 } from './settingsApi';
 
 /**
@@ -152,6 +154,54 @@ describe('AI provider catalogue and model discovery', () => {
         mockFetch({ ok: false, models: [], reason: 'failed' });
 
         await expect(fetchAiModels('openai')).resolves.toEqual({ ok: false, models: [], reason: 'failed' });
+    });
+
+    it('reads the per-task models from the GET route, no body', async () => {
+        const fetchMock = mockFetch({
+            tasks: [
+                { id: 'document_read', model: 'base-model', uses_default: true },
+                { id: 'statement_classification', model: 'cls-model', uses_default: false },
+                { id: 'law_second_reader', model: null, uses_default: false },
+            ],
+        });
+
+        await expect(getAiTaskModels()).resolves.toEqual([
+            { id: 'document_read', model: 'base-model', usesDefault: true },
+            { id: 'statement_classification', model: 'cls-model', usesDefault: false },
+            { id: 'law_second_reader', model: null, usesDefault: false },
+        ]);
+
+        const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe('/api/v1/settings/ai/task-models');
+        expect(init.method ?? 'GET').toBe('GET');
+    });
+
+    it('verifies models through the POST route and keeps the exists map', async () => {
+        const fetchMock = mockFetch({
+            checkable: true,
+            reason: null,
+            exists: { 'base-model': true, 'cls-model': false },
+        });
+
+        await expect(verifyAiModels()).resolves.toEqual({
+            checkable: true,
+            reason: null,
+            exists: { 'base-model': true, 'cls-model': false },
+        });
+
+        const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe('/api/v1/settings/ai/task-models/verify');
+        expect(init.method).toBe('POST');
+    });
+
+    it('reports an uncheckable verification as a value rather than throwing', async () => {
+        mockFetch({ checkable: false, reason: 'not_configured', exists: {} });
+
+        await expect(verifyAiModels()).resolves.toEqual({
+            checkable: false,
+            reason: 'not_configured',
+            exists: {},
+        });
     });
 
     it('saves the address and the key together, an empty key as none', async () => {

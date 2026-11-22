@@ -42,6 +42,7 @@ final class SettingsServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__ . '/../../config/ai/providers.php', 'ai.providers');
+        $this->mergeConfigFrom(__DIR__ . '/../../config/ai/tasks.php', 'ai.tasks');
 
         $this->app->singleton(SystemSecretCipher::class, static function (Application $app): SystemSecretCipher {
             return new SystemSecretCipher(static function () use ($app): SubjectDekService {

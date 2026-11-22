@@ -161,6 +161,83 @@ export function parseAiProviders(payload: unknown): AiProvider[] {
     });
 }
 
+/**
+ * One entry from `GET /api/v1/settings/ai/task-models` — an AI task and the model it will use.
+ *
+ * `model` is the name that will be sent, the task's own or the base `ai.model` it falls back to;
+ * `usesDefault` tells which, so the screen can show an inherited model as inherited. `model` is null
+ * when the task is off (an optional one nobody configured) or nothing is configured at all.
+ */
+export interface AiTaskModel {
+    id: string;
+    model: string | null;
+    usesDefault: boolean;
+}
+
+export function parseAiTaskModels(payload: unknown): AiTaskModel[] {
+    if (typeof payload !== 'object' || payload === null) {
+        throw new TypeError('Task-model response is not an object.');
+    }
+
+    const tasks = (payload as Record<string, unknown>).tasks;
+
+    if (!Array.isArray(tasks)) {
+        throw new TypeError('Task-model response has no tasks array.');
+    }
+
+    return tasks.map((entry): AiTaskModel => {
+        if (typeof entry !== 'object' || entry === null) {
+            throw new TypeError('Task-model entry is not an object.');
+        }
+
+        const task = entry as Record<string, unknown>;
+
+        if (typeof task.id !== 'string') {
+            throw new TypeError('Task-model entry is missing id.');
+        }
+
+        return {
+            id: task.id,
+            model: typeof task.model === 'string' ? task.model : null,
+            usesDefault: task.uses_default === true,
+        };
+    });
+}
+
+/**
+ * The result of `POST /api/v1/settings/ai/task-models/verify`.
+ *
+ * `checkable` false means the provider's model list could not be had (`reason` says why — the same
+ * reasons the model loader uses), and the screen says "could not check" rather than marking models
+ * missing. When true, `exists` maps each checked model name to whether the provider serves it.
+ */
+export interface AiModelVerification {
+    checkable: boolean;
+    reason: string | null;
+    exists: Record<string, boolean>;
+}
+
+export function parseAiModelVerification(payload: unknown): AiModelVerification {
+    if (typeof payload !== 'object' || payload === null) {
+        throw new TypeError('Model verification response is not an object.');
+    }
+
+    const candidate = payload as Record<string, unknown>;
+    const exists: Record<string, boolean> = {};
+
+    if (typeof candidate.exists === 'object' && candidate.exists !== null) {
+        for (const [model, present] of Object.entries(candidate.exists as Record<string, unknown>)) {
+            exists[model] = present === true;
+        }
+    }
+
+    return {
+        checkable: candidate.checkable === true,
+        reason: typeof candidate.reason === 'string' ? candidate.reason : null,
+        exists,
+    };
+}
+
 /** One entry from `GET /api/v1/settings/health`. */
 export interface ComponentHealth {
     key: string;

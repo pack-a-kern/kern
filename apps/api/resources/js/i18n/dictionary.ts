@@ -2336,6 +2336,29 @@ export interface Dictionary {
                  * unrecognised code falls back rather than crashing the page.
                  */
                 modelReasons: Record<string, string | undefined>;
+                /** The read-only "which model does each task use", and the button that checks them. */
+                taskModels: {
+                    title: string;
+                    hint: string;
+                    check: string;
+                    checking: string;
+                    /** The badge on a task with no model of its own. */
+                    default: string;
+                    /** The badge on an optional task left unconfigured. */
+                    off: string;
+                    exists: string;
+                    missing: string;
+                    checkFailed: string;
+                    /** Keyed by the task id from `config/ai/tasks.php`. */
+                    tasks: {
+                        document_read: string;
+                        statement_mapping: string;
+                        statement_classification: string;
+                        id_card: string;
+                        law_reader: string;
+                        law_second_reader: string;
+                    };
+                };
             };
             cancel: string;
             editLimits: string;

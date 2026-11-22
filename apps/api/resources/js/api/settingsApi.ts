@@ -1,13 +1,17 @@
 import { apiRequest } from '../lib/http';
 import {
+    type AiModelVerification,
     type AiProvider,
+    type AiTaskModel,
     type BankLogoCoverage,
     type BrowserEngine,
     type BrowserProxyView,
     type ComponentHealth,
     type SettingGroupPayload,
     type UserAgentChoices,
+    parseAiModelVerification,
     parseAiProviders,
+    parseAiTaskModels,
     parseBankLogoCoverage,
     parseBrowserProxy,
     parseSettingGroups,
@@ -129,6 +133,30 @@ export async function fetchAiModels(provider: string): Promise<AiModelList> {
             : [],
         reason: typeof candidate.reason === 'string' ? candidate.reason : null,
     };
+}
+
+/**
+ * `GET /api/v1/settings/ai/task-models` — every AI task and the model it will use.
+ *
+ * Config, not a provider call: it says which model each kind of work would send, resolving each
+ * task's own model or the base one it inherits. `verifyAiModels` is the separate, on-demand call
+ * that asks the provider whether those models exist.
+ */
+export async function getAiTaskModels(): Promise<AiTaskModel[]> {
+    return parseAiTaskModels(JSON.parse(await apiRequest('/v1/settings/ai/task-models')));
+}
+
+/**
+ * `POST /api/v1/settings/ai/task-models/verify` — asks the saved provider whether each task's model
+ * exists on it.
+ *
+ * One provider call for all of them. `checkable` is false when the list could not be had (`reason`
+ * says why), which the screen shows as "could not check" rather than as missing models.
+ */
+export async function verifyAiModels(): Promise<AiModelVerification> {
+    return parseAiModelVerification(
+        JSON.parse(await apiRequest('/v1/settings/ai/task-models/verify', { method: 'POST' })),
+    );
 }
 
 /**

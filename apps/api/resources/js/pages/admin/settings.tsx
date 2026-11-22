@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 
 import {
     fetchAiModels,
+    getAiTaskModels,
     getBankLogos,
     getBrowserProxy,
     getPlatformData,
@@ -16,6 +17,7 @@ import {
     refreshBankLogos,
     testAiConnection,
     updateSettingsGroup,
+    verifyAiModels,
 } from '../../api/settingsApi';
 import {
     Field,
@@ -78,7 +80,9 @@ import { iconForSetting } from '../../lib/settingIcons';
 import { unitFor } from '../../lib/settingUnits';
 import {
     BROWSER_ENGINES,
+    type AiModelVerification,
     type AiProvider,
+    type AiTaskModel,
     type BankLogoCoverage,
     type BrowserEngine,
     type BrowserProxyView,
@@ -1414,6 +1418,32 @@ function AiPanel(props: {
     const [testing, setTesting] = useState(false);
     const [connection, setConnection] = useState<{ tone: StatusTone; label: string } | null>(null);
     const [connectionDialogOpen, setConnectionDialogOpen] = useState(false);
+    const [taskModels, setTaskModels] = useState<AiTaskModel[] | null>(null);
+    const [verifying, setVerifying] = useState(false);
+    const [verification, setVerification] = useState<AiModelVerification | null>(null);
+
+    // The per-task model list is this installation's own configuration, not a provider call, so it
+    // loads with the card. The check against the provider stays behind its button. A failure to read
+    // it leaves the section empty rather than breaking the AI card around it.
+    useEffect(() => {
+        let active = true;
+
+        void getAiTaskModels()
+            .then((models) => {
+                if (active) {
+                    setTaskModels(models);
+                }
+            })
+            .catch(() => {
+                if (active) {
+                    setTaskModels([]);
+                }
+            });
+
+        return () => {
+            active = false;
+        };
+    }, []);
 
     const settingOf = (key: string): Setting | undefined => props.group.settings.find((s) => s.key === key);
     const valueOf = (key: string): string => props.drafts[key] ?? settingOf(key)?.value ?? '';
@@ -1539,6 +1569,59 @@ function AiPanel(props: {
             );
         } finally {
             setTesting(false);
+        }
+    };
+
+    const runCheck = async (): Promise<void> => {
+        setVerifying(true);
+
+        try {
+            const result = await verifyAiModels();
+            setVerification(result);
+
+            if (!result.checkable) {
+                toast.error(
+                    t((d) => d.pages.adminSettings.ai.taskModels.checkFailed),
+                    {
+                        description: t(
+                            (d) =>
+                                d.pages.adminSettings.ai.modelReasons[result.reason as string] ?? d.errors.unexpected,
+                        ),
+                    },
+                );
+            }
+        } catch (cause: unknown) {
+            setVerification(null);
+            toast.error(
+                t((d) => d.pages.adminSettings.ai.taskModels.checkFailed),
+                {
+                    description: props.describeFailure(cause),
+                },
+            );
+        } finally {
+            setVerifying(false);
+        }
+    };
+
+    // The task id is the backend's contract; its label is the frontend's. Spelled out rather than
+    // indexed so a task added to `config/ai/tasks.php` must be given a name here, and the i18n guard
+    // sees every one of these keys reached.
+    const taskLabel = (id: string): string => {
+        switch (id) {
+            case 'document_read':
+                return t((d) => d.pages.adminSettings.ai.taskModels.tasks.document_read);
+            case 'statement_mapping':
+                return t((d) => d.pages.adminSettings.ai.taskModels.tasks.statement_mapping);
+            case 'statement_classification':
+                return t((d) => d.pages.adminSettings.ai.taskModels.tasks.statement_classification);
+            case 'id_card':
+                return t((d) => d.pages.adminSettings.ai.taskModels.tasks.id_card);
+            case 'law_reader':
+                return t((d) => d.pages.adminSettings.ai.taskModels.tasks.law_reader);
+            case 'law_second_reader':
+                return t((d) => d.pages.adminSettings.ai.taskModels.tasks.law_second_reader);
+            default:
+                return id;
         }
     };
 
@@ -1822,6 +1905,81 @@ function AiPanel(props: {
                                 {conversionSetting ? <SourceMark setting={conversionSetting} /> : null}
                             </span>
                         </label>
+                    </FieldSpan>
+
+                    {/* Which model each kind of work uses, read from `config/ai/tasks.php` against the
+                        base model, and — on the button, never on open — whether the provider actually
+                        serves them. The embedding model is not here: it runs in-process, not on a
+                        provider, so there is nothing to choose and nothing to check. */}
+                    <FieldSpan>
+                        <div className="flex flex-col gap-2">
+                            <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                    <div className="text-xs font-medium">
+                                        {t((d) => d.pages.adminSettings.ai.taskModels.title)}
+                                    </div>
+                                    <div className="text-muted-foreground text-xs">
+                                        {t((d) => d.pages.adminSettings.ai.taskModels.hint)}
+                                    </div>
+                                </div>
+                                <PanelButton
+                                    inline
+                                    disabled={verifying || taskModels === null || taskModels.length === 0}
+                                    onClick={() => {
+                                        void runCheck();
+                                    }}
+                                >
+                                    <RefreshCw className="size-3.5" aria-hidden="true" />
+                                    {verifying
+                                        ? t((d) => d.pages.adminSettings.ai.taskModels.checking)
+                                        : t((d) => d.pages.adminSettings.ai.taskModels.check)}
+                                </PanelButton>
+                            </div>
+
+                            <ul className="flex flex-col gap-1">
+                                {(taskModels ?? []).map((task) => {
+                                    const exists =
+                                        task.model === null || verification === null || !verification.checkable
+                                            ? null
+                                            : verification.exists[task.model] === true;
+
+                                    return (
+                                        <li
+                                            key={task.id}
+                                            className="border-border flex items-center justify-between gap-2 rounded-sm border px-2 py-1 text-xs"
+                                        >
+                                            <span className="min-w-0 truncate">{taskLabel(task.id)}</span>
+                                            <span className="flex shrink-0 items-center gap-1.5">
+                                                {task.model === null ? (
+                                                    <span className="text-muted-foreground">
+                                                        {t((d) => d.pages.adminSettings.ai.taskModels.off)}
+                                                    </span>
+                                                ) : (
+                                                    <>
+                                                        <code className="font-mono">{task.model}</code>
+                                                        {task.usesDefault ? (
+                                                            <Pill>
+                                                                {t((d) => d.pages.adminSettings.ai.taskModels.default)}
+                                                            </Pill>
+                                                        ) : null}
+                                                    </>
+                                                )}
+                                                {exists === true ? (
+                                                    <Status tone="ok">
+                                                        {t((d) => d.pages.adminSettings.ai.taskModels.exists)}
+                                                    </Status>
+                                                ) : null}
+                                                {exists === false ? (
+                                                    <Status tone="bad">
+                                                        {t((d) => d.pages.adminSettings.ai.taskModels.missing)}
+                                                    </Status>
+                                                ) : null}
+                                            </span>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </div>
                     </FieldSpan>
                 </FieldGrid>
             </Panel>

@@ -105,6 +105,7 @@ final class PlatformServiceProvider extends ServiceProvider
             __DIR__ . '/../config/crypto.php' => config_path('crypto.php'),
             __DIR__ . '/../config/kern.php' => config_path('kern.php'),
             __DIR__ . '/../config/ai/providers.php' => config_path('ai/providers.php'),
+            __DIR__ . '/../config/ai/tasks.php' => config_path('ai/tasks.php'),
             __DIR__ . '/../config/access.php' => config_path('access.php'),
             __DIR__ . '/../config/identity.php' => config_path('identity.php'),
             __DIR__ . '/../config/webauthn.php' => config_path('webauthn.php'),
