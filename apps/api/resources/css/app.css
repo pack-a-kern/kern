@@ -4520,9 +4520,20 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     width: 2rem;
     height: 2rem;
     overflow: hidden;
-    border: 1px solid var(--border);
+    /* Dashed hairline so the chip is found even against a same-coloured card. A mid-grey dash,
+       not `--border` (near-white): on a white card that hairline was invisible, which is what
+       left the mark hard to see in light mode. Translucent, so the one colour reads in both
+       themes — grey dashes on the white light tile and on the softer dark-mode one alike. */
+    border: 1px dashed color-mix(in oklab, var(--muted-foreground) 45%, transparent);
     border-radius: var(--radius-md);
-    background: var(--card);
+    /* A white canvas — issuer logos are drawn for one — like the bank tiles; the dark override
+       below softens it so pure white does not glare on a dark ground. */
+    background: #fff;
+}
+
+/* Softer than white where pure white glares, matching `.bank-tile-logo`. */
+.dark .market-issuer-mark {
+    background: #e9ebee;
 }
 
 .market-issuer-mark img {
@@ -4532,12 +4543,20 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     padding: 2px;
 }
 
+/* The initials badge is type, not a logo, so it keeps a theme-native ground and a solid edge that
+   sets it apart from the dashed logo canvas. */
 .market-issuer-mark-fallback {
-    background: color-mix(in oklab, var(--primary) 8%, var(--card));
+    border-style: solid;
+    background: var(--secondary);
     color: var(--muted-foreground);
     font-size: var(--text-2xs);
     font-weight: 700;
     letter-spacing: 0.02em;
+}
+
+/* The fallback is theme-native type, so it overrides the logo tile's white dark-mode ground. */
+.dark .market-issuer-mark-fallback {
+    background: var(--secondary);
 }
 
 .data-table td {

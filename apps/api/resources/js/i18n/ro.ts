@@ -2510,6 +2510,10 @@ export const ro = {
                     unknown_provider: 'Furnizor necunoscut.',
                     not_configured: 'Setează mai întâi adresa furnizorului.',
                 },
+                capabilities: {
+                    title: 'Capabilitățile furnizorului',
+                    hint: 'Funcții suplimentare ale acestui endpoint. Activează doar ce suportă efectiv furnizorul.',
+                },
                 taskModels: {
                     title: 'Modele pe sarcini',
                     hint: 'Modelul pe care îl folosește fiecare sarcină AI. O sarcină fără model propriu folosește modelul implicit.',

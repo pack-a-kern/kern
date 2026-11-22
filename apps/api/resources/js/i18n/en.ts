@@ -2504,6 +2504,10 @@ export const en = {
                     unknown_provider: 'Unknown provider.',
                     not_configured: 'Set the provider address first.',
                 },
+                capabilities: {
+                    title: 'Provider capabilities',
+                    hint: 'Extra features of this endpoint. Turn on only what the provider actually supports.',
+                },
                 taskModels: {
                     title: 'Models by task',
                     hint: 'The model each kind of AI work will use. A task with no model of its own uses the default.',

@@ -1854,57 +1854,67 @@ function AiPanel(props: {
                         />
                     </Field>
 
-                    {/* A capability of the endpoint, not a preference: `docscanner` is something a
-                        gateway either implements or does not, and OpenAI does not. Off means the
-                        upload screen never offers it, rather than offering something that fails. */}
+                    {/* Two properties of the endpoint, not preferences: capabilities a gateway either
+                        implements or does not — `docscanner` (clean up images) and `docling` (turn a
+                        statement PDF into CSV before it is read), neither of which OpenAI has. Off
+                        means the upload screen never offers something that would fail. Grouped under
+                        one heading and laid out two-up so they read as one pair, not two stray rows. */}
                     <FieldSpan>
-                        <label className="flex items-start gap-2 text-xs">
-                            <Checkbox
-                                checked={valueOf('ai.supports_enhancement') === '1'}
-                                onCheckedChange={(next) => {
-                                    props.onDraft('ai.supports_enhancement', next ? '1' : '0');
-                                }}
-                                aria-label={t(
-                                    (d) =>
-                                        d.pages.adminSettings.settingLabels['ai.supports_enhancement'] ??
-                                        'ai.supports_enhancement',
-                                )}
-                            />
-                            <span className="min-w-0">
-                                {t(
-                                    (d) =>
-                                        d.pages.adminSettings.settingLabels['ai.supports_enhancement'] ??
-                                        'ai.supports_enhancement',
-                                )}
-                                {enhancementSetting ? <SourceMark setting={enhancementSetting} /> : null}
-                            </span>
-                        </label>
-                    </FieldSpan>
+                        <div className="flex flex-col gap-2">
+                            <div className="min-w-0">
+                                <div className="text-xs font-medium">
+                                    {t((d) => d.pages.adminSettings.ai.capabilities.title)}
+                                </div>
+                                <div className="text-muted-foreground text-xs">
+                                    {t((d) => d.pages.adminSettings.ai.capabilities.hint)}
+                                </div>
+                            </div>
+                            <div className="grid gap-1.5 sm:grid-cols-2">
+                                <label className="border-border flex items-start gap-2 rounded-sm border px-2 py-1.5 text-xs">
+                                    <Checkbox
+                                        checked={valueOf('ai.supports_enhancement') === '1'}
+                                        onCheckedChange={(next) => {
+                                            props.onDraft('ai.supports_enhancement', next ? '1' : '0');
+                                        }}
+                                        aria-label={t(
+                                            (d) =>
+                                                d.pages.adminSettings.settingLabels['ai.supports_enhancement'] ??
+                                                'ai.supports_enhancement',
+                                        )}
+                                    />
+                                    <span className="min-w-0">
+                                        {t(
+                                            (d) =>
+                                                d.pages.adminSettings.settingLabels['ai.supports_enhancement'] ??
+                                                'ai.supports_enhancement',
+                                        )}
+                                        {enhancementSetting ? <SourceMark setting={enhancementSetting} /> : null}
+                                    </span>
+                                </label>
 
-                    {/* The same kind of capability: `docling` turns a statement PDF into CSV before it
-                        is read. Off means a statement PDF is read here, as it always was. */}
-                    <FieldSpan>
-                        <label className="flex items-start gap-2 text-xs">
-                            <Checkbox
-                                checked={valueOf('ai.supports_conversion') === '1'}
-                                onCheckedChange={(next) => {
-                                    props.onDraft('ai.supports_conversion', next ? '1' : '0');
-                                }}
-                                aria-label={t(
-                                    (d) =>
-                                        d.pages.adminSettings.settingLabels['ai.supports_conversion'] ??
-                                        'ai.supports_conversion',
-                                )}
-                            />
-                            <span className="min-w-0">
-                                {t(
-                                    (d) =>
-                                        d.pages.adminSettings.settingLabels['ai.supports_conversion'] ??
-                                        'ai.supports_conversion',
-                                )}
-                                {conversionSetting ? <SourceMark setting={conversionSetting} /> : null}
-                            </span>
-                        </label>
+                                <label className="border-border flex items-start gap-2 rounded-sm border px-2 py-1.5 text-xs">
+                                    <Checkbox
+                                        checked={valueOf('ai.supports_conversion') === '1'}
+                                        onCheckedChange={(next) => {
+                                            props.onDraft('ai.supports_conversion', next ? '1' : '0');
+                                        }}
+                                        aria-label={t(
+                                            (d) =>
+                                                d.pages.adminSettings.settingLabels['ai.supports_conversion'] ??
+                                                'ai.supports_conversion',
+                                        )}
+                                    />
+                                    <span className="min-w-0">
+                                        {t(
+                                            (d) =>
+                                                d.pages.adminSettings.settingLabels['ai.supports_conversion'] ??
+                                                'ai.supports_conversion',
+                                        )}
+                                        {conversionSetting ? <SourceMark setting={conversionSetting} /> : null}
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
                     </FieldSpan>
 
                     {/* Which model each kind of work uses, read from `config/ai/tasks.php` against the
@@ -1946,17 +1956,21 @@ function AiPanel(props: {
                                     return (
                                         <li
                                             key={task.id}
-                                            className="border-border flex items-center justify-between gap-2 rounded-sm border px-2 py-1 text-xs"
+                                            className="border-border flex flex-col gap-1 rounded-sm border px-2 py-1.5 text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                                         >
-                                            <span className="min-w-0 truncate">{taskLabel(task.id)}</span>
-                                            <span className="flex shrink-0 items-center gap-1.5">
+                                            {/* On a phone the label takes its own line and the model
+                                                and its badges wrap underneath, so a long model name
+                                                and a status badge never crush the row off-screen; from
+                                                `sm` up the two sit on one line, badges to the right. */}
+                                            <span className="min-w-0 font-medium">{taskLabel(task.id)}</span>
+                                            <span className="flex flex-wrap items-center gap-1.5 sm:justify-end">
                                                 {task.model === null ? (
                                                     <span className="text-muted-foreground">
                                                         {t((d) => d.pages.adminSettings.ai.taskModels.off)}
                                                     </span>
                                                 ) : (
                                                     <>
-                                                        <code className="font-mono">{task.model}</code>
+                                                        <code className="font-mono break-all">{task.model}</code>
                                                         {task.usesDefault ? (
                                                             <Pill>
                                                                 {t((d) => d.pages.adminSettings.ai.taskModels.default)}

@@ -2336,6 +2336,11 @@ export interface Dictionary {
                  * unrecognised code falls back rather than crashing the page.
                  */
                 modelReasons: Record<string, string | undefined>;
+                /** The grouped on/off capabilities a gateway either implements or does not. */
+                capabilities: {
+                    title: string;
+                    hint: string;
+                };
                 /** The read-only "which model does each task use", and the button that checks them. */
                 taskModels: {
                     title: string;
