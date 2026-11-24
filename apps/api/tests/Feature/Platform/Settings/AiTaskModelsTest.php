@@ -121,6 +121,51 @@ it('saves and clears a per-task model override through the settings group endpoi
     expect($resolve(SettingKey::AI_STATEMENT_MAPPING_MODEL))->toBe('env-mapping');
 });
 
+it('degrades a task whose setting_key is unknown to the base model, rather than failing the card', function (): void {
+    config([
+        'ai.providers.defaults.model' => 'base-x',
+        // A mistyped or removed setting key: the card must still render, not 500.
+        'ai.tasks.bogus_task' => ['setting_key' => 'ai.not_a_real_setting_key', 'optional' => false],
+    ]);
+
+    /** @var array<int, array<string, mixed>> $tasks */
+    $tasks = $this->actingAs(settingsAdminUser())
+        ->getJson('/api/v1/settings/ai/task-models')
+        ->assertOk()
+        ->json('tasks');
+    $byId = keyByTaskId($tasks);
+
+    // The bad arm follows the base model and is not editable; the real tasks are still listed.
+    expect($byId['bogus_task'])->toMatchArray([
+        'model' => 'base-x',
+        'uses_default' => true,
+        'setting_key' => null,
+    ])
+        ->and($byId)->toHaveKey('statement_mapping')
+        ->and($byId)->toHaveKey('id_card');
+});
+
+it('resolves several task models from one settings read', function (): void {
+    config([
+        'ai.statements.mapping.model' => 'env-mapping',
+        'ai.idcard.read.model' => 'env-idcard',
+        'ai.legislation.second_reader' => '',
+    ]);
+    app(SettingsRepository::class)->set(SettingKey::AI_ID_CARD_MODEL, 'override-idcard', null);
+
+    $resolved = app(ResolveTaskModel::class)->many([
+        SettingKey::AI_STATEMENT_MAPPING_MODEL,
+        SettingKey::AI_ID_CARD_MODEL,
+        SettingKey::AI_LAW_SECOND_READER_MODEL,
+    ]);
+
+    expect($resolved)->toBe([
+        'ai.statement_mapping_model' => 'env-mapping',
+        'ai.id_card_model' => 'override-idcard',
+        'ai.law_second_reader_model' => null,
+    ]);
+});
+
 it('checks each task model against the provider and reports which it serves', function (): void {
     $admin = settingsAdminUser();
     $settings = app(SettingsRepository::class);

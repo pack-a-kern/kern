@@ -34,12 +34,35 @@ final readonly class ResolveTaskModel
 
     public function __invoke(SettingKey $key): ?string
     {
-        $override = $this->settings->get($key);
+        return $this->many([$key])[$key->value];
+    }
 
-        if (is_string($override) && trim($override) !== '') {
-            return trim($override);
+    /**
+     * The effective model for several task keys from one read of the settings table — the override
+     * when there is one, else each key's config default. For the settings screen, which resolves a
+     * handful of task models at once and would otherwise query the table once per key.
+     *
+     * @param  list<SettingKey>  $keys
+     * @return array<string, ?string> keyed by {@see SettingKey::value}, every key present
+     */
+    public function many(array $keys): array
+    {
+        $stored = $this->settings->stored($keys);
+        $resolved = [];
+
+        foreach ($keys as $key) {
+            $override = $stored[$key->value]['value'] ?? null;
+
+            $resolved[$key->value] = is_string($override) && trim($override) !== ''
+                ? trim($override)
+                : $this->configuredModel($key);
         }
 
+        return $resolved;
+    }
+
+    private function configuredModel(SettingKey $key): ?string
+    {
         $configured = $this->config->get($key->configPath());
 
         return is_string($configured) && trim($configured) !== '' ? trim($configured) : null;

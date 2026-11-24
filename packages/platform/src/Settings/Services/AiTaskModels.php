@@ -45,17 +45,37 @@ final readonly class AiTaskModels
         }
 
         $base = $this->baseModel($credentials);
-        $resolved = [];
+
+        /** @var list<array{id: string, definition: array<array-key, mixed>}> $entries */
+        $entries = [];
+        /** @var array<string, SettingKey> $keys */
+        $keys = [];
 
         foreach ($tasks as $id => $definition) {
             if (! is_string($id) || ! is_array($definition)) {
                 throw new RuntimeException('Each ai.tasks entry must be keyed by a string and hold an array.');
             }
 
-            $resolved[] = $this->resolve($id, $definition, $base);
+            $entries[] = ['id' => $id, 'definition' => $definition];
+
+            $settingKey = $definition['setting_key'] ?? null;
+
+            if (is_string($settingKey)) {
+                $key = SettingKey::tryFrom($settingKey);
+
+                if ($key !== null) {
+                    $keys[$settingKey] = $key;
+                }
+            }
         }
 
-        return $resolved;
+        // Every task's override in one read of the settings table, not one query per task.
+        $models = $this->resolveTaskModel->many(array_values($keys));
+
+        return array_map(
+            fn (array $entry): AiTaskModel => $this->resolve($entry['id'], $entry['definition'], $base, $models),
+            $entries,
+        );
     }
 
     /**
@@ -79,30 +99,24 @@ final readonly class AiTaskModels
 
     /**
      * @param  array<array-key, mixed>  $definition
+     * @param  array<string, ?string>  $models  each known setting key's resolved model, from {@see ResolveTaskModel::many()}
      */
-    private function resolve(string $id, array $definition, ?string $base): AiTaskModel
+    private function resolve(string $id, array $definition, ?string $base, array $models): AiTaskModel
     {
         $settingKey = $definition['setting_key'] ?? null;
         $optional = (bool) ($definition['optional'] ?? false);
 
-        // A task with no model of its own always uses the base model.
-        if ($settingKey === null) {
+        // No model of its own — or a key that is not (or no longer) a known setting, a mistyped
+        // config value: either way the task follows the base model. Degrading a bad key to the
+        // default keeps one wrong arm from blanking the whole card, and the test suite still catches
+        // the typo because the task's resolved model would then be wrong, not merely inherited.
+        if (! is_string($settingKey) || ! array_key_exists($settingKey, $models)) {
             return new AiTaskModel($id, $base, true, null, false);
-        }
-
-        if (! is_string($settingKey)) {
-            throw new RuntimeException("ai.tasks entry [{$id}] has a non-string setting_key.");
-        }
-
-        $key = SettingKey::tryFrom($settingKey);
-
-        if ($key === null) {
-            throw new RuntimeException("ai.tasks entry [{$id}] names an unknown setting_key [{$settingKey}].");
         }
 
         // The override if one is saved, else the task's env default — the same resolution the
         // service that runs the task uses, so the screen and the work never disagree.
-        $own = ($this->resolveTaskModel)($key);
+        $own = $models[$settingKey];
 
         if ($own !== null) {
             return new AiTaskModel($id, $own, false, $settingKey, $optional);
