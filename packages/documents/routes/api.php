@@ -63,5 +63,7 @@ Route::post('documents/{document}/extractions/retry', RetryDocumentExtractionCon
 Route::post('documents/{document}/extractions/{extraction}/accept', AcceptDocumentExtractionController::class);
 Route::post('documents/{document}/extractions/{extraction}/correct', CorrectDocumentExtractionController::class);
 
-Route::post('document-ai-consent', [DocumentAiConsentController::class, 'store']);
-Route::delete('document-ai-consent', [DocumentAiConsentController::class, 'destroy']);
+// Named so the "a closed taxpayer is read-only" gate can exempt them by name, not by a URI
+// substring that a future route could accidentally share (BindTaxSubjectContext).
+Route::post('document-ai-consent', [DocumentAiConsentController::class, 'store'])->name('documents.ai-consent.store');
+Route::delete('document-ai-consent', [DocumentAiConsentController::class, 'destroy'])->name('documents.ai-consent.destroy');

@@ -57,8 +57,11 @@ Route::prefix('v1/settings')->middleware(['auth:web'])->group(function (): void 
 
     Route::middleware('permission:system.settings.manage')->group(function (): void {
         // The provider's address and key, together — the only route that writes either. Everything
-        // else in the AI group is saved through `group/ai` below, which refuses those two.
-        Route::put('ai/connection', ReplaceAiConnectionController::class)->middleware('throttle:operator-calls-per-user');
+        // else in the AI group is saved through `group/ai` below, which refuses those two. Behind
+        // `verify-recent` like the proxy write below, and for the same reason: it stores a secret and
+        // sets where every taxpayer document is sent (an address that may be internal), so a
+        // walked-away session must prove the password or code again before repointing it.
+        Route::put('ai/connection', ReplaceAiConnectionController::class)->middleware(['verify-recent', 'throttle:operator-calls-per-user']);
         // The browsers' proxy, its credentials and the playbooks that use it — together, and only after
         // the password or code again: a proxy sees where every browser it carries goes.
         Route::put('browser/proxy', ReplaceBrowserProxyController::class)->middleware(['verify-recent', 'throttle:operator-calls-per-user']);

@@ -28,9 +28,12 @@ final class BindTaxSubjectContext
      * protection *away* from a third party, and a rule that made it unreachable would be a rule
      * that keeps documents flowing out of a taxpayer someone has just put beyond use.
      *
+     * Matched by route *name*, not a URI substring: a future route whose path merely contained one
+     * of these words must not inherit the exemption.
+     *
      * @var list<string>
      */
-    private const array ALWAYS_ALLOWED = ['document-ai-consent'];
+    private const array ALWAYS_ALLOWED = ['documents.ai-consent.store', 'documents.ai-consent.destroy'];
 
 
     public function __construct(private readonly TenantContext $context)
@@ -84,10 +87,8 @@ final class BindTaxSubjectContext
             return;
         }
 
-        foreach (self::ALWAYS_ALLOWED as $segment) {
-            if (str_contains((string) $request->route()?->uri(), $segment)) {
-                return;
-            }
+        if (in_array($request->route()?->getName(), self::ALWAYS_ALLOWED, true)) {
+            return;
         }
 
         // `value()` runs the model's casts, so this is the enum itself, never its string.

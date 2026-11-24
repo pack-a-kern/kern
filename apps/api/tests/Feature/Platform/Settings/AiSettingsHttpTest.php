@@ -65,6 +65,19 @@ it('rejects an authenticated non-admin caller with 403 on every route', function
     $this->actingAs($user, 'web')->postJson('/api/v1/settings/ai/models', [])->assertForbidden();
 });
 
+it('asks for the password or code again before changing the connection', function (): void {
+    // The connection route writes the API key and the address documents are sent to (which may be
+    // internal), so a walked-away session must re-prove the factor first — like the proxy write.
+    $admin = anAdmin();
+    withAuthenticator($admin);
+    forgetVerification();
+
+    $this->actingAs($admin, 'web')
+        ->putJson('/api/v1/settings/ai/connection', ['base_url' => 'https://provider.example', 'api_key' => 'sk-x'])
+        ->assertForbidden()
+        ->assertJsonPath('reason', 'VERIFICATION_REQUIRED');
+});
+
 it('has no route left that sets the address apart from the key', function (): void {
     // The two removed doors: a whole-configuration save that kept the stored key when none was sent,
     // and a delete that cleared the key alone.
