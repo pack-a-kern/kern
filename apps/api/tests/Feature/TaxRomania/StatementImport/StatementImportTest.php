@@ -476,6 +476,67 @@ it('applies what a person answers to a whole set of rows at once', function (): 
 });
 
 /**
+ * A statement names the same shop on many lines, and the answer about that shop is one answer, not
+ * one per line. Remembering it writes a rule row and rewrites its tags inside a transaction, so doing
+ * it per row is the write that made a large import slow; it is done once per counterparty instead.
+ *
+ * `remember()` is the only thing that deletes from `counterparty_tags`, and exactly once per call
+ * that does work, so the count of those deletes is the count of remembers: two identical outgoing
+ * lines must leave one, not two.
+ */
+it('remembers a counterparty once however many rows name it', function (): void {
+    [$user, $subjectId, $accountId] = importer();
+    $import = startImport($this, $user, $subjectId, $accountId);
+
+    // The fake statement names "PLATA CARD KAUFLAND" on two outgoing lines. Column 1 is read as the
+    // counterparty as well as the description, so both lines resolve to one counterparty, one direction.
+    $mapping = mappingBody();
+    $mapping['counterparty'] = ['debit' => ['type' => 'index', 'value' => 1]];
+
+    $this->actingAs($user)
+        ->putJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/mapping", $mapping)
+        ->assertOk();
+
+    /** @var list<array<string, mixed>> $rows */
+    $rows = $this->actingAs($user)
+        ->getJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}")
+        ->json('rows');
+
+    /** @var list<string> $outgoing */
+    $outgoing = collect($rows)
+        ->filter(static fn (array $row): bool => is_numeric($row['amount_minor'] ?? null) && (int) $row['amount_minor'] < 0)
+        ->pluck('id')
+        ->values()
+        ->all();
+
+    // The two KAUFLAND lines: the same payee answered together.
+    expect($outgoing)->toHaveCount(2);
+
+    $this->actingAs($user)
+        ->patchJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/rows", [
+            'row_ids' => $outgoing,
+            'category_code' => 'EXPENSE',
+            'tags' => ['Alimente'],
+        ])
+        ->assertOk();
+
+    $tagRewrites = 0;
+    DB::listen(static function (\Illuminate\Database\Events\QueryExecuted $query) use (&$tagRewrites): void {
+        $sql = strtolower($query->sql);
+
+        if (str_contains($sql, 'delete') && str_contains($sql, 'counterparty_tags')) {
+            $tagRewrites++;
+        }
+    });
+
+    $this->actingAs($user)
+        ->postJson("/api/v1/subjects/{$subjectId}/wallet/imports/{$import->id}/commit")
+        ->assertStatus(202);
+
+    expect($tagRewrites)->toBe(1);
+});
+
+/**
  * The classification job is handed someone to act as.
  *
  * It reads this person's tags and their remembered answers, both subject-scoped, and a queue worker

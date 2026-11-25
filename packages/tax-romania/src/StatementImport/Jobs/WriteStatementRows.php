@@ -168,6 +168,19 @@ final class WriteStatementRows implements ShouldQueue
 
                 $written = $record($import->tax_subject_id, $import->account_id, $inputs);
 
+                /*
+                 * The person's answers, one per counterparty and direction — not one per row.
+                 *
+                 * A statement names the same shop on thirty lines, and remembering it is a rule row
+                 * written and its tags rewritten inside a transaction: thirty transactions for one
+                 * answer that does not change between them. Collected here last-wins — the rows are
+                 * in `row_number` order, so the last line for a counterparty is the one that stands,
+                 * exactly as remembering each in turn would have left it — and applied once each below.
+                 *
+                 * @var array<string, array{index: string, counterparty: string|null, direction: MoneyDirection, categoryCode: string|null, countryCode: string|null, tagIds: list<string>}> $answers
+                 */
+                $answers = [];
+
                 foreach ($rows as $row) {
                     $transactionId = $written[$row->id] ?? null;
 
@@ -179,15 +192,34 @@ final class WriteStatementRows implements ShouldQueue
                     $row->save();
                     $imported++;
 
-                    // Remembered from what was actually saved, and as the person's own answer: they
-                    // went through these rows, whatever proposed them first.
+                    // A row with no counterparty index is one `remember()` would refuse anyway — its
+                    // name and index arrive as a pair or not at all — so it never reaches the map.
+                    if ($row->counterparty_blind_index === null) {
+                        continue;
+                    }
+
+                    $direction = MoneyDirection::ofAmount((int) $row->amount_minor);
+
+                    $answers[$row->counterparty_blind_index . '|' . $direction->value] = [
+                        'index' => $row->counterparty_blind_index,
+                        'counterparty' => $row->counterparty_ciphertext,
+                        'direction' => $direction,
+                        'categoryCode' => $row->category_code,
+                        'countryCode' => $row->country_code,
+                        'tagIds' => $tagIdsByRow[$row->id] ?? [],
+                    ];
+                }
+
+                // Remembered from what was actually saved, and as the person's own answer: they went
+                // through these rows, whatever proposed them first.
+                foreach ($answers as $answer) {
                     $rules->remember(
-                        index: $row->counterparty_blind_index,
-                        counterparty: $row->counterparty_ciphertext,
-                        direction: MoneyDirection::ofAmount((int) $row->amount_minor),
-                        categoryCode: $row->category_code,
-                        countryCode: $row->country_code,
-                        tagIds: $tagIdsByRow[$row->id] ?? [],
+                        index: $answer['index'],
+                        counterparty: $answer['counterparty'],
+                        direction: $answer['direction'],
+                        categoryCode: $answer['categoryCode'],
+                        countryCode: $answer['countryCode'],
+                        tagIds: $answer['tagIds'],
                         source: ProposalSource::PERSON,
                     );
                 }
