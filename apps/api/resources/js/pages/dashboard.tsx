@@ -254,7 +254,16 @@ export default function Dashboard(): JSX.Element {
                 <section className="border-border bg-card shadow-float overflow-hidden rounded-xl border">
                     <div className="grid gap-6 p-5 lg:grid-cols-2 lg:gap-0">
                         {/* LEFT: the figure, where it came from, and the allocation it breaks into. */}
-                        <div className="border-border flex min-w-0 flex-col lg:border-r lg:pr-6">
+                        <div className="border-border relative isolate flex min-w-0 flex-col overflow-hidden lg:border-r lg:pr-6">
+                            {/* A faint wallet watermark fills the band the pinned allocation leaves when the
+                                holdings list on the right runs long. Identity, not information: hidden from
+                                the reader, held behind the text, and gone on narrow layouts where the two
+                                columns stack and there is no gap to fill. */}
+                            <Wallet
+                                aria-hidden="true"
+                                strokeWidth={1.25}
+                                className="text-accent-500 pointer-events-none absolute -right-6 -bottom-8 -z-10 hidden size-56 opacity-[0.07] lg:block"
+                            />
                             <div className="flex items-center gap-2.5">
                                 <IconBadge tone="brand">
                                     <Wallet className="size-4" />
@@ -447,7 +456,7 @@ export default function Dashboard(): JSX.Element {
                             </button>
                         </div>
                         {howOpen && (
-                            <p className="note border-border mt-2.5 max-w-prose border-t pt-2.5">
+                            <p className="note border-border mt-2.5 border-t pt-2.5">
                                 {t((d) => d.pages.walletOverview.generalNote)}
                             </p>
                         )}
