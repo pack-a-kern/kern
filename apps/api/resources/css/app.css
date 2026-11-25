@@ -1893,6 +1893,18 @@ label:has(input[type='checkbox']:not(:disabled), input[type='radio']:not(:disabl
     opacity: 0.6;
 }
 
+/*
+ * The icon on an account-kind mark ({@link AccountKindMark}): the tile itself is a plain
+ * `.bank-tile`, tinted by a per-kind `--bank-hue` exactly as a bank's initials tile is, so no fill
+ * of its own is needed here. The glyph is sized by ratio, not pixels, so it holds its proportion
+ * across the tile's `md` and `two-line` sizes. It inherits the tile's `color`, which the hue
+ * formula already sets for both themes.
+ */
+.kind-tile-icon {
+    width: 55%;
+    height: 55%;
+}
+
 .source-mark {
     display: inline-grid;
     place-items: center;

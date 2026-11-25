@@ -33,6 +33,7 @@ import {
     previewDepositTerm,
     updateAccount,
 } from '../../api/walletApi';
+import AccountKindMark from '../../components/wallet/AccountKindMark';
 import BankMark from '../../components/wallet/BankMark';
 import BulkActions from '../../components/BulkActions';
 import Checkbox from '../../components/Checkbox';
@@ -721,7 +722,11 @@ export default function WalletAccounts(): JSX.Element {
                                             {/* The mark spans both lines, the name and the note under it,
                                                 rather than sitting in the first and pushing the name in. */}
                                             <div className="flex items-center gap-2.5">
-                                                {bank === undefined ? null : <BankMark bank={bank} size="two-line" />}
+                                                {bank === undefined ? (
+                                                    <AccountKindMark kind={account.kind} size="two-line" />
+                                                ) : (
+                                                    <BankMark bank={bank} size="two-line" />
+                                                )}
                                                 <div className="min-w-0">
                                                     <div className="flex items-center gap-2 font-semibold">
                                                         {account.displayName}
