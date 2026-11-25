@@ -29,6 +29,7 @@ import {
     Upload,
     Users,
     X,
+    type LucideIcon,
 } from 'lucide-react';
 import { type JSX, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -1561,14 +1562,18 @@ function SuggestionsProgress({ detail, onSkip }: { detail: StatementImportDetail
     const done = classification?.batches.length ?? 0;
     const percent = expected === null || expected === 0 ? null : Math.min(100, Math.round((done / expected) * 100));
 
-    const stats = [
-        { label: t((d) => d.pages.walletImports.suggesting.transactions), value: detail.import.rowCount },
+    // The "answered" count is the one that climbs while the screen is open — the others are settled
+    // before it starts — so it is the card lit up as the live one, the momentum a person watches.
+    const stats: { key: string; icon: LucideIcon; label: string; value: number | null; live?: boolean }[] = [
+        { key: 'transactions', icon: Rows3, label: t((d) => d.pages.walletImports.suggesting.transactions), value: detail.import.rowCount },
         {
+            key: 'counterparties',
+            icon: Users,
             label: t((d) => d.pages.walletImports.suggesting.counterparties),
             value: classification?.counterparties ?? null,
         },
-        { label: t((d) => d.pages.walletImports.suggesting.answered), value: detail.proposals.ai },
-        { label: t((d) => d.pages.walletImports.suggesting.rules), value: detail.proposals.rule },
+        { key: 'answered', icon: Sparkles, label: t((d) => d.pages.walletImports.suggesting.answered), value: detail.proposals.ai, live: true },
+        { key: 'rules', icon: CopyCheck, label: t((d) => d.pages.walletImports.suggesting.rules), value: detail.proposals.rule },
     ];
 
     return (
@@ -1578,13 +1583,44 @@ function SuggestionsProgress({ detail, onSkip }: { detail: StatementImportDetail
             icon={<Sparkles className="size-4" />}
             aside={<Steps status={detail.import.status} />}
         >
+            {/* The model at work, as a mark rather than a bare bar: a sparkle that breathes, haloed
+                while it runs, with the running count and the share done beside it. */}
+            <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+                <div className="relative grid size-14 shrink-0 place-items-center">
+                    <span
+                        className="bg-accent/20 absolute inset-0 rounded-full motion-safe:animate-ping"
+                        aria-hidden="true"
+                    />
+                    <span
+                        className="bg-accent text-accent-foreground shadow-float relative grid size-14 place-items-center rounded-full"
+                    >
+                        <Sparkles className="size-6 motion-safe:animate-pulse" aria-hidden="true" />
+                    </span>
+                </div>
+
+                <div className="min-w-0">
+                    <div className="text-sm font-semibold">
+                        {expected === null
+                            ? t((d) => d.pages.walletImports.suggesting.preparing)
+                            : t((d) => d.pages.walletImports.suggesting.progress)
+                                  .replace('{done}', String(done))
+                                  .replace('{expected}', String(expected))}
+                    </div>
+                    <p className="note mt-0.5">{t((d) => d.pages.walletImports.suggesting.hint)}</p>
+                </div>
+
+                {percent === null ? null : (
+                    <div className="text-3xl font-bold tabular-nums sm:ml-auto">{percent}%</div>
+                )}
+            </div>
+
             <div
                 role="progressbar"
                 aria-label={t((d) => d.pages.walletImports.suggesting.progressLabel)}
                 aria-valuemin={0}
                 aria-valuemax={100}
                 {...(percent === null ? {} : { 'aria-valuenow': percent })}
-                className="bg-secondary h-2.5 w-full overflow-hidden rounded-full"
+                className="bg-secondary mt-5 h-2.5 w-full overflow-hidden rounded-full"
             >
                 <div
                     className={
@@ -1596,26 +1632,40 @@ function SuggestionsProgress({ detail, onSkip }: { detail: StatementImportDetail
                 />
             </div>
 
-            <div className="mt-2 flex flex-wrap items-baseline justify-between gap-2 text-sm">
-                <span>
-                    {expected === null
-                        ? t((d) => d.pages.walletImports.suggesting.preparing)
-                        : t((d) => d.pages.walletImports.suggesting.progress)
-                              .replace('{done}', String(done))
-                              .replace('{expected}', String(expected))}
-                </span>
-                {percent === null ? null : <span className="font-semibold tabular-nums">{percent}%</span>}
-            </div>
-
             <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {stats.map((stat) => (
-                    <div key={stat.label} className="min-w-0">
-                        <dt className="note leading-tight">{stat.label}</dt>
-                        <dd className="text-lg font-semibold tabular-nums">
-                            {stat.value === null ? '—' : formatNumber(stat.value, locale)}
-                        </dd>
-                    </div>
-                ))}
+                {stats.map((stat, index) => {
+                    const Icon = stat.icon;
+
+                    return (
+                        <div
+                            key={stat.key}
+                            // A staggered rise so the four read as arriving, not blinking in at once.
+                            className={cn(
+                                'border-border bg-card flex min-w-0 flex-col gap-1.5 rounded-xl border p-3',
+                                'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2',
+                                stat.live && 'border-accent-400 bg-accent/20',
+                            )}
+                            style={{ animationDelay: `${String(index * 70)}ms`, animationFillMode: 'both' }}
+                        >
+                            <div className="flex items-center justify-between">
+                                <Icon
+                                    className={cn('size-3.5', stat.live ? 'text-accent-600 dark:text-accent-400' : 'text-muted-foreground')}
+                                    aria-hidden="true"
+                                />
+                                {stat.live ? (
+                                    <span
+                                        className="bg-accent-500 size-1.5 rounded-full motion-safe:animate-pulse"
+                                        aria-hidden="true"
+                                    />
+                                ) : null}
+                            </div>
+                            <dt className="note leading-tight">{stat.label}</dt>
+                            <dd className="text-lg font-semibold tabular-nums">
+                                {stat.value === null ? '—' : formatNumber(stat.value, locale)}
+                            </dd>
+                        </div>
+                    );
+                })}
             </dl>
 
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
