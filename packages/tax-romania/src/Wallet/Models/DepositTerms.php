@@ -58,7 +58,16 @@ final class DepositTerms extends Model
     /** @var bool */
     public $incrementing = false;
 
-    /** @var list<string> */
+    /**
+     * `funding_transaction_id`, `settlement_transaction_id` and `closed_at` are
+     * deliberately absent: they are the money this deposit moved and when it
+     * settled, written only by `DepositMovements` and `CloseMaturedDeposits`
+     * through direct property assignment — never from caller input. Leaving them
+     * mass-assignable would let a future endpoint that fills from a request body
+     * point a deposit at another taxpayer's transaction row.
+     *
+     * @var list<string>
+     */
     protected $fillable = [
         'account_id',
         'tax_subject_id',
@@ -72,9 +81,6 @@ final class DepositTerms extends Model
         'interest_method',
         'payment_frequency',
         'day_count_convention',
-        'funding_transaction_id',
-        'settlement_transaction_id',
-        'closed_at',
     ];
 
     /** @var array<string, string> */

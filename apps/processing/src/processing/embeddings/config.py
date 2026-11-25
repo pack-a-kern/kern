@@ -85,6 +85,22 @@ class EmbeddingSettings(BaseSettings):
         description="Texts per forward pass. Larger batches are faster per text "
         "but hold more memory; 16 keeps a CPU-only worker under control.",
     )
+    max_texts: int = Field(
+        default=256,
+        gt=0,
+        description="How many texts one request may carry. A denial-of-service "
+        "bound on the batch, not a model limit: a larger corpus is the caller's "
+        "to page. The embed loop still runs these `batch_size` at a time.",
+    )
+    max_input_chars: int = Field(
+        default=16384,
+        gt=0,
+        description="Longest a single text may be, in characters. A "
+        "denial-of-service bound, not a model limit — the tokenizer truncates to "
+        "`max_tokens` regardless (this corpus's largest chunk is ~1600 "
+        "characters), but without this cap a caller could make the service hold "
+        "megabytes per element before that truncation ever runs.",
+    )
     intra_op_threads: int = Field(
         default=0,
         ge=0,

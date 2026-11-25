@@ -222,6 +222,49 @@ def test_reads_the_sheet_asked_for_rather_than_the_first() -> None:
     assert statement.headers == ["Data", "Suma"]
 
 
+def _xlsx_declaring_an_external_entity() -> bytes:
+    """A real workbook with an XXE payload spliced into its XML: a `<!DOCTYPE>` that declares an
+    external entity pointing at a local file.
+
+    openpyxl parses this part when the workbook is opened, and it reaches for `defusedxml`
+    automatically when that package is installed (it is a declared dependency of this service for
+    exactly this reason, imported by nothing of ours). A hardened parser refuses the DOCTYPE before
+    any entity resolves; an unhardened one would expand `&xxe;` to the file's contents and hand it
+    back in a cell. This is the regression guard for that — if the dependency is ever dropped, or a
+    reader is pointed at a parser that resolves entities, this test fails instead of the service
+    quietly reading `/etc/hostname` into a statement.
+    """
+    import zipfile
+
+    content = _xlsx([["Data", "Suma"], ["05.03.2026", "10,00"]])
+    doctype = '<!DOCTYPE x [<!ENTITY xxe SYSTEM "file:///etc/hostname">]>'
+
+    source = io.BytesIO(content)
+    out = io.BytesIO()
+
+    with zipfile.ZipFile(source) as archive_in, zipfile.ZipFile(out, "w") as archive_out:
+        for item in archive_in.namelist():
+            data = archive_in.read(item)
+
+            if item == "xl/workbook.xml":
+                data = (doctype.encode() + data) if not data.startswith(b"<?xml") else data
+
+            archive_out.writestr(item, data)
+
+    return out.getvalue()
+
+
+def test_refuses_a_workbook_that_declares_an_external_entity() -> None:
+    payload = _xlsx_declaring_an_external_entity()
+
+    # Still a well-formed zip with a workbook's signature, so it is an XLSX by its bytes — the
+    # refusal is the parser's, not the format sniffer's.
+    assert detect_format(payload) == "XLSX"
+
+    with pytest.raises(UnsupportedFormatError):
+        parse_statement(payload)
+
+
 # --- PDF ---
 
 
