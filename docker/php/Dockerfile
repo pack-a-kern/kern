@@ -117,6 +117,12 @@ COPY --from=ext-builder /usr/local/etc/php/conf.d /usr/local/etc/php/conf.d
 # zlib1g is upgraded past the base image's: its 1:1.3.dfsg+really1.3.1-1+b1 has CVE-2026-85091 and
 # CVE-2026-76844, fixed in Debian's +deb13u1, and php:8.5.12-fpm-trixie has no newer build yet. Drop it
 # from the list once `make pins` reports a build that ships it.
+#
+# The krb5 runtime libraries come with the base image at +deb13u1, which CI's Trivy scan flags for 14
+# HIGH krb5 CVEs (kadmind/KDC memory-leak and DoS, CVE-2026-107364 and CVE-2026-112315..112328) fixed
+# in Debian's +deb13u2 (2026-11-25). They are pulled transitively by libpq5 for Postgres GSSAPI, never
+# required here directly; pin all four to the fixed build until php:8.5.12-fpm-trixie ships it. Drop
+# them from the list once `make pins` reports a base that carries +deb13u2.
 RUN apt-get purge -y --auto-remove $PHPIZE_DEPS libc6-dev \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -127,6 +133,10 @@ RUN apt-get purge -y --auto-remove $PHPIZE_DEPS libc6-dev \
         libwebp7=1.5.0-0.1 \
         libfcgi-bin=2.4.5-0.1 \
         zlib1g=1:1.3.dfsg+really1.3.1-1+deb13u1 \
+        libgssapi-krb5-2=1.21.3-5+deb13u2 \
+        libkrb5-3=1.21.3-5+deb13u2 \
+        libk5crypto3=1.21.3-5+deb13u2 \
+        libkrb5support0=1.21.3-5+deb13u2 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-kern.ini
