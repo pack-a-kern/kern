@@ -20,7 +20,7 @@ packages/platform/src/Crypto/EnvelopeCipher.php:generic-api-key:43
 # Made-up AI provider keys a test stores and reads back ("sk-abcdEFGH1234",
 # "sk-abcdEFGH5678") — the shape of a key, never one that was issued.
 apps/api/tests/Feature/Platform/Settings/AiProviderSettingsServiceTest.php:generic-api-key:38
-apps/api/tests/Feature/Platform/Settings/AiSettingsHttpTest.php:generic-api-key:106
+apps/api/tests/Feature/Platform/Settings/AiSettingsHttpTest.php:generic-api-key:119
 
 # The textbook sample JWT (sub "1234567890"), unsigned by anything real, which the
 # log-redaction tests feed in to prove it never reaches a log line.
