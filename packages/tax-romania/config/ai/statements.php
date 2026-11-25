@@ -91,10 +91,12 @@ PROMPT),
     /*
      * What each counterparty is: a tax category and a few tags.
      *
-     * `batch` is how many unique counterparties go in one call. 100, measured: a statement of 594
-     * counterparties sent in one call made `gpt-oss:20b` spend all 32 000 tokens thinking and return
-     * nothing (`NO_ROOM`) after two minutes. Each batch is its own job with its own timeout, so a
-     * smaller batch means more calls and more visible progress, never a call more likely to be cut off.
+     * `batch` is how many unique counterparties go in one call — 250 by default. The ceiling is the
+     * model's own output budget (`max_tokens`, 64 000): at half that, a statement of 594 counterparties
+     * in one call made `gpt-oss:20b` spend the whole budget thinking and return nothing (`NO_ROOM`)
+     * after two minutes, so a batch stays well under that. Each batch is its own job with its own
+     * timeout, so a smaller batch means more calls and more visible progress, never a call more likely
+     * to be cut off.
      */
     /*
      * A PDF statement turned into CSV by the provider, before it is read.
@@ -130,8 +132,8 @@ PROMPT),
         'enabled' => filter_var(env('STATEMENT_IMPORT_CLASSIFICATION_ENABLED', true), FILTER_VALIDATE_BOOL),
 
         'model' => env('STATEMENT_IMPORT_CLASSIFICATION_MODEL'),
-        'max_tokens' => (int) env('STATEMENT_IMPORT_CLASSIFICATION_MAX_TOKENS', 32_000),
-        'batch' => (int) env('STATEMENT_IMPORT_CLASSIFICATION_BATCH', 100),
+        'max_tokens' => (int) env('STATEMENT_IMPORT_CLASSIFICATION_MAX_TOKENS', 64_000),
+        'batch' => (int) env('STATEMENT_IMPORT_CLASSIFICATION_BATCH', 250),
 
         /*
          * `{taxpayer}` is filled in per subject by `ClassifyCounterparties::withTaxpayer()`, because
