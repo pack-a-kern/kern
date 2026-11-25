@@ -1565,15 +1565,31 @@ function SuggestionsProgress({ detail, onSkip }: { detail: StatementImportDetail
     // The "answered" count is the one that climbs while the screen is open — the others are settled
     // before it starts — so it is the card lit up as the live one, the momentum a person watches.
     const stats: { key: string; icon: LucideIcon; label: string; value: number | null; live?: boolean }[] = [
-        { key: 'transactions', icon: Rows3, label: t((d) => d.pages.walletImports.suggesting.transactions), value: detail.import.rowCount },
+        {
+            key: 'transactions',
+            icon: Rows3,
+            label: t((d) => d.pages.walletImports.suggesting.transactions),
+            value: detail.import.rowCount,
+        },
         {
             key: 'counterparties',
             icon: Users,
             label: t((d) => d.pages.walletImports.suggesting.counterparties),
             value: classification?.counterparties ?? null,
         },
-        { key: 'answered', icon: Sparkles, label: t((d) => d.pages.walletImports.suggesting.answered), value: detail.proposals.ai, live: true },
-        { key: 'rules', icon: CopyCheck, label: t((d) => d.pages.walletImports.suggesting.rules), value: detail.proposals.rule },
+        {
+            key: 'answered',
+            icon: Sparkles,
+            label: t((d) => d.pages.walletImports.suggesting.answered),
+            value: detail.proposals.ai,
+            live: true,
+        },
+        {
+            key: 'rules',
+            icon: CopyCheck,
+            label: t((d) => d.pages.walletImports.suggesting.rules),
+            value: detail.proposals.rule,
+        },
     ];
 
     return (
@@ -1591,9 +1607,7 @@ function SuggestionsProgress({ detail, onSkip }: { detail: StatementImportDetail
                         className="bg-accent/20 absolute inset-0 rounded-full motion-safe:animate-ping"
                         aria-hidden="true"
                     />
-                    <span
-                        className="bg-accent text-accent-foreground shadow-float relative grid size-14 place-items-center rounded-full"
-                    >
+                    <span className="bg-accent text-accent-foreground shadow-float relative grid size-14 place-items-center rounded-full">
                         <Sparkles className="size-6 motion-safe:animate-pulse" aria-hidden="true" />
                     </span>
                 </div>
@@ -1609,9 +1623,7 @@ function SuggestionsProgress({ detail, onSkip }: { detail: StatementImportDetail
                     <p className="note mt-0.5">{t((d) => d.pages.walletImports.suggesting.hint)}</p>
                 </div>
 
-                {percent === null ? null : (
-                    <div className="text-3xl font-bold tabular-nums sm:ml-auto">{percent}%</div>
-                )}
+                {percent === null ? null : <div className="text-3xl font-bold tabular-nums sm:ml-auto">{percent}%</div>}
             </div>
 
             <div
@@ -1649,7 +1661,10 @@ function SuggestionsProgress({ detail, onSkip }: { detail: StatementImportDetail
                         >
                             <div className="flex items-center justify-between">
                                 <Icon
-                                    className={cn('size-3.5', stat.live ? 'text-accent-600 dark:text-accent-400' : 'text-muted-foreground')}
+                                    className={cn(
+                                        'size-3.5',
+                                        stat.live ? 'text-accent-600 dark:text-accent-400' : 'text-muted-foreground',
+                                    )}
                                     aria-hidden="true"
                                 />
                                 {stat.live ? (
