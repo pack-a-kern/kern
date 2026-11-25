@@ -103,7 +103,10 @@ it('reads an instrument’s past prices once and its page each time, keeping a d
         ->and($prices->last()?->price)->toBe('98.5000')
         ->and($instrument->refresh()->history_read_at)->not->toBeNull()
         ->and(IssuerProfile::query()->sole()->yield_to_maturity)->toBe('6.75');
-    Http::assertSentCount(3);
+    // Five requests across the two reads: the chart's history through the browser worker once (kept
+    // after, not fetched again), and the instrument page plus the issuer logo it points at on each of
+    // the two profile refreshes — the logo fetched best-effort every refresh to notice a change.
+    Http::assertSentCount(5);
     // The page, its chart's six months, by day — and the Browser card's engine and name, not HeadlessChrome.
     Http::assertSent(static fn ($request): bool => $request->url() === 'https://browser-worker.test/v1/source'
         && $request['sequence'] === 'history'
