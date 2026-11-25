@@ -130,6 +130,7 @@ final readonly class ClassifyCounterparties
             ($this->resolveTaskModel)(SettingKey::AI_STATEMENT_CLASSIFICATION_MODEL),
             $this->config->integer('ai.statements.classification.max_tokens'),
             $this->config->integer('ai.statements.timeout_seconds'),
+            $this->config->string('ai.statements.classification.reasoning'),
         );
 
         if (! $answer->succeeded() || $answer->data === null) {

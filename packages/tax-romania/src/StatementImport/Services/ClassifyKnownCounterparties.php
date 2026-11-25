@@ -172,6 +172,7 @@ final readonly class ClassifyKnownCounterparties
             ($this->resolveTaskModel)(SettingKey::AI_STATEMENT_CLASSIFICATION_MODEL),
             $this->config->integer('ai.statements.classification.max_tokens'),
             $this->config->integer('ai.statements.timeout_seconds'),
+            $this->config->string('ai.statements.classification.reasoning'),
         );
 
         // Stamped whether or not it answered, and before the answer is read: a name a model declined

@@ -15,6 +15,9 @@ enum AiDialect: string
     case OPENAI = 'openai';
     case ANTHROPIC = 'anthropic';
 
+    /** The reasoning levels an OpenAI-compatible reasoning model (gpt-oss) accepts for `reasoning_effort`. */
+    private const array REASONING_EFFORTS = ['low', 'medium', 'high'];
+
     /** Path appended to `base_url` for a chat completion. */
     public function chatPath(): string
     {
@@ -109,7 +112,12 @@ enum AiDialect: string
         array $images,
         int $maxTokens,
         array $attachments = [],
+        ?string $reasoning = null,
     ): array {
+        // How hard a reasoning model thinks before it writes. Only the levels the dialect's own API
+        // names are passed on; anything else leaves the provider's default, so a bad config value
+        // can never reach the provider as an invalid field.
+        $effort = $reasoning !== null && in_array($reasoning, self::REASONING_EFFORTS, true) ? $reasoning : null;
         $userContent = $this->documentContent($instruction, $documentText, $images);
 
         // A file the provider reads itself, rather than text we extracted for it. PDFs go this way
@@ -129,6 +137,10 @@ enum AiDialect: string
                 'model' => $model,
                 'temperature' => 0,
                 'max_tokens' => $maxTokens,
+                // `reasoning_effort` is how a gpt-oss-class model is told to think less: a lookup-shaped
+                // task like classifying a payee does not need a long chain of thought, and an
+                // unbounded one is what spends the whole budget before the answer (`NO_ROOM`).
+                ...($effort === null ? [] : ['reasoning_effort' => $effort]),
                 'messages' => [
                     ['role' => 'system', 'content' => $systemPrompt],
                     ['role' => 'user', 'content' => $userContent],
@@ -139,6 +151,9 @@ enum AiDialect: string
                 'model' => $model,
                 'temperature' => 0,
                 'max_tokens' => $maxTokens,
+                // No reasoning field: Anthropic does no extended thinking unless a `thinking` budget
+                // is asked for, so "think less" is already its default and needs nothing sent. Turning
+                // extended thinking *on* would be a separate, budget-based control, not this knob.
                 // Anthropic carries the system prompt as a top-level field rather than a message.
                 'system' => $systemPrompt,
                 'messages' => [['role' => 'user', 'content' => $userContent]],

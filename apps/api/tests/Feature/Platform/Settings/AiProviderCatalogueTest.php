@@ -43,6 +43,48 @@ it('falls back to the OpenAI dialect for a provider name that matches no preset'
         ->and($catalogue->find('some-internal-gateway'))->toBeNull();
 });
 
+it('tells an OpenAI-compatible reasoning model how hard to think, and never the Anthropic body', function (): void {
+    $openai = fn (?string $reasoning): array => AiDialect::OPENAI->extractionBody(
+        model: 'gpt-oss:20b',
+        systemPrompt: 's',
+        instruction: 'i',
+        documentText: '{}',
+        images: [],
+        maxTokens: 10,
+        reasoning: $reasoning,
+    );
+
+    expect($openai('low'))->toHaveKey('reasoning_effort', 'low')
+        ->and($openai('high'))->toHaveKey('reasoning_effort', 'high')
+        // Anthropic does no extended thinking unless a budget is asked for, so the level never reaches it.
+        ->and(AiDialect::ANTHROPIC->extractionBody(
+            model: 'claude',
+            systemPrompt: 's',
+            instruction: 'i',
+            documentText: '{}',
+            images: [],
+            maxTokens: 10,
+            reasoning: 'low',
+        ))->not->toHaveKey('reasoning_effort');
+});
+
+it('leaves reasoning to the provider when the level is unset or not one the API names', function (): void {
+    $body = fn (?string $reasoning): array => AiDialect::OPENAI->extractionBody(
+        model: 'gpt-oss:20b',
+        systemPrompt: 's',
+        instruction: 'i',
+        documentText: '{}',
+        images: [],
+        maxTokens: 10,
+        reasoning: $reasoning,
+    );
+
+    // A null leaves the default; a value the API does not name is dropped rather than sent on to 400.
+    expect($body(null))->not->toHaveKey('reasoning_effort')
+        ->and($body('off'))->not->toHaveKey('reasoning_effort')
+        ->and($body('ultra'))->not->toHaveKey('reasoning_effort');
+});
+
 it('throws on a malformed preset rather than silently serving a broken one', function (): void {
     Config::set('ai.providers.presets', ['broken' => ['label' => 'Broken']]);
 

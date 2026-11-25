@@ -136,6 +136,17 @@ PROMPT),
         'batch' => (int) env('STATEMENT_IMPORT_CLASSIFICATION_BATCH', 250),
 
         /*
+         * How hard the model thinks before it answers. Classifying a counterparty is a lookup — which
+         * category, which tag — not a proof, so `low` keeps a reasoning model (gpt-oss) from spending
+         * its whole budget thinking, which is what the `NO_ROOM` note above describes. `low`, `medium`
+         * or `high` for an OpenAI-compatible model; an unknown value leaves the provider's own default,
+         * and Anthropic ignores it (it does no extended thinking unless a budget is asked for). With
+         * thinking kept low the token budget barely matters — this is the real lever, `max_tokens` the
+         * ceiling that catches the rest.
+         */
+        'reasoning' => env('STATEMENT_IMPORT_CLASSIFICATION_REASONING', 'low'),
+
+        /*
          * `{taxpayer}` is filled in per subject by `ClassifyCounterparties::withTaxpayer()`, because
          * two of these rules turn on the account holder's own name and a config string is one text
          * for every taxpayer. A subject with no name stored loses those lines rather than being
