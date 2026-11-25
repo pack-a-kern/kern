@@ -121,6 +121,21 @@ return [
     ],
 
     /*
+     * The commit job that writes a reviewed statement into the ledger (`WriteStatementRows`).
+     *
+     * Each row is sealed field by field and blind-indexed for search, so a large statement takes far
+     * longer than the sixty seconds the default queue's worker allows — it was stopped part-way. It
+     * runs on its own queue with a timeout to match. This one value is read in three places that must
+     * agree: the job's own `$timeout`, the Horizon supervisor watching the queue, and the queue
+     * connection's `retry_after`, which is set a minute above it so a slow write is never handed to a
+     * second worker — which would write a transaction twice.
+     */
+    'commit' => [
+        'queue' => env('STATEMENT_IMPORT_COMMIT_QUEUE', 'statement-import'),
+        'timeout_seconds' => (int) env('STATEMENT_IMPORT_COMMIT_TIMEOUT_SECONDS', 1800),
+    ],
+
+    /*
      * How often a taxpayer's imports may ask the model again — for the form, or for the rows still
      * unanswered. Each ask is a round of calls to a provider that may bill for them, and nothing about
      * a person reading a review screen needs more than a few a minute.

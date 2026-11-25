@@ -95,6 +95,20 @@ return [
             'after_commit' => false,
         ],
 
+        // The same, for writing a reviewed statement into the ledger (`WriteStatementRows`): a large
+        // import seals and indexes every row, which the default sixty seconds stopped part-way. Its
+        // own queue, the reservation a minute past the job's own timeout (the same env var
+        // `statement_import.commit.timeout_seconds` reads) so a slow write is never handed to a second
+        // worker while it is still running — which would write a transaction twice.
+        'redis-statement-import' => [
+            'driver' => 'redis',
+            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+            'queue' => env('REDIS_QUEUE', 'default'),
+            'retry_after' => (int) env('STATEMENT_IMPORT_COMMIT_TIMEOUT_SECONDS', 1800) + 60,
+            'block_for' => null,
+            'after_commit' => false,
+        ],
+
     ],
 
     /*

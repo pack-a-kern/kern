@@ -57,10 +57,27 @@ final class WriteStatementRows implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
+    /**
+     * One try. A large import stopped by a timeout is a half-written import for an operator to look
+     * at, not something to hand straight back to a worker: a second run racing the first could write
+     * a transaction twice. The queue's `retry_after` sits a minute past this job's own timeout for
+     * the same reason — a slow write is never reclaimed while it is still running.
+     *
+     * @var int
+     */
+    public $tries = 1;
+
+    /** The commit queue's own timeout — generous for a large statement whose every row is sealed and indexed. */
+    public ?int $timeout = null;
+
     public function __construct(
         private readonly string $importId,
         private readonly ?string $actorId = null,
     ) {
+        // Its own long-running queue, not the general one whose worker stops a job at sixty seconds —
+        // too short for an import that encrypts and blind-indexes every row (`statement_import.commit`).
+        $this->timeout = config()->integer('statement_import.commit.timeout_seconds');
+        $this->onQueue(config()->string('statement_import.commit.queue'));
     }
 
     public function handle(

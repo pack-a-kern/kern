@@ -318,6 +318,27 @@ return [
             'nice' => 0,
         ],
 
+        /*
+         * Writing a reviewed statement into the ledger (`Kern\TaxRomania\StatementImport\Jobs\
+         * WriteStatementRows`): a large import seals and blind-indexes every row, which the default
+         * supervisor's sixty seconds stopped part-way. Its own lane, one process — a person commits
+         * one import at a time — and a timeout generous enough for a few thousand rows.
+         */
+        'supervisor-statement-import' => [
+            'connection' => 'redis-statement-import',
+            'queue' => [env('STATEMENT_IMPORT_COMMIT_QUEUE', 'statement-import')],
+            'balance' => 'simple',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 256,
+            'tries' => 1,
+            // The same variable the job's own timeout and the queue's `retry_after` read, so the three
+            // never disagree — this file cannot read the package's config.
+            'timeout' => (int) env('STATEMENT_IMPORT_COMMIT_TIMEOUT_SECONDS', 1800),
+            'nice' => 0,
+        ],
+
         'supervisor-1' => [
             'connection' => 'redis',
             'queue' => ['default'],
@@ -352,6 +373,9 @@ return [
             'supervisor-investments-bvb' => [
                 'maxProcesses' => 1,
             ],
+            'supervisor-statement-import' => [
+                'maxProcesses' => 1,
+            ],
             'supervisor-1' => [
                 'maxProcesses' => 10,
                 'balanceMaxShift' => 1,
@@ -373,6 +397,9 @@ return [
                 'maxProcesses' => 1,
             ],
             'supervisor-investments-bvb' => [
+                'maxProcesses' => 1,
+            ],
+            'supervisor-statement-import' => [
                 'maxProcesses' => 1,
             ],
             'supervisor-1' => [
